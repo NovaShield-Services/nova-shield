@@ -1,0 +1,18 @@
+/* Theme: Refined — the canonical Nova Shield presentation.
+   site.css already carries these values; this file exists so every skin is
+   loaded the same way and so the defaults are stated explicitly in one place. */
+
+:root[data-theme="refined"] {
+  --ink: #070c0d;
+  --cream: #f6f1e6;
+  --muted: #9caea9;
+  --muted-lt: #c3d0cb;
+  --line: rgba(246,241,230,.12);
+  --gold: #e0a53f;
+  --gold-2: #ffd48c;
+  --teal: #2bb6a8;
+  --teal-2: #8be9db;
+  --radius: 26px;
+  --radius-sm: 16px;
+  --serif: 'Fraunces', Georgia, serif;
+}

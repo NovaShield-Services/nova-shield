@@ -1,0 +1,202 @@
+import { el, clear } from '../../../shared/dom.js';
+import { mountChrome } from '../components/chrome.js';
+import { createQuoteForm } from '../components/quote-form.js';
+import { getService, listPublicServices } from '../lib/site-api.js';
+
+/* One template, but the content per service is genuinely different and lives
+   in services.detail — so the page and the admin price book are the same list,
+   and adding a service does not mean writing a new HTML file. */
+
+const main = document.getElementById('main');
+
+function notFound(services) {
+  clear(main).append(
+    el('section', { style: 'padding-top:160px' }, [
+      el('div', { class: 'container' }, [
+        el('div', { class: 'eyebrow', text: 'Exterior cleaning' }),
+        el('h1', { text: 'Pick a service' }),
+        el('p', { class: 'prose', style: 'margin:20px 0 34px',
+                  text: 'That page does not exist. Here is everything we do.' }),
+        el('div', { class: 'cards' }, services
+          .filter(s => s.category === 'cleaning' && s.quotable)
+          .map(s => el('a', { class: 'card', href: `service.html?s=${encodeURIComponent(s.key)}` }, [
+            el('h3', { text: s.name }),
+            el('p', { text: s.blurb || '' }),
+            el('span', { class: 'card__more', text: 'What this involves →' })
+          ])))
+      ])
+    ])
+  );
+}
+
+function sectionEl(children, attrs = {}) {
+  return el('section', attrs, [el('div', { class: 'container' }, children)]);
+}
+
+function renderService(service, allServices) {
+  const d = service.detail || {};
+  document.title = `${service.name} | Nova Shield`;
+  const metaDesc = document.querySelector('meta[name="description"]');
+  if (metaDesc && d.intro) metaDesc.setAttribute('content', d.intro.slice(0, 160));
+
+  const hero = el('section', { class: 'hero hero--page' }, [
+    el('div', { class: 'hero-bg',
+      style: `background-image:url('assets/gallery/${d.hero || 'photo-02.jpg'}')` }),
+    el('div', { class: 'container hero-content' }, [
+      el('div', { class: 'eyebrow', text: 'Exterior cleaning' }),
+      el('h1', { text: d.headline || service.name }),
+      d.intro ? el('p', { class: 'lede', text: d.intro }) : null,
+      el('div', { class: 'hero-actions' }, [
+        el('a', { class: 'button button--gold', href: '#quote', text: 'Request a Quote' }),
+        el('a', { class: 'button button--ghost', href: 'index.html#services',
+                  text: 'All exterior services' })
+      ])
+    ])
+  ]);
+
+  const blocks = [];
+
+  // "why this method" only exists where the method is genuinely contested
+  if (d.why) {
+    blocks.push(sectionEl([
+      el('div', { class: 'split' }, [
+        el('div', {}, [
+          el('div', { class: 'eyebrow', text: 'The method' }),
+          el('h2', { text: d.why.title }),
+          el('p', { class: 'prose', style: 'margin-top:20px', text: d.why.body })
+        ]),
+        el('div', { class: 'callout callout--gold' }, [
+          el('h3', { text: "What's included" }),
+          el('ul', { class: 'factlist', style: 'margin-top:12px' },
+            (d.included || []).map(item =>
+              el('li', {}, [el('span', { class: 'dot' }), el('div', {}, [el('strong', { text: item })])])))
+        ])
+      ])
+    ]));
+  } else if (d.included?.length) {
+    blocks.push(sectionEl([
+      el('div', { class: 'section-head' }, [
+        el('div', {}, [el('div', { class: 'eyebrow', text: "What's included" }),
+                       el('h2', { text: 'What you are paying for.' })])
+      ]),
+      el('ul', { class: 'factlist' }, d.included.map(item =>
+        el('li', {}, [el('span', { class: 'dot' }), el('div', {}, [el('strong', { text: item })])])))
+    ]));
+  }
+
+  if (d.scope_note) {
+    blocks.push(sectionEl([
+      el('div', { class: 'callout callout--gold' }, [
+        el('h3', { text: 'To be clear about scope' }),
+        el('p', { text: d.scope_note })
+      ])
+    ], { style: 'padding-top:0' }));
+  }
+
+  if (d.optional?.length) {
+    blocks.push(sectionEl([
+      el('div', { class: 'section-head' }, [
+        el('div', {}, [el('div', { class: 'eyebrow', text: 'Optional extras' }),
+                       el('h2', { text: 'Only if you want them.' })]),
+        el('p', { text: 'Quoted separately so you are not paying for work you did not ask for.' })
+      ]),
+      el('ul', { class: 'taglist' }, d.optional.map(o => el('li', { text: o })))
+    ], { style: 'padding-top:0' }));
+  }
+
+  if (d.expect?.length) {
+    blocks.push(sectionEl([
+      el('div', { class: 'section-head' }, [
+        el('div', {}, [el('div', { class: 'eyebrow', text: 'What to expect' }),
+                       el('h2', { text: 'Before you book.' })])
+      ]),
+      el('div', { class: 'cards' }, d.expect.map(x =>
+        el('div', { class: 'card' }, [
+          el('h3', { text: x.title }), el('p', { text: x.body })
+        ])))
+    ]));
+  }
+
+  if (d.good_to_know?.length) {
+    blocks.push(sectionEl([
+      el('div', { class: 'good-to-know', style: 'margin:0;border-top:0;padding-top:0' }, [
+        el('span', { class: 'gtk-title', text: 'Good to know' }),
+        el('ul', {}, d.good_to_know.map(g => el('li', { text: g })))
+      ])
+    ], { style: 'padding-top:0' }));
+  }
+
+  const pairs = (d.pairs_with || [])
+    .map(key => allServices.find(s => s.key === key))
+    .filter(s => s && s.quotable);
+
+  if (pairs.length) {
+    blocks.push(sectionEl([
+      el('div', { class: 'section-head' }, [
+        el('div', {}, [el('div', { class: 'eyebrow', text: 'Often booked together' }),
+                       el('h2', { text: 'While we are there.' })]),
+        el('p', { text: 'One visit is cheaper than two, and the setup time is already spent.' })
+      ]),
+      el('div', { class: 'cards' }, pairs.map(s =>
+        el('a', { class: 'card', href: `service.html?s=${encodeURIComponent(s.key)}` }, [
+          el('h3', { text: s.name }),
+          el('p', { text: s.blurb || '' }),
+          el('span', { class: 'card__more', text: 'What this involves →' })
+        ])))
+    ]));
+  }
+
+  const quoteSection = el('section', { class: 'quote', id: 'quote' }, [
+    el('div', { class: 'container quote-wrap' }, [
+      el('div', {}, [
+        el('div', { class: 'eyebrow', text: service.name }),
+        el('h2', { text: 'Request a quote.' }),
+        el('p', { class: 'prose', style: 'margin-top:18px', text:
+          'We have pre-selected this service for you — tick anything else you want looking at ' +
+          'while we are on site.' }),
+        el('div', { class: 'good-to-know' }, [
+          el('span', { class: 'gtk-title', text: 'Booking a service at your home' }),
+          el('ul', {}, [
+            el('li', {}, [el('strong', { text: "You don't need to be home for a quote. " }),
+                          'Most measuring is done from the outside.']),
+            el('li', {}, [el('strong', { text: 'Pricing is confirmed on site. ' }),
+                          'We measure the actual work before giving a firm number.']),
+            el('li', {}, [el('strong', { text: 'Same two people, start to finish. ' }),
+                          'Whoever quotes it is who does it.'])
+          ])
+        ])
+      ]),
+      el('div', { id: 'quoteFormHost' }, [el('p', { class: 'form-note', text: 'Loading form…' })])
+    ])
+  ]);
+
+  clear(main).append(hero, ...blocks, quoteSection);
+}
+
+async function init() {
+  await mountChrome('cleaning');
+
+  const key = new URLSearchParams(window.location.search).get('s');
+  const services = await listPublicServices();
+  const service = key ? await getService(key) : null;
+
+  if (!service || service.category !== 'cleaning') {
+    notFound(services);
+    return;
+  }
+
+  renderService(service, services);
+
+  const host = document.getElementById('quoteFormHost');
+  try {
+    clear(host).append(await createQuoteForm({ preselect: [service.key] }));
+  } catch (err) {
+    clear(host).append(el('div', { class: 'callout' }, [
+      el('h3', { text: 'The form could not load' }),
+      el('p', { text: 'Please call or text 437-436-3360.' })
+    ]));
+    console.error(err);
+  }
+}
+
+init();

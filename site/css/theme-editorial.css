@@ -1,0 +1,110 @@
+/* Theme: Bold Editorial — light paper stock, oversized serif, hairline rules.
+   Same DOM, same components, same business logic as every other skin. */
+
+:root[data-theme="editorial"] {
+  --ink: #f2ecdf;
+  --cream: #131109;
+  --muted: #4c463a;
+  --muted-lt: #2a271f;
+  --line: rgba(19,17,9,.16);
+  --gold: #a9762a;
+  --gold-2: #7c5620;
+  --teal: #0f6f65;
+  --teal-2: #0a4e46;
+  --radius: 2px;
+  --radius-sm: 2px;
+}
+
+:root[data-theme="editorial"] body {
+  background: #f2ecdf;
+  color: #131109;
+}
+
+/* paper, not glass */
+:root[data-theme="editorial"] header.site {
+  background: rgba(242,236,223,.92);
+  border-bottom: 1px solid var(--line);
+}
+:root[data-theme="editorial"] header.site.scrolled { background: rgba(242,236,223,.98); }
+:root[data-theme="editorial"] .navlinks { color: #131109; }
+:root[data-theme="editorial"] .menu { color: #131109; }
+:root[data-theme="editorial"] .navlinks:not(.open) { background: none; }
+@media (max-width: 900px) {
+  :root[data-theme="editorial"] .navlinks { background: #f2ecdf; }
+}
+
+:root[data-theme="editorial"] .button,
+:root[data-theme="editorial"] .nav-cta {
+  background: #131109; color: #f2ecdf; box-shadow: none; border-radius: 2px;
+}
+:root[data-theme="editorial"] .button:hover { transform: none; background: #0a4e46; }
+:root[data-theme="editorial"] .button--ghost {
+  background: transparent; color: #131109; border: 1px solid #131109;
+}
+:root[data-theme="editorial"] .button--gold { background: #131109; color: #f2ecdf; }
+:root[data-theme="editorial"] .button--teal { background: #0f6f65; color: #f2ecdf; }
+
+/* hero: type-led rather than photo-led */
+:root[data-theme="editorial"] .hero-bg { filter: grayscale(.35) contrast(1.05); opacity: .5; }
+:root[data-theme="editorial"] .hero-bg:before {
+  background: linear-gradient(180deg, rgba(242,236,223,.72), rgba(242,236,223,.96));
+}
+:root[data-theme="editorial"] h1 { font-weight: 600; letter-spacing: -.035em; }
+:root[data-theme="editorial"] .hero p.lede { color: #4c463a; }
+:root[data-theme="editorial"] .hero-badge {
+  background: transparent; border-color: var(--line); color: #4c463a;
+}
+
+/* cards become editorial rows separated by hairlines */
+:root[data-theme="editorial"] .cards { gap: 0; grid-template-columns: 1fr; }
+:root[data-theme="editorial"] .card {
+  background: none; border: 0; border-top: 1px solid var(--line);
+  border-radius: 0; padding: 30px 4px;
+  display: grid; grid-template-columns: 1fr auto; gap: 8px 32px; align-items: start;
+}
+:root[data-theme="editorial"] .cards > .card:last-child { border-bottom: 1px solid var(--line); }
+:root[data-theme="editorial"] .card h3 {
+  font-size: clamp(1.5rem, 3vw, 2.1rem); grid-column: 1; margin: 0;
+}
+:root[data-theme="editorial"] .card p { grid-column: 1; max-width: 60ch; }
+:root[data-theme="editorial"] .card__more {
+  grid-column: 2; grid-row: 1; text-align: right; color: var(--teal-2); white-space: nowrap;
+}
+:root[data-theme="editorial"] .card__num { grid-column: 1; }
+:root[data-theme="editorial"] a.card:hover { transform: none; background: rgba(19,17,9,.03); }
+
+:root[data-theme="editorial"] .callout { background: #ece4d3; border-color: var(--line); }
+:root[data-theme="editorial"] .callout--gold {
+  background: #ece4d3; border-color: rgba(169,118,42,.35);
+}
+
+:root[data-theme="editorial"] .trust-strip { background: #ece4d3; }
+:root[data-theme="editorial"] .trust .ico { stroke: var(--gold); }
+
+:root[data-theme="editorial"] .steps { background: var(--line); border-radius: 2px; }
+:root[data-theme="editorial"] .step { background: #f2ecdf; }
+
+:root[data-theme="editorial"] .tile { background: #ece4d3; border-radius: 2px; }
+
+/* form on paper */
+:root[data-theme="editorial"] .quote {
+  background: #131109; color: #f2ecdf; border: 0;
+}
+:root[data-theme="editorial"] .quote h2,
+:root[data-theme="editorial"] .quote .prose,
+:root[data-theme="editorial"] .quote .good-to-know li { color: #f2ecdf; }
+:root[data-theme="editorial"] .quote .prose { color: #c9c2ad; }
+:root[data-theme="editorial"] .quote .good-to-know li { color: #c9c2ad; }
+:root[data-theme="editorial"] .quote input,
+:root[data-theme="editorial"] .quote select,
+:root[data-theme="editorial"] .quote textarea,
+:root[data-theme="editorial"] .quote .svc-box {
+  background: rgba(242,236,223,.06); border-color: rgba(242,236,223,.22);
+  color: #f2ecdf; border-radius: 2px;
+}
+:root[data-theme="editorial"] .quote .button--gold { background: #f2ecdf; color: #131109; }
+:root[data-theme="editorial"] .quote .svc-box:has(input:checked) {
+  border-color: #d8b26a; background: rgba(216,178,106,.12);
+}
+
+:root[data-theme="editorial"] footer.site { border-top: 1px solid var(--line); }

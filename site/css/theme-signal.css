@@ -1,0 +1,86 @@
+/* Theme: Night Signal — deeper ink, neon edges, kinetic headline.
+   Same DOM, same components, same business logic as every other skin. */
+
+:root[data-theme="signal"] {
+  --ink: #05090a;
+  --cream: #f6f1e6;
+  --muted: #93a6a0;
+  --muted-lt: #c3d0cb;
+  --line: rgba(246,241,230,.13);
+  --gold: #e0a53f;
+  --gold-2: #ffd48c;
+  --teal: #2bb6a8;
+  --teal-2: #8be9db;
+  --radius: 18px;
+  --radius-sm: 12px;
+}
+
+:root[data-theme="signal"] body {
+  background:
+    radial-gradient(900px 560px at 85% -8%, rgba(139,233,219,.14), transparent 60%),
+    radial-gradient(760px 520px at 8% 18%, rgba(255,212,140,.10), transparent 55%),
+    radial-gradient(640px 480px at 45% 92%, rgba(199,139,233,.09), transparent 55%),
+    linear-gradient(180deg,#05090a 0%, #0a0f0d 50%, #070b0a 100%);
+  background-attachment: fixed;
+}
+
+/* the one signature flourish: a shimmering headline */
+:root[data-theme="signal"] h1 {
+  background: linear-gradient(100deg, var(--gold-2) 0%, var(--teal-2) 35%,
+                              var(--gold-2) 70%, var(--teal-2) 100%);
+  background-size: 250% auto;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: nsShine 8s linear infinite;
+}
+@keyframes nsShine { to { background-position: -250% center; } }
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme="signal"] h1 { animation: none; }
+}
+
+:root[data-theme="signal"] header.site { background: rgba(5,9,10,.6); }
+:root[data-theme="signal"] header.site.scrolled { background: rgba(5,9,10,.94); }
+
+:root[data-theme="signal"] .hero-bg { opacity: .55; }
+:root[data-theme="signal"] .hero-bg:before {
+  background:
+    linear-gradient(180deg, rgba(5,9,10,.55) 0%, rgba(5,9,10,.75) 45%, rgba(5,9,10,.98) 92%),
+    linear-gradient(90deg, rgba(5,9,10,.9) 0%, rgba(5,9,10,.45) 46%, rgba(5,9,10,.2) 100%);
+}
+
+/* cards glow at the edge instead of sitting on a flat panel */
+:root[data-theme="signal"] .card {
+  background: linear-gradient(155deg, rgba(139,233,219,.06), rgba(5,9,10,.85));
+  border-color: rgba(139,233,219,.18);
+}
+:root[data-theme="signal"] a.card:hover {
+  border-color: rgba(139,233,219,.55);
+  box-shadow: 0 0 0 1px rgba(139,233,219,.25), 0 24px 60px rgba(0,0,0,.5);
+}
+:root[data-theme="signal"] .card__num { color: var(--teal-2); letter-spacing: .22em; }
+
+:root[data-theme="signal"] .trust-strip { background: rgba(5,9,10,.75); }
+:root[data-theme="signal"] .trust .ico { stroke: var(--teal-2); }
+
+:root[data-theme="signal"] .button--gold {
+  background: linear-gradient(135deg, var(--gold-2), var(--gold));
+  box-shadow: 0 18px 40px rgba(224,165,63,.22);
+}
+:root[data-theme="signal"] .button--ghost { border-color: rgba(139,233,219,.35); }
+
+:root[data-theme="signal"] .factlist .dot {
+  box-shadow: 0 0 14px 3px rgba(139,233,219,.5);
+}
+:root[data-theme="signal"] .callout--gold {
+  border-color: rgba(255,212,140,.35);
+  box-shadow: inset 0 0 40px rgba(255,212,140,.05);
+}
+:root[data-theme="signal"] .step { background: rgba(5,9,10,.8); }
+:root[data-theme="signal"] .tile { background: rgba(5,9,10,.8); border-color: rgba(139,233,219,.15); }
+
+:root[data-theme="signal"] .quote {
+  background: radial-gradient(760px 380px at 20% 12%, rgba(139,233,219,.13), transparent 65%), #05090a;
+}
+:root[data-theme="signal"] .svc-box:has(input:checked) {
+  border-color: var(--teal-2);
+  box-shadow: 0 0 0 1px rgba(139,233,219,.25);
+}

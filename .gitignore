@@ -1,0 +1,29 @@
+# Secrets — never commit these
+.env
+.env.*
+*.key
+*.pem
+service-role*
+**/service_role*
+
+# Supabase local state
+.supabase/
+supabase/.temp/
+supabase/.branches/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Dependencies / build output (none today, but the repo should be ready)
+node_modules/
+dist/
+build/
+.cache/
+
+# Local scratch
+*.log
+tmp/

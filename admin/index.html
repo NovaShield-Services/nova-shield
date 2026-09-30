@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Nova Shield — Field Tool</title>
+<link rel="stylesheet" href="css/admin.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 128'%3E%3Cpath d='M50 4L94 22V64Q94 96 50 124Q6 96 6 64V22Z' fill='%230f2a33' stroke='%235aa8c4' stroke-width='7'/%3E%3C/svg%3E">
+</head>
+<body>
+
+<header class="topbar" id="topbar" hidden>
+  <button class="topbar__menu" id="navToggle" aria-label="Menu" aria-expanded="false">☰</button>
+  <a class="topbar__brand" href="#/dashboard">
+    <span class="topbar__mark" aria-hidden="true">◆</span>
+    <span>Nova&nbsp;Shield <em>Field Tool</em></span>
+  </a>
+  <button class="topbar__signout" id="signOut">Sign out</button>
+</header>
+
+<nav class="nav" id="nav" hidden>
+  <a href="#/dashboard" data-nav="dashboard">Dashboard</a>
+  <a href="#/requests"  data-nav="requests">Requests</a>
+  <a href="#/jobs"      data-nav="jobs">Jobs</a>
+  <a href="#/settings"  data-nav="settings">Settings</a>
+</nav>
+
+<main id="view" class="view" aria-live="polite">
+  <div class="loading">Loading…</div>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
