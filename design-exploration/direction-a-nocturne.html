@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Direction A — Nocturne</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#070c15; --navy-2:#0c1422; --navy-3:#121d30;
+  --chrome:#eef3f8; --muted:#8294ad; --line:rgba(190,210,235,.14);
+  --gold:#c9a227; --gold-lt:#e8c963;
+  --aurora-g:#2fd39a; --aurora-v:#7d6cf0;
+  --measure:68ch; --max:1280px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--navy);color:var(--chrome);font-family:Inter,system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 32px}
+.eyebrow{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.eyebrow--gold{color:var(--gold-lt)}
+h1,h2,h3{font-family:Fraunces,Georgia,serif;font-weight:400;line-height:1.02;letter-spacing:-.02em}
+h1{font-size:clamp(44px,7.4vw,104px)}
+h2{font-size:clamp(32px,4.6vw,64px)}
+p{color:var(--muted);line-height:1.65;font-size:16.5px}
+
+/* ---------- nav ---------- */
+nav{position:fixed;inset:0 0 auto;z-index:50;padding:18px 0;
+  backdrop-filter:blur(12px);background:linear-gradient(180deg,rgba(7,12,21,.82),transparent);
+  transition:background .4s}
+.navin{display:flex;align-items:center;justify-content:space-between;max-width:var(--max);margin:0 auto;padding:0 32px}
+.lock{height:34px;display:block}
+.navlinks{display:flex;gap:30px;align-items:center}
+.navlinks a{color:var(--chrome);text-decoration:none;font-size:13.5px;opacity:.82;transition:opacity .25s}
+.navlinks a:hover{opacity:1}
+.btn{display:inline-flex;align-items:center;gap:9px;padding:13px 24px;border-radius:2px;
+  font-size:13.5px;font-weight:600;text-decoration:none;letter-spacing:.02em;transition:.3s}
+.btn--gold{background:var(--gold);color:#140f02}
+.btn--gold:hover{background:var(--gold-lt);transform:translateY(-1px)}
+.btn--ghost{border:1px solid var(--line);color:var(--chrome)}
+.btn--ghost:hover{border-color:var(--gold-lt);color:var(--gold-lt)}
+
+/* ---------- hero: photography is the subject ---------- */
+.hero{position:relative;min-height:100svh;display:flex;align-items:flex-end;padding-bottom:9vh}
+.hero-img{position:absolute;inset:0;background:url('../site/assets/gallery/photo-02.jpg') center 38%/cover;
+  filter:saturate(.92) contrast(1.06)}
+.hero-scrim{position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(7,12,21,.78) 0%,rgba(7,12,21,.32) 34%,rgba(7,12,21,.86) 78%,var(--navy) 100%)}
+.hero-edge{position:absolute;inset:auto 0 0;height:240px;
+  background:linear-gradient(180deg,transparent,var(--navy))}
+.hero .wrap{position:relative;z-index:2;width:100%}
+.hero h1{max-width:15ch;margin:18px 0 0}
+.hero h1 em{font-style:normal;color:var(--gold-lt)}
+.hero p{max-width:50ch;margin:24px 0 34px;font-size:18px;color:#c3d0e0}
+.hero-actions{display:flex;gap:14px;flex-wrap:wrap}
+.hero-meta{display:flex;gap:28px;margin-top:46px;padding-top:22px;border-top:1px solid var(--line);
+  font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);flex-wrap:wrap}
+.plate-cap{position:absolute;right:32px;bottom:9vh;z-index:2;text-align:right;font-size:10.5px;
+  letter-spacing:.16em;text-transform:uppercase;color:rgba(190,210,235,.5);line-height:1.8}
+
+/* ---------- promise ---------- */
+section{padding:clamp(80px,11vw,160px) 0;position:relative}
+.split{display:grid;grid-template-columns:7fr 5fr;gap:clamp(40px,7vw,110px);align-items:start}
+.duo{display:grid;gap:26px;margin-top:34px}
+.duo-item{padding-left:20px;border-left:1px solid var(--line)}
+.duo-item strong{display:block;font-family:Fraunces,serif;font-size:21px;font-weight:400;margin-bottom:7px;color:var(--chrome)}
+.duo-item.g{border-left-color:var(--gold)}
+
+/* ---------- story band: full bleed, caption like a monograph ---------- */
+.band{position:relative;min-height:88vh;display:flex;align-items:center;margin:0}
+.band-img{position:absolute;inset:0;background-size:cover;background-position:center}
+.band-scrim{position:absolute;inset:0}
+.band--l .band-scrim{background:linear-gradient(90deg,rgba(7,12,21,.94) 0%,rgba(7,12,21,.7) 44%,rgba(7,12,21,.25) 100%)}
+.band--r .band-scrim{background:linear-gradient(270deg,rgba(7,12,21,.94) 0%,rgba(7,12,21,.7) 44%,rgba(7,12,21,.25) 100%)}
+.band::before,.band::after{content:'';position:absolute;left:0;right:0;height:170px;z-index:1;pointer-events:none}
+.band::before{top:0;background:linear-gradient(180deg,var(--navy),transparent)}
+.band::after{bottom:0;background:linear-gradient(0deg,var(--navy),transparent)}
+.band .wrap{position:relative;z-index:2}
+.band-copy{max-width:46ch}
+.band--r .band-copy{margin-left:auto}
+.band h2{margin:16px 0 20px}
+.fig{position:absolute;z-index:2;bottom:34px;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:rgba(190,210,235,.46)}
+.band--l .fig{right:32px}.band--r .fig{left:32px}
+.lede{font-size:18.5px;color:#b9c7d9}
+.arrow{display:inline-flex;align-items:center;gap:8px;color:var(--gold-lt);text-decoration:none;
+  font-size:13.5px;font-weight:600;margin-top:24px;letter-spacing:.02em}
+.arrow:hover span{transform:translateX(4px)}
+.arrow span{transition:transform .3s}
+
+/* ---------- care: index list, NOT a card grid ---------- */
+.index{border-top:1px solid var(--line);margin-top:48px}
+.row{display:grid;grid-template-columns:62px 1fr auto;gap:28px;align-items:baseline;
+  padding:26px 4px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit;
+  transition:background .35s,padding .35s}
+.row:hover{background:linear-gradient(90deg,rgba(45,211,154,.055),transparent 70%);padding-left:14px}
+.row-n{font-size:11px;letter-spacing:.16em;color:var(--muted)}
+.row-t{font-family:Fraunces,serif;font-size:clamp(21px,2.5vw,30px)}
+.row-d{font-size:14px;color:var(--muted);max-width:40ch;grid-column:2;margin-top:6px}
+.row-go{color:var(--muted);font-size:20px;transition:color .3s,transform .3s}
+.row:hover .row-go{color:var(--gold-lt);transform:translateX(5px)}
+
+/* ---------- quote ---------- */
+.cta{position:relative;text-align:center;padding:clamp(100px,14vw,190px) 0}
+.cta::before{content:'';position:absolute;left:50%;top:0;transform:translateX(-50%);
+  width:min(900px,92vw);height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent)}
+.cta-glow{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);width:min(760px,96vw);height:360px;
+  background:radial-gradient(ellipse,rgba(45,211,154,.1),rgba(125,108,240,.07) 46%,transparent 72%);
+  filter:blur(48px);pointer-events:none}
+.cta .wrap{position:relative;z-index:2}
+.cta h2{margin-bottom:18px}
+.cta p{max-width:46ch;margin:0 auto 34px}
+footer{border-top:1px solid var(--line);padding:46px 0;font-size:13px;color:var(--muted)}
+.foot{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+
+.ph{position:absolute;top:14px;left:14px;z-index:3;background:rgba(201,162,39,.92);color:#140f02;
+  font-size:9.5px;font-weight:700;letter-spacing:.12em;padding:4px 9px;border-radius:2px;text-transform:uppercase}
+
+@media(max-width:900px){
+  .split{grid-template-columns:1fr;gap:34px}
+  .navlinks{display:none}
+  .band{min-height:auto;padding:110px 0}
+  .band--l .band-scrim,.band--r .band-scrim{background:linear-gradient(180deg,rgba(7,12,21,.72),rgba(7,12,21,.93))}
+  .band--r .band-copy{margin-left:0}
+  .row{grid-template-columns:40px 1fr auto;gap:16px}
+  .plate-cap{display:none}
+  .hero{min-height:94svh}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head>
+<body>
+
+<nav><div class="navin">
+  <img class="lock" src="../site/assets/brand/nova-shield-lockup.jpg" alt="Nova Shield Maintenance Services">
+  <div class="navlinks">
+    <a href="#">Permanent Lighting</a><a href="#">Christmas Lighting</a>
+    <a href="#">Exterior Cleaning</a><a href="#">About</a>
+    <a class="btn btn--gold" href="#">Request a Quote</a>
+  </div>
+</div></nav>
+
+<header class="hero">
+  <div class="hero-img"></div><div class="hero-scrim"></div><div class="hero-edge"></div>
+  <span class="ph">Placeholder — real hero asset specified in ASSET_SPEC.md (HERO-01)</span>
+  <div class="wrap">
+    <div class="eyebrow eyebrow--gold">Sault Ste. Marie &amp; surrounding area</div>
+    <h1>Your home,<br>finished in <em>light</em>.</h1>
+    <p>Permanent architectural lighting, seasonal displays and exterior care —
+       one crew, one standard, every season.</p>
+    <div class="hero-actions">
+      <a class="btn btn--gold" href="#">Request a Quote</a>
+      <a class="btn btn--ghost" href="#">See permanent lighting</a>
+    </div>
+    <div class="hero-meta"><span>Permanent lighting</span><span>Seasonal displays</span><span>Exterior cleaning</span><span>Winter care</span></div>
+  </div>
+  <div class="plate-cap">Fig. 01<br>Roofline install, dusk</div>
+</header>
+
+<section><div class="wrap split">
+  <div>
+    <div class="eyebrow">The two halves of the name</div>
+    <h2 style="margin-top:14px">Beautiful at night.<br>Cared for all year.</h2>
+  </div>
+  <div>
+    <p class="lede">Nova Shield is two promises in one name — and we do not treat either as the
+      side job.</p>
+    <div class="duo">
+      <div class="duo-item g"><strong>Nova — the light</strong>
+        Architectural lighting that makes a property glow after dark, and a seasonal display
+        that arrives and leaves without you touching a ladder.</div>
+      <div class="duo-item"><strong>Shield — the protection</strong>
+        Exterior cleaning and winter care that keeps siding, roofs, glass and concrete in the
+        condition they were meant to be in.</div>
+    </div>
+  </div>
+</div></section>
+
+<section class="band band--l">
+  <div class="band-img" style="background-image:url('../site/assets/gallery/photo-03.jpg')"></div>
+  <div class="band-scrim"></div>
+  <span class="ph">Placeholder — see LIGHT-01</span>
+  <div class="wrap"><div class="band-copy">
+    <div class="eyebrow eyebrow--gold">The flagship</div>
+    <h2>One installation.<br>A different home<br>every night.</h2>
+    <p class="lede">Fitted into the soffit and matched to its colour, so by day you see a trim line
+      and not a string of bulbs. Warm white on an ordinary Tuesday. Any colour you want on the
+      evenings that are not ordinary.</p>
+    <a class="arrow" href="#">Explore permanent lighting <span>&rarr;</span></a>
+  </div></div>
+  <div class="fig">Fig. 02 — Soffit channel, colour-matched</div>
+</section>
+
+<section class="band band--r">
+  <div class="band-img" style="background-image:url('../site/assets/gallery/photo-05.jpg')"></div>
+  <div class="band-scrim"></div>
+  <span class="ph">Placeholder — see XMAS-01</span>
+  <div class="wrap"><div class="band-copy">
+    <div class="eyebrow eyebrow--gold">The season</div>
+    <h2>You are not buying<br>lights. You are<br>buying the season.</h2>
+    <p class="lede">We install in October and November, take it down in January and February, and
+      keep your display stored under your name until next year. You never buy a set, climb a
+      ladder in the cold, or open a box of tangled lights in December.</p>
+    <a class="arrow" href="#">See how the season works <span>&rarr;</span></a>
+  </div></div>
+  <div class="fig">Fig. 03 — Seasonal install</div>
+</section>
+
+<section><div class="wrap">
+  <div class="split">
+    <div><div class="eyebrow">Shield — exterior care</div>
+      <h2 style="margin-top:14px">Care for the details<br>around your home.</h2></div>
+    <div><p class="lede">Not a giant menu of unrelated jobs. A focused set of services built around
+      appearance, comfort, seasonal readiness and the way your property is actually used.</p></div>
+  </div>
+  <div class="index">
+    <a class="row" href="#"><span class="row-n">01</span>
+      <span class="row-t">Siding / Soft Wash</span><span class="row-go">&rarr;</span>
+      <span class="row-d">Low-pressure soft washing that lifts algae, mildew and grime without forcing water behind panels.</span></a>
+    <a class="row" href="#"><span class="row-n">02</span>
+      <span class="row-t">Roof Soft Washing</span><span class="row-go">&rarr;</span>
+      <span class="row-d">Low-pressure roof treatment for algae and black streaking. Never pressure-washed.</span></a>
+    <a class="row" href="#"><span class="row-n">03</span>
+      <span class="row-t">Gutter Brightening</span><span class="row-go">&rarr;</span>
+      <span class="row-d">Removes the black streaking and oxidation on the outside face of gutters and fascia.</span></a>
+    <a class="row" href="#"><span class="row-n">04</span>
+      <span class="row-t">Window Cleaning</span><span class="row-go">&rarr;</span>
+      <span class="row-d">Exterior window cleaning, with optional screens, tracks and hard-water treatment.</span></a>
+    <a class="row" href="#"><span class="row-n">05</span>
+      <span class="row-t">Concrete / Pressure Washing</span><span class="row-go">&rarr;</span>
+      <span class="row-d">True pressure washing for driveways, walkways and other hard surfaces built to take it.</span></a>
+  </div>
+</div></section>
+
+<section class="cta">
+  <div class="cta-glow"></div>
+  <div class="wrap">
+    <div class="eyebrow eyebrow--gold">Next step</div>
+    <h2 style="margin-top:14px">Tell us about<br>your property.</h2>
+    <p>We review every request, arrange a visit if the job needs measuring properly, and send a
+      clear written quote before anything is booked.</p>
+    <a class="btn btn--gold" href="#">Request a Quote</a>
+  </div>
+</section>
+
+<footer><div class="wrap foot">
+  <span>Nova Shield Maintenance Services — Sault Ste. Marie, ON</span>
+  <span>437-436-3360</span>
+</div></footer>
+</body></html>

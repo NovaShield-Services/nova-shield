@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Direction B — Aurora</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#040812; --navy-2:#0a1324; --chrome:#f0f5fa; --muted:#7f93ae;
+  --line:rgba(170,200,235,.13); --gold:#c9a227; --gold-lt:#edcd6a;
+  --g:#2fd39a; --v:#7d6cf0; --max:1280px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--navy);color:var(--chrome);font-family:Inter,system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 32px}
+.eyebrow{font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--muted);font-weight:600}
+h1,h2,h3{font-family:Fraunces,Georgia,serif;font-weight:300;line-height:1.03;letter-spacing:-.022em}
+h1{font-size:clamp(46px,8vw,112px)}
+h2{font-size:clamp(32px,4.8vw,66px)}
+p{color:var(--muted);line-height:1.68;font-size:16.5px}
+
+/* aurora: one signature motion, GPU-cheap, pausable */
+.aurora{position:absolute;inset:-18% -12%;pointer-events:none;z-index:0;opacity:.6}
+.rib{position:absolute;width:62%;height:46%;filter:blur(66px);border-radius:50%;
+  mix-blend-mode:screen;animation:drift 26s ease-in-out infinite}
+.rib1{background:radial-gradient(ellipse,rgba(47,211,154,.52),transparent 68%);top:2%;left:-6%}
+.rib2{background:radial-gradient(ellipse,rgba(125,108,240,.44),transparent 68%);top:16%;right:-8%;animation-delay:-9s}
+.rib3{background:radial-gradient(ellipse,rgba(47,160,211,.34),transparent 70%);top:34%;left:26%;animation-delay:-17s}
+@keyframes drift{0%,100%{transform:translate3d(0,0,0) scale(1)}
+  33%{transform:translate3d(5%,-6%,0) scale(1.14)}
+  66%{transform:translate3d(-4%,5%,0) scale(.92)}}
+.stars{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.5;
+  background-image:radial-gradient(1.4px 1.4px at 18% 22%,#fff,transparent),
+    radial-gradient(1.2px 1.2px at 62% 12%,#fff,transparent),
+    radial-gradient(1.6px 1.6px at 83% 34%,#fff,transparent),
+    radial-gradient(1.1px 1.1px at 33% 58%,#fff,transparent),
+    radial-gradient(1.3px 1.3px at 72% 68%,#fff,transparent),
+    radial-gradient(1px 1px at 46% 36%,#fff,transparent),
+    radial-gradient(1.2px 1.2px at 8% 72%,#fff,transparent);
+  animation:tw 7s ease-in-out infinite alternate}
+@keyframes tw{from{opacity:.32}to{opacity:.62}}
+
+nav{position:fixed;inset:0 0 auto;z-index:60;padding:18px 0;background:linear-gradient(180deg,rgba(4,8,18,.9),transparent)}
+.navin{display:flex;align-items:center;justify-content:space-between;max-width:var(--max);margin:0 auto;padding:0 32px}
+.lock{height:34px}
+.navlinks{display:flex;gap:30px;align-items:center}
+.navlinks a{color:var(--chrome);text-decoration:none;font-size:13.5px;opacity:.82}
+.navlinks a:hover{opacity:1}
+.btn{display:inline-flex;align-items:center;gap:9px;padding:13px 25px;border-radius:999px;
+  font-size:13.5px;font-weight:600;text-decoration:none;transition:.3s}
+.btn--gold{background:var(--gold);color:#140f02;box-shadow:0 0 0 0 rgba(201,162,39,.5)}
+.btn--gold:hover{background:var(--gold-lt);box-shadow:0 0 26px -4px rgba(237,205,106,.55);transform:translateY(-1px)}
+.btn--ghost{border:1px solid var(--line);color:var(--chrome)}
+.btn--ghost:hover{border-color:rgba(47,211,154,.5);box-shadow:0 0 22px -8px rgba(47,211,154,.5)}
+
+.hero{position:relative;min-height:100svh;display:flex;align-items:center;overflow:hidden}
+.hero-photo{position:absolute;inset:0;background:url('../site/assets/gallery/photo-02.jpg') center 42%/cover;
+  opacity:.34;filter:saturate(.8)}
+.hero-veil{position:absolute;inset:0;background:
+  radial-gradient(120% 80% at 50% 10%,transparent,rgba(4,8,18,.6) 62%,var(--navy) 100%),
+  linear-gradient(180deg,rgba(4,8,18,.55),transparent 36%,rgba(4,8,18,.9))}
+.hero .wrap{position:relative;z-index:3;text-align:center}
+.hero h1{margin:20px auto 0;max-width:16ch}
+/* gradient display type -- restricted to ONE phrase */
+.grad{background:linear-gradient(104deg,var(--g) 0%,#7fe3c4 26%,var(--v) 64%,#b9a9ff 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  background-size:220% 100%;animation:shift 11s ease-in-out infinite}
+@keyframes shift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+.hero p{max-width:56ch;margin:26px auto 36px;font-size:18px;color:#bccbdd}
+.hero-actions{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.scrollcue{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);z-index:3;
+  font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);text-align:center}
+.scrollcue i{display:block;width:1px;height:42px;margin:10px auto 0;
+  background:linear-gradient(var(--muted),transparent);animation:cue 2.4s ease-in-out infinite}
+@keyframes cue{0%,100%{opacity:.25;transform:scaleY(.6)}50%{opacity:1;transform:scaleY(1)}}
+
+section{padding:clamp(86px,12vw,170px) 0;position:relative;z-index:2}
+.split{display:grid;grid-template-columns:6fr 6fr;gap:clamp(40px,7vw,100px);align-items:center}
+.lede{font-size:18.5px;color:#b5c5d8}
+.media{position:relative;border-radius:3px;overflow:hidden;aspect-ratio:4/3}
+.media img{width:100%;height:100%;object-fit:cover;display:block}
+.media::after{content:'';position:absolute;inset:0;box-shadow:inset 0 0 90px rgba(4,8,18,.8);pointer-events:none}
+.media-glow{position:absolute;inset:-22%;z-index:-1;
+  background:radial-gradient(ellipse,rgba(47,211,154,.3),rgba(125,108,240,.18) 48%,transparent 72%);filter:blur(54px)}
+
+/* ---- constellation: the signature device ---- */
+.constel{position:relative;padding:clamp(90px,13vw,170px) 0;text-align:center}
+.cmap{position:relative;width:min(760px,92vw);aspect-ratio:1/.76;margin:54px auto 0}
+.chub{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:92px;height:92px;
+  border-radius:50%;display:grid;place-items:center;
+  background:radial-gradient(circle,rgba(201,162,39,.2),transparent 68%);
+  border:1px solid rgba(201,162,39,.4)}
+.chub img{width:48px;height:48px;object-fit:contain}
+.chub::after{content:'';position:absolute;inset:-18px;border-radius:50%;
+  border:1px solid rgba(201,162,39,.16);animation:pulse 4.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:.5}50%{transform:scale(1.1);opacity:.15}}
+.node{position:absolute;transform:translate(-50%,-50%);text-decoration:none;color:var(--chrome);
+  font-size:12.5px;letter-spacing:.04em;white-space:nowrap;display:grid;gap:9px;justify-items:center;
+  transition:.35s}
+.node i{width:9px;height:9px;border-radius:50%;background:var(--g);display:block;
+  box-shadow:0 0 0 5px rgba(47,211,154,.12),0 0 18px rgba(47,211,154,.75);transition:.35s}
+.node:nth-child(even) i{background:var(--v);box-shadow:0 0 0 5px rgba(125,108,240,.12),0 0 18px rgba(125,108,240,.75)}
+.node:hover{color:var(--gold-lt);transform:translate(-50%,-50%) scale(1.09)}
+.node:hover i{box-shadow:0 0 0 8px rgba(237,205,106,.14),0 0 26px rgba(237,205,106,.9);background:var(--gold-lt)}
+.clines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.clines line{stroke:rgba(170,200,235,.17);stroke-width:1;stroke-dasharray:3 5}
+.clist{display:none}
+
+.cta{position:relative;text-align:center;padding:clamp(100px,15vw,200px) 0}
+.cta-glow{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);
+  width:min(900px,96vw);height:420px;filter:blur(60px);pointer-events:none;
+  background:radial-gradient(ellipse,rgba(47,211,154,.17),rgba(125,108,240,.12) 46%,transparent 72%)}
+.cta .wrap{position:relative;z-index:2}
+.cta p{max-width:48ch;margin:18px auto 34px}
+footer{border-top:1px solid var(--line);padding:46px 0;font-size:13px;color:var(--muted);position:relative;z-index:2}
+.foot{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.ph{position:absolute;top:14px;left:14px;z-index:5;background:rgba(201,162,39,.92);color:#140f02;
+  font-size:9.5px;font-weight:700;letter-spacing:.12em;padding:4px 9px;border-radius:2px;text-transform:uppercase}
+
+@media(max-width:900px){
+  .navlinks{display:none}
+  .split{grid-template-columns:1fr;gap:34px}
+  .cmap{display:none}
+  .clist{display:grid;gap:0;margin-top:34px;border-top:1px solid var(--line);text-align:left}
+  .clist a{display:flex;align-items:center;gap:13px;padding:17px 2px;border-bottom:1px solid var(--line);
+    color:var(--chrome);text-decoration:none;font-size:15px}
+  .clist i{width:7px;height:7px;border-radius:50%;background:var(--g);
+    box-shadow:0 0 12px rgba(47,211,154,.8);flex:none}
+  .clist a:nth-child(even) i{background:var(--v);box-shadow:0 0 12px rgba(125,108,240,.8)}
+}
+@media(prefers-reduced-motion:reduce){
+  .rib,.stars,.grad,.chub::after,.scrollcue i{animation:none!important}
+  .grad{background-position:0 50%}
+  *{transition:none!important}
+}
+</style></head>
+<body>
+
+<nav><div class="navin">
+  <img class="lock" src="../site/assets/brand/nova-shield-lockup.jpg" alt="Nova Shield Maintenance Services">
+  <div class="navlinks">
+    <a href="#">Permanent Lighting</a><a href="#">Christmas Lighting</a>
+    <a href="#">Exterior Cleaning</a><a href="#">About</a>
+    <a class="btn btn--gold" href="#">Request a Quote</a>
+  </div>
+</div></nav>
+
+<header class="hero">
+  <div class="hero-photo"></div>
+  <div class="aurora"><div class="rib rib1"></div><div class="rib rib2"></div><div class="rib rib3"></div></div>
+  <div class="stars"></div>
+  <div class="hero-veil"></div>
+  <span class="ph">Placeholder — HERO-01</span>
+  <div class="wrap">
+    <div class="eyebrow">Sault Ste. Marie &amp; surrounding area</div>
+    <h1>Let's make your house<br><span class="grad">feel like home.</span></h1>
+    <p>Permanent architectural lighting, seasonal displays and exterior care — one crew,
+       one standard, every season.</p>
+    <div class="hero-actions">
+      <a class="btn btn--gold" href="#">Request a Quote</a>
+      <a class="btn btn--ghost" href="#">Explore the services</a>
+    </div>
+  </div>
+  <div class="scrollcue">Scroll<i></i></div>
+</header>
+
+<section><div class="wrap split">
+  <div>
+    <div class="eyebrow">The two halves of the name</div>
+    <h2 style="margin:16px 0 20px">Beautiful at night.<br>Cared for all year.</h2>
+    <p class="lede">Nova is the light — everything that makes a property glow after dark.
+      Shield is the protection — everything that keeps it in good condition. We do not treat
+      either one as the side job.</p>
+    <a class="btn btn--ghost" style="margin-top:28px" href="#">About Nova Shield</a>
+  </div>
+  <div class="media"><div class="media-glow"></div>
+    <span class="ph">Placeholder — LIGHT-01</span>
+    <img src="../site/assets/gallery/photo-03.jpg" alt="Home with permanent lighting at dusk">
+  </div>
+</div></section>
+
+<section class="constel">
+  <div class="wrap">
+    <div class="eyebrow">What we do</div>
+    <h2 style="margin-top:16px">One shield.<br>Every service.</h2>
+    <p style="max-width:50ch;margin:20px auto 0">A focused set of services built around appearance,
+      comfort and seasonal readiness — not a giant menu of unrelated jobs.</p>
+  </div>
+  <div class="cmap">
+    <svg class="clines" viewBox="0 0 100 76" preserveAspectRatio="none" aria-hidden="true">
+      <line x1="50" y1="38" x2="50" y2="9"/><line x1="50" y1="38" x2="82" y2="22"/>
+      <line x1="50" y1="38" x2="88" y2="54"/><line x1="50" y1="38" x2="66" y2="70"/>
+      <line x1="50" y1="38" x2="34" y2="70"/><line x1="50" y1="38" x2="12" y2="54"/>
+      <line x1="50" y1="38" x2="18" y2="22"/>
+    </svg>
+    <div class="chub"><img src="../site/assets/brand/nova-shield-lockup.jpg" alt="" style="object-fit:none;object-position:left center;width:46px"></div>
+    <a class="node" href="#" style="left:50%;top:9%"><i></i>Permanent Lighting</a>
+    <a class="node" href="#" style="left:82%;top:22%"><i></i>Christmas Lighting</a>
+    <a class="node" href="#" style="left:88%;top:54%"><i></i>Soft Washing</a>
+    <a class="node" href="#" style="left:66%;top:70%"><i></i>Pressure Washing</a>
+    <a class="node" href="#" style="left:34%;top:70%"><i></i>Windows &amp; Detail</a>
+    <a class="node" href="#" style="left:12%;top:54%"><i></i>Winter Care</a>
+    <a class="node" href="#" style="left:18%;top:22%"><i></i>Gutter Brightening</a>
+  </div>
+  <div class="wrap"><div class="clist">
+    <a href="#"><i></i>Permanent Lighting</a><a href="#"><i></i>Christmas Lighting</a>
+    <a href="#"><i></i>Soft Washing</a><a href="#"><i></i>Pressure Washing</a>
+    <a href="#"><i></i>Windows &amp; Detail</a><a href="#"><i></i>Winter Care</a>
+    <a href="#"><i></i>Gutter Brightening</a>
+  </div></div>
+</section>
+
+<section><div class="wrap split">
+  <div class="media"><div class="media-glow"></div>
+    <span class="ph">Placeholder — XMAS-01</span>
+    <img src="../site/assets/gallery/photo-05.jpg" alt="Home lit for the holiday season">
+  </div>
+  <div>
+    <div class="eyebrow">The season</div>
+    <h2 style="margin:16px 0 20px">You are buying<br>the season.</h2>
+    <p class="lede">We install in October and November, remove in January and February, and store
+      your display under your name until next year. You never buy a set, climb a ladder in the
+      cold, or untangle anything in December.</p>
+    <a class="btn btn--ghost" style="margin-top:28px" href="#">How the season works</a>
+  </div>
+</div></section>
+
+<section class="cta">
+  <div class="cta-glow"></div>
+  <div class="wrap">
+    <div class="eyebrow">Next step</div>
+    <h2 style="margin-top:16px">Tell us about<br><span class="grad">your property.</span></h2>
+    <p>We review every request, arrange a visit if the job needs measuring properly, and send a
+      clear written quote before anything is booked.</p>
+    <a class="btn btn--gold" href="#">Request a Quote</a>
+  </div>
+</section>
+
+<footer><div class="wrap foot">
+  <span>Nova Shield Maintenance Services — Sault Ste. Marie, ON</span><span>437-436-3360</span>
+</div></footer>
+</body></html>

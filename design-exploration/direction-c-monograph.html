@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Direction C — Monograph</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#070b12; --ink-2:#0d1522; --chrome:#f2f6fa; --muted:#7d90a9;
+  --rule:rgba(180,205,235,.19); --gold:#c9a227; --gold-lt:#edcd6a;
+  --g:#2fd39a; --max:1340px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--ink);color:var(--chrome);font-family:Inter,system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 36px}
+.eyebrow{font-size:10.5px;letter-spacing:.26em;text-transform:uppercase;color:var(--muted);font-weight:600}
+h1,h2,h3{font-family:Fraunces,Georgia,serif;letter-spacing:-.03em;line-height:.92;font-weight:500}
+h1{font-size:clamp(52px,10.5vw,152px)}
+h2{font-size:clamp(38px,6.6vw,96px)}
+p{color:var(--muted);line-height:1.66;font-size:16px}
+.lede{font-size:17.5px;color:#b3c3d6}
+
+/* rules are the structural device */
+.rule{height:1px;background:var(--rule);width:100%}
+nav{position:fixed;inset:0 0 auto;z-index:60;padding:16px 0;background:rgba(7,11,18,.86);
+  backdrop-filter:blur(14px);border-bottom:1px solid var(--rule)}
+.navin{display:flex;align-items:center;justify-content:space-between;max-width:var(--max);margin:0 auto;padding:0 36px}
+.lock{height:32px}
+.navlinks{display:flex;gap:30px;align-items:center}
+.navlinks a{color:var(--chrome);text-decoration:none;font-size:13px;opacity:.8}
+.navlinks a:hover{opacity:1;color:var(--gold-lt)}
+.btn{display:inline-flex;align-items:center;gap:9px;padding:13px 26px;border-radius:0;
+  font-size:13px;font-weight:600;text-decoration:none;letter-spacing:.04em;text-transform:uppercase;transition:.28s}
+.btn--gold{background:var(--gold);color:#120d02}
+.btn--gold:hover{background:var(--gold-lt)}
+.btn--ghost{border:1px solid var(--rule);color:var(--chrome)}
+.btn--ghost:hover{border-color:var(--gold-lt);color:var(--gold-lt)}
+
+/* HERO: type is the subject, image is a plate beside it */
+.hero{padding:170px 0 0;position:relative}
+.hero-grid{display:grid;grid-template-columns:1.08fr .92fr;gap:clamp(32px,5vw,74px);align-items:end}
+.hero h1{margin:22px 0 0}
+.hero h1 .ital{font-style:italic;font-weight:300;color:var(--gold-lt)}
+.hero-sub{margin:30px 0 32px;max-width:44ch}
+.hero-actions{display:flex;gap:12px;flex-wrap:wrap}
+.plate{position:relative;border:1px solid var(--rule);padding:11px}
+.plate img{width:100%;aspect-ratio:4/5;object-fit:cover;display:block}
+.plate-meta{display:flex;justify-content:space-between;margin-top:11px;font-size:10px;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.hero-strip{display:flex;gap:0;margin-top:74px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.hero-strip div{flex:1;padding:20px 0;font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--muted);border-right:1px solid var(--rule)}
+.hero-strip div:last-child{border-right:0}
+
+section{padding:clamp(80px,11vw,150px) 0}
+/* the paired display words device, from Bold Editorial */
+.pair{display:grid;grid-template-columns:auto 1fr;gap:clamp(28px,6vw,90px);align-items:start}
+.pair h2{white-space:nowrap}
+.pair .body{padding-top:14px;max-width:52ch}
+.word{display:block}
+.word--light{color:var(--gold-lt);font-style:italic;font-weight:300}
+.word--shield{color:var(--chrome)}
+
+/* numbered index -- the catalogue */
+.cat{margin-top:56px;border-top:1px solid var(--rule)}
+.cat a{display:grid;grid-template-columns:56px 1.1fr 1.4fr 40px;gap:26px;align-items:center;
+  padding:30px 6px;border-bottom:1px solid var(--rule);text-decoration:none;color:inherit;transition:.32s}
+.cat a:hover{background:rgba(201,162,39,.05);padding-left:18px}
+.cat .n{font-size:10.5px;letter-spacing:.18em;color:var(--muted)}
+.cat .t{font-family:Fraunces,serif;font-size:clamp(20px,2.3vw,30px);font-weight:500;letter-spacing:-.02em}
+.cat .d{font-size:14px;color:var(--muted)}
+.cat .go{text-align:right;color:var(--muted);transition:.32s}
+.cat a:hover .go{color:var(--gold-lt);transform:translateX(6px)}
+.cat a:hover .t{color:var(--gold-lt)}
+
+/* full-bleed chapter break */
+.chapter{position:relative;padding:clamp(90px,13vw,170px) 0;border-top:1px solid var(--rule);
+  border-bottom:1px solid var(--rule);overflow:hidden}
+.chapter-bg{position:absolute;inset:0;background-size:cover;background-position:center;opacity:.3}
+.chapter-veil{position:absolute;inset:0;background:linear-gradient(90deg,var(--ink) 6%,rgba(7,11,18,.55) 58%,rgba(7,11,18,.9))}
+.chapter .wrap{position:relative;z-index:2}
+.chapter-no{font-family:Fraunces,serif;font-size:clamp(90px,17vw,230px);line-height:.8;font-weight:300;
+  color:rgba(242,246,250,.07);position:absolute;right:36px;top:clamp(40px,7vw,80px);z-index:1;pointer-events:none}
+.chapter h2{margin:16px 0 22px;max-width:16ch}
+.chapter .body{max-width:48ch}
+
+.figrow{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:54px}
+.figrow .plate img{aspect-ratio:3/4}
+
+.cta{text-align:center;padding:clamp(100px,15vw,190px) 0;position:relative}
+.cta h2{margin-bottom:20px}
+.cta p{max-width:46ch;margin:0 auto 34px}
+footer{border-top:1px solid var(--rule);padding:44px 0;font-size:12.5px;color:var(--muted)}
+.foot{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.ph{position:absolute;top:18px;left:18px;z-index:5;background:rgba(201,162,39,.93);color:#120d02;
+  font-size:9.5px;font-weight:700;letter-spacing:.12em;padding:4px 9px;text-transform:uppercase}
+
+@media(max-width:980px){
+  .navlinks{display:none}
+  .hero{padding-top:124px}
+  .hero-grid{grid-template-columns:1fr;gap:40px}
+  .plate img{aspect-ratio:16/10}
+  .pair{grid-template-columns:1fr;gap:20px}
+  .pair h2{white-space:normal}
+  .cat a{grid-template-columns:38px 1fr 28px;gap:16px}
+  .cat .d{display:none}
+  .figrow{grid-template-columns:1fr}
+  .hero-strip{flex-wrap:wrap}
+  .hero-strip div{flex:1 1 50%;border-bottom:1px solid var(--rule)}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head>
+<body>
+
+<nav><div class="navin">
+  <img class="lock" src="../site/assets/brand/nova-shield-lockup.jpg" alt="Nova Shield Maintenance Services">
+  <div class="navlinks">
+    <a href="#">Permanent Lighting</a><a href="#">Christmas Lighting</a>
+    <a href="#">Exterior Cleaning</a><a href="#">About</a>
+    <a class="btn btn--gold" href="#">Request a Quote</a>
+  </div>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <div class="hero-grid">
+    <div>
+      <div class="eyebrow">Sault Ste. Marie, Ontario</div>
+      <h1>Your home,<br><span class="ital">finished</span><br>in light.</h1>
+      <p class="lede hero-sub">Permanent architectural lighting, seasonal displays and exterior
+        care. One crew, one standard, every season.</p>
+      <div class="hero-actions">
+        <a class="btn btn--gold" href="#">Request a Quote</a>
+        <a class="btn btn--ghost" href="#">See the work</a>
+      </div>
+    </div>
+    <div class="plate">
+      <span class="ph">Placeholder — HERO-01</span>
+      <img src="../site/assets/gallery/photo-02.jpg" alt="Home with permanent roofline lighting at dusk">
+      <div class="plate-meta"><span>Fig. 01</span><span>Roofline install — dusk</span></div>
+    </div>
+  </div>
+  <div class="hero-strip">
+    <div>Permanent lighting</div><div>Seasonal displays</div>
+    <div>Exterior cleaning</div><div>Winter care</div>
+  </div>
+</div></header>
+
+<section><div class="wrap">
+  <div class="pair">
+    <h2><span class="word word--light">Nova.</span><span class="word word--shield">Shield.</span></h2>
+    <div class="body">
+      <div class="eyebrow">The two halves of the name</div>
+      <p class="lede" style="margin-top:16px">Nova is the light — the architectural lighting that
+        makes a property glow after dark, and the seasonal display that arrives and leaves without
+        you touching a ladder.</p>
+      <p style="margin-top:16px">Shield is the protection — the exterior cleaning and winter care
+        that keeps siding, roofs, glass and concrete in the condition they were meant to be in.
+        Neither one is the side job.</p>
+    </div>
+  </div>
+</div></section>
+
+<section class="chapter">
+  <div class="chapter-bg" style="background-image:url('../site/assets/gallery/photo-03.jpg')"></div>
+  <div class="chapter-veil"></div>
+  <span class="ph">Placeholder — LIGHT-01</span>
+  <div class="chapter-no">01</div>
+  <div class="wrap">
+    <div class="eyebrow">The flagship — permanent lighting</div>
+    <h2>One installation. A different home every night.</h2>
+    <div class="body">
+      <p class="lede">Fitted into the soffit and matched to its colour, so by day you see a trim
+        line and not a string of bulbs. Warm white on an ordinary Tuesday. Any colour you want on
+        the evenings that are not.</p>
+      <a class="btn btn--ghost" style="margin-top:30px" href="#">Explore permanent lighting</a>
+    </div>
+  </div>
+</section>
+
+<section class="chapter">
+  <div class="chapter-bg" style="background-image:url('../site/assets/gallery/photo-05.jpg')"></div>
+  <div class="chapter-veil"></div>
+  <span class="ph">Placeholder — XMAS-01</span>
+  <div class="chapter-no">02</div>
+  <div class="wrap">
+    <div class="eyebrow">The season — Christmas lighting</div>
+    <h2>You are not buying lights. You are buying the season.</h2>
+    <div class="body">
+      <p class="lede">Installed in October and November. Removed in January and February. Stored
+        under your name until next year. You never buy a set, climb a ladder in the cold, or open
+        a box of tangled lights in December.</p>
+      <a class="btn btn--ghost" style="margin-top:30px" href="#">How the season works</a>
+    </div>
+  </div>
+</section>
+
+<section><div class="wrap">
+  <div class="pair">
+    <h2><span class="word">Every</span><span class="word word--light">detail.</span></h2>
+    <div class="body">
+      <div class="eyebrow">Shield — exterior care</div>
+      <p class="lede" style="margin-top:16px">Not a giant menu of unrelated jobs. A focused set of
+        services built around appearance, comfort and seasonal readiness.</p>
+    </div>
+  </div>
+  <div class="cat">
+    <a href="#"><span class="n">01</span><span class="t">Siding / Soft Wash</span>
+      <span class="d">Low-pressure soft washing that lifts algae, mildew and grime without forcing water behind panels.</span><span class="go">&rarr;</span></a>
+    <a href="#"><span class="n">02</span><span class="t">Roof Soft Washing</span>
+      <span class="d">Low-pressure treatment for algae and black streaking. Never pressure-washed.</span><span class="go">&rarr;</span></a>
+    <a href="#"><span class="n">03</span><span class="t">Gutter Brightening</span>
+      <span class="d">The black streaking and oxidation on the outside face of gutters and fascia.</span><span class="go">&rarr;</span></a>
+    <a href="#"><span class="n">04</span><span class="t">Window Cleaning</span>
+      <span class="d">Exterior glass, with optional screens, tracks and hard-water treatment.</span><span class="go">&rarr;</span></a>
+    <a href="#"><span class="n">05</span><span class="t">Concrete / Pressure Washing</span>
+      <span class="d">True pressure washing for driveways, walkways and surfaces built to take it.</span><span class="go">&rarr;</span></a>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="eyebrow">Recent work</div>
+  <h2 style="margin-top:16px;font-size:clamp(30px,4.4vw,56px)">The plates.</h2>
+  <div class="figrow">
+    <div class="plate"><span class="ph">WORK-01</span><img src="../site/assets/gallery/photo-07.jpg" alt="">
+      <div class="plate-meta"><span>Fig. 04</span><span>Roofline</span></div></div>
+    <div class="plate"><span class="ph">WORK-02</span><img src="../site/assets/gallery/photo-08.jpg" alt="">
+      <div class="plate-meta"><span>Fig. 05</span><span>Soffit detail</span></div></div>
+    <div class="plate"><span class="ph">WORK-03</span><img src="../site/assets/gallery/photo-09.jpg" alt="">
+      <div class="plate-meta"><span>Fig. 06</span><span>Seasonal</span></div></div>
+  </div>
+</div></section>
+
+<section class="cta"><div class="wrap">
+  <div class="eyebrow">Next step</div>
+  <h2 style="margin-top:18px">Tell us about<br><span class="word--light" style="font-style:italic;font-weight:300">your property.</span></h2>
+  <p>We review every request, arrange a visit if the job needs measuring properly, and send a clear
+    written quote before anything is booked.</p>
+  <a class="btn btn--gold" href="#">Request a Quote</a>
+</div></section>
+
+<footer><div class="wrap foot">
+  <span>Nova Shield Maintenance Services — Sault Ste. Marie, ON</span><span>437-436-3360</span>
+</div></footer>
+</body></html>
