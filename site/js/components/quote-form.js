@@ -209,7 +209,12 @@ export async function createQuoteForm({ preselect = [] } = {}) {
     }
     const turnstileToken = turnstile.getToken();
     if (!turnstileToken) {
-      return fail('Please complete the verification check just above the button.');
+      // distinguish "you have not ticked it" from "it never loaded", which is a
+      // configuration problem the customer cannot do anything about
+      return fail(turnstile.getError()
+        ? 'The verification check could not load on this page. Please call or text ' +
+          '437-436-3360 and we will take your details directly.'
+        : 'Please complete the verification check just above the button.');
     }
 
     submitBtn.disabled = true;

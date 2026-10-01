@@ -48,6 +48,7 @@ function whenConnected(node) {
  */
 export async function mountTurnstile(container, { action = 'quote_request' } = {}) {
   let token = null;
+  let lastError = null;
 
   try {
     const [ts] = await Promise.all([loadScript(), whenConnected(container)]);
@@ -55,17 +56,19 @@ export async function mountTurnstile(container, { action = 'quote_request' } = {
       sitekey: SITE_KEY,
       action,
       theme: 'light',
-      callback: t => { token = t; },
+      callback: t => { token = t; lastError = null; },
       'expired-callback': () => { token = null; },
       'timeout-callback': () => { token = null; },
-      'error-callback': () => { token = null; }
+      // fires for configuration problems too, e.g. 110200 = domain not allowed
+      'error-callback': code => { token = null; lastError = String(code ?? 'unknown'); }
     });
     return {
       ok: true,
       getToken: () => token,
-      reset: () => { token = null; try { ts.reset(widgetId); } catch { /* already gone */ } }
+      getError: () => lastError,
+      reset: () => { token = null; lastError = null; try { ts.reset(widgetId); } catch { /* already gone */ } }
     };
-  } catch {
-    return { ok: false, getToken: () => null, reset: () => {} };
+  } catch (err) {
+    return { ok: false, getToken: () => null, getError: () => String(err.message || err), reset: () => {} };
   }
 }
