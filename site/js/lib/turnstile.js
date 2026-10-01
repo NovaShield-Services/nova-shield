@@ -52,15 +52,31 @@ export async function mountTurnstile(container, { action = 'quote_request' } = {
 
   try {
     const [ts] = await Promise.all([loadScript(), whenConnected(container)]);
-    const widgetId = ts.render(container, {
+    let widgetId;
+    widgetId = ts.render(container, {
       sitekey: SITE_KEY,
       action,
       theme: 'light',
       callback: t => { token = t; lastError = null; },
       'expired-callback': () => { token = null; },
       'timeout-callback': () => { token = null; },
-      // fires for configuration problems too, e.g. 110200 = domain not allowed
-      'error-callback': code => { token = null; lastError = String(code ?? 'unknown'); }
+      // Fires for configuration problems too, e.g. 110200 = domain not allowed.
+      // Returning true tells Turnstile the error is handled so it stops
+      // retrying: a 110xxx is a configuration fault that will never resolve by
+      // retrying, and left alone it floods the console and keeps re-requesting
+      // indefinitely. Transient errors are still allowed to retry.
+      'error-callback': code => {
+        token = null;
+        lastError = String(code ?? 'unknown');
+        const configFault = /^110/.test(lastError);
+        if (configFault) {
+          console.warn(`Turnstile configuration error ${lastError} — removing widget.`);
+          // returning true marks it handled; removing it stops Turnstile
+          // re-requesting a challenge that can never succeed on this hostname
+          try { if (widgetId) ts.remove(widgetId); } catch { /* already gone */ }
+        }
+        return configFault;
+      }
     });
     return {
       ok: true,

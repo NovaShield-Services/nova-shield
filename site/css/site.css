@@ -679,3 +679,32 @@ a.matrix-label:hover { color:var(--gold-2); }
 .compare-text { grid-column:1; color:var(--muted); font-size:15px; line-height:1.6; }
 .compare-go { grid-row:1; grid-column:2; color:var(--muted); text-align:right; transition:.3s; }
 .compare-row:hover .compare-go { color:var(--accent); transform:translateX(4px); }
+
+/* ---------------------------------------------------------------------------
+   Reduced motion, completed.
+   The earlier blocks covered reveals and image swaps but missed the hover
+   motion on list rows -- padding shifts and translateX are movement, and a
+   visitor who asked for less of it should not get it from a hover either.
+   Colour and border changes are kept: they are feedback, not motion.
+   ------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .svc-row, .compare-row, .mitem, .expect-item, .pair-card, .row {
+    transition: background-color .01ms linear !important;
+  }
+  .svc-row:hover, .compare-row:hover, .mitem:hover, .expect-item:hover, .row:hover {
+    padding-left: inherit !important;
+  }
+  .svc-go, .compare-go, .arrow-link span, .row-go, .card__more,
+  .svc-row:hover .svc-go, .compare-row:hover .compare-go,
+  .arrow-link:hover span, .row:hover .row-go {
+    transform: none !important;
+    transition: color .01ms linear !important;
+  }
+  .pair-card:hover { transform: none !important; }
+  .pair-card::before, .pair-card:hover::before { transform: none !important; }
+  .shot:hover img { transform: none !important; }
+  .mode { transition: none !important; }
+  .button, .button--gold:hover, .button--ghost:hover { transform: none !important; }
+  .hero--home .hero-bg { transform: none !important; }
+  html { scroll-behavior: auto !important; }
+}
