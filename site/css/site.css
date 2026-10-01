@@ -81,7 +81,7 @@ header.site nav { height: 88px; display: flex; align-items: center; justify-cont
 /* "Nova Shield" is the brand; "Maintenance Services" is the legal suffix and
    is deliberately subordinate. */
 .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
-.brand-mark { height: 50px; width: auto; filter: drop-shadow(0 4px 14px rgba(0,0,0,.5)); }
+.brand-mark { filter: drop-shadow(0 4px 14px rgba(0,0,0,.5)); }
 .brand-name { font-weight: 800; letter-spacing: .1em; font-size: 1.18rem; line-height: 1; }
 .brand-sub { display: block; font-size: .5rem; letter-spacing: .3em; color: var(--muted); margin-top: 4px; font-weight: 500; }
 
@@ -266,7 +266,7 @@ footer.site { padding: 56px 0 38px; }
   .container { width: min(calc(100% - 30px), var(--max)); }
   header.site nav { height: 74px; }
   .navlinks { inset: 74px 0 auto; }
-  .brand-mark { height: 42px; }
+
   .hero-content { padding: 130px 0 80px; }
   h1 { font-size: 2.9rem; }
   form.quote-form { grid-template-columns: 1fr; }
@@ -572,7 +572,7 @@ footer.site { padding: 56px 0 38px; }
   background-position:center; }
 
 /* --- brand placements ---------------------------------------------------- */
-.brand .brand-mark { width:38px; flex:none; }
+.brand .brand-mark { width:38px; height:38px; flex:none; align-self:center; }
 .brand-lockup { width:100%; max-width:300px; }
 /* below ~300px the artwork's own "MAINTENANCE SERVICES" stops being legible,
    so the header pairs the canonical MARK with a typeset wordmark instead */
@@ -583,6 +583,6 @@ footer.site { padding: 56px 0 38px; }
   border:1px solid var(--line); }
 
 @media (max-width:760px){
-  .brand .brand-mark { width:34px; }
+  .brand .brand-mark { width:34px; height:34px; }
   .hero-lockup { width:min(280px,66vw); margin-bottom:20px; }
 }
