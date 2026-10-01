@@ -92,13 +92,16 @@ limits on email / phone / address only. A determined bot can vary all three.
 server-side (and *can* see the client IP, which it forwards to siteverify as
 `remoteip`) before forwarding to the same validated RPC as `service_role`.
 
-Two residual items, both tracked in SETUP.md:
-- `TURNSTILE_SECRET_KEY` is not set yet, so the gate currently fails closed
-  (HTTP 503, customer-safe message) and no submission can succeed.
-- `anon` still holds execute on `submit_quote_request()`, so the gate is
-  bypassable by anyone who knows the RPC name. That grant is deliberately left
-  until the gate is proven working; revoking it is the last step in SETUP.md
-  section 4.
+`TURNSTILE_SECRET_KEY` is set and verified against Cloudflare (siteverify
+returns `invalid-input-response` for a bad token, not `invalid-input-secret`).
+The `anon` grant on `submit_quote_request()` has been **revoked**, so there is
+now exactly one public write path. Verified: a direct anonymous RPC call returns
+`42501 permission denied`, while the public service menu still reads.
+
+Hostname policy is defaulted **in code** to the two production hostnames, so a
+missing env var fails strict rather than open. `TURNSTILE_DEV_HOSTNAMES` is a
+separate, default-empty list for local work and is never merged silently — the
+function logs a warning on every request it admits.
 
 ### 7. Photo bucket accepts anonymous writes
 Required, so a customer can attach photos before an account exists.
@@ -167,12 +170,36 @@ linking for one hour after submission.
 
 ## What I would do next, in order
 
-1. Add `RESEND_API_KEY` and `TURNSTILE_SECRET_KEY` to Edge Function secrets
-   (SETUP.md section 2). Nothing else can be proven until these exist.
-2. Add `localhost` to the Turnstile widget's allowed hostnames so the form can
-   be exercised locally at all (currently error 110200).
-3. Revoke `anon` execute on `submit_quote_request()` once the gate works
-   (SETUP.md section 4) — until then Turnstile is bypassable.
+1. Deploy the site to `novashieldmaintenance.com` (finding 13) and add that
+   hostname to the Turnstile widget. Nothing else unblocks the real gate test.
+2. Create a staff account — there are currently zero user accounts, so the
+   field tool cannot be signed into at all.
+3. Set `app_settings.admin.base_url` so staff emails carry a working link.
 4. Add cache-busting (finding 1) before the first real deploy.
 5. Drop the legacy tables (finding 5).
 6. Pick one skin as the public default; keep the others behind `?theme=`.
+
+
+### 11. Service keys are validated, not silently dropped
+The original insert used `where s.key = any(p_service_keys) and s.active`, which
+quietly discarded any key that was unknown, inactive, or an internal jump-wire
+component. A customer could tick three services, have one dropped, and be
+quoted for the wrong job.
+
+Now every key is checked **before anything is written**, and the whole
+submission is rejected with a customer-safe "refresh and try again" message.
+Verified with zero partial rows for: unknown key, valid+unknown mixed, a
+deliberately deactivated real service, and an internal jump-wire key.
+
+### 12. Deleting a customer leaves orphaned properties
+`properties.customer_id` is `ON DELETE SET NULL`, so removing a customer leaves
+property rows behind with a null owner and no requests. Harmless today (only
+seen while cleaning up test data) but it will accumulate. Worth a periodic
+sweep, or changing the constraint, if customer deletion ever becomes routine.
+
+### 13. The production domain is not serving this site
+`novashieldmaintenance.com` resolves to Squarespace (198.185.159.x /
+198.49.23.x) and returns a "Coming Soon" parking page. Until the site is hosted
+there, the real Turnstile path cannot be exercised end to end, because
+Cloudflare binds tokens to allowed hostnames. This is the single remaining
+blocker to calling the system production-ready.

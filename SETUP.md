@@ -1,28 +1,30 @@
 # Nova Shield — setup and remaining manual steps
 
 The database, public site, field tool, notification worker, customer quote page,
-Turnstile gate and the notification cron schedule are built and deployed.
+Turnstile gate and the notification schedule are built, deployed and tested.
 
-**Two things are blocking a fully working system, and both are secrets that only
-you can add.** They are in section 2. Everything else below is already done or
-optional.
+**The system is not production-ready yet, and the reason is deployment, not
+code:** `novashieldmaintenance.com` currently serves a Squarespace "Coming Soon"
+parking page. Until the Nova Shield site is actually hosted there, the real
+Turnstile submission path cannot be exercised, because Cloudflare will only mint
+a token on a hostname the widget allows.
 
-The database currently contains **zero** customers, requests, jobs, quotes or
-notifications. The price book, inspection checklist and settings are intact.
+The database contains **zero** customers, requests, jobs, quotes or
+notifications. The price book (13 services, 122 modifiers, 24 inspection flags)
+is intact.
 
 ---
 
 ## 1. Create your staff account  (required — nothing works without this)
 
-I deliberately did not create a permanent account or generate a password for
-you. Do it in the Supabase dashboard:
+There are currently **no user accounts at all**, so the field tool cannot be
+signed into by anyone.
 
 1. **Authentication → Users → Add user → Create new user**
 2. Email: `novashield@novashieldmaintenance.com`
 3. Set your own password, tick **Auto Confirm User**
 
-Then grant access — signing in is not enough, every table denies access unless
-the account is in `admin_users`:
+Then grant access — signing in is not enough:
 
 ```sql
 insert into public.admin_users (user_id)
@@ -31,111 +33,98 @@ where email = 'novashield@novashieldmaintenance.com'
 on conflict do nothing;
 ```
 
-Adding your partner later is the same two steps. To revoke someone:
+To revoke someone later:
 
 ```sql
 delete from public.admin_users
 where user_id = (select id from auth.users where email = 'them@example.com');
 ```
 
-## 2. Add the Edge Function secrets  (REQUIRED — this is what is blocking)
+## 2. Deploy the site to the production domain  (this is the main blocker)
 
-**This is the step that is not done, and it is the reason email and Turnstile
-are not yet proven working.**
+The public site is static files — no build step, no Node. It needs to be served
+at `https://novashieldmaintenance.com`, replacing the Squarespace parking page.
 
-Important distinction, because it caused the confusion already: the Resend key
-you entered under **Authentication → Emails → SMTP Settings** is used *only* by
-Supabase Auth, for login and password-reset emails. **Edge Functions cannot read
-it.** They have a separate secret store, and it is currently empty.
+Whatever you host it on, two things must line up:
 
-Go to **Edge Functions → Secrets** (project-wide) and add:
+1. **Cloudflare Turnstile → your widget → Allowed hostnames** must include
+   `novashieldmaintenance.com` (and `www.` if you serve that).
+2. The gate already restricts the server side to exactly those two hostnames,
+   defaulted in code, so a token minted anywhere else is refused even if
+   Cloudflare issued it.
 
-| Secret | Value | Used by |
-|---|---|---|
-| `RESEND_API_KEY` | your Resend API key (starts `re_`) | send-notifications |
-| `NOTIFY_FROM` | `Nova Shield <noreply@novashieldmaintenance.com>` | send-notifications |
-| `NOTIFY_TO` | `info@novashieldmaintenance.com` | send-notifications |
-| `ADMIN_BASE_URL` | where the field tool is hosted | send-notifications |
-| `CRON_SECRET` | see below | send-notifications |
-| `TURNSTILE_SECRET_KEY` | the secret key for widget `0x4AAAAAAFKrXWCUGrpnB1gd` | submit-request |
-| `TURNSTILE_ALLOWED_HOSTNAMES` | `novashieldmaintenance.com,www.novashieldmaintenance.com` | submit-request |
+**For local development**, add `localhost` and `127.0.0.1` to the widget's
+allowed hostnames and set the Edge Function secret
+`TURNSTILE_DEV_HOSTNAMES=localhost,127.0.0.1`. Both are needed — Cloudflare has
+to render the widget, and the server has to accept the hostname it reports.
+**`TURNSTILE_DEV_HOSTNAMES` must be unset in production**; the config check
+below warns loudly whenever it is set.
 
-`NOTIFY_FROM`, `NOTIFY_TO` and `ADMIN_BASE_URL` already have sensible defaults
-baked in, so they are optional. The two keys are not.
+Without this, the form on your own machine shows Turnstile error `110200` and
+refuses to submit. That is the current state.
 
-**`CRON_SECRET`** — a strong value has already been generated and stored
-encrypted in Supabase Vault under the name `ns_cron_secret`. It was never
-printed into a chat window or a file. Read it once from
-**Database → Vault → Secrets**, and paste that same value in as the
-`CRON_SECRET` Edge Function secret. The scheduled job reads it from Vault at
-call time, so it never appears in the cron job definition either.
+## 3. Set the admin URL
 
-Until `CRON_SECRET` is set on the function, the worker endpoint is publicly
-callable. Nobody can read data through it, but anyone could trigger a queue
-drain, so set it.
-
-Verify your work without exposing anything:
-
-```bash
-curl -s "https://xrgutmdgjzclaeyugsqg.supabase.co/functions/v1/send-notifications?check=1"
-```
-
-That returns presence booleans only — never a key value. You want
-`"configured": true` and `"cron_secret_configured": true`. Once `CRON_SECRET` is
-set you will need to pass `-H "x-cron-secret: <value>"` to call it at all.
-
-## 3. Finish the Turnstile widget in Cloudflare
-
-The widget is integrated in code. Site key `0x4AAAAAAFKrXWCUGrpnB1gd` is in
-`site/js/lib/turnstile.js` — that key is public by design and is useless without
-the secret key, which lives only in Edge Function secrets.
-
-Two things to do in the Cloudflare dashboard:
-
-1. **Copy the widget's secret key** into `TURNSTILE_SECRET_KEY` (section 2).
-2. **Add `localhost` and `127.0.0.1` to the widget's allowed hostnames.**
-   Right now the widget refuses to render locally with Turnstile error
-   `110200` (domain not allowed), which means the form cannot be submitted from
-   your own machine at all.
-
-Allowing localhost in Cloudflare is safe here *because* the server re-checks the
-hostname: set `TURNSTILE_ALLOWED_HOSTNAMES` to your real domain only, and a
-token minted against `localhost` will be rejected in production even though
-Cloudflare issued it.
-
-## 4. Lock the submission path  (do this after section 2 works)
-
-The public form now posts to the `submit-request` Edge Function, which verifies
-the Turnstile token and only then calls `submit_quote_request()`.
-
-The old direct path is still open: the `anon` role can still execute that RPC,
-so a bot that knows the endpoint can bypass Turnstile entirely. I left it in
-place deliberately so the site keeps working while the secrets are missing.
-**Once a real submission succeeds through the gate, close it:**
+Notification emails include a link into the field tool. It is currently unset,
+so emails are sent **without the link**. Once the field tool has a URL:
 
 ```sql
-revoke execute on function public.submit_quote_request(
-  text, text, text, text, text, text, text, text, text[], text, text, text, text
-) from anon;
+update public.app_settings
+   set value = jsonb_build_object('base_url', 'https://your-admin-host/path')
+ where key = 'admin';
 ```
 
-Do not run that before the gate works, or the form will be dead.
+No redeploy needed — the worker reads it per run. Link construction is tested:
+a base of `https://x/admin` produces `https://x/admin/#/requests`, which is a
+real route.
 
-## 5. Supabase Auth SMTP  (already configured — just verify)
+## 4. Configuration that is already done
 
-Custom SMTP is already on, pointing at `smtp.resend.com:465` as `noreply@novashieldmaintenance.com`.
-Verify it by triggering a password reset for your staff account and confirming
-the email arrives. This is separate from application email (section 2) and uses
-a separate copy of the credential.
+| Item | State |
+|---|---|
+| `RESEND_API_KEY` | set, verified reaching Resend, real mail delivered |
+| `TURNSTILE_SECRET_KEY` | set, verified accepted by Cloudflare siteverify |
+| `CRON_SECRET` | **not needed as an env var** — see below |
+| Notification schedule | `pg_cron`, every 2 minutes, verified running |
+| anon bypass of the gate | revoked |
 
-Do not change the Google Workspace MX/DNS records — Resend sending and Workspace
-receiving coexist on the same domain and the current DNS is correct.
+**`CRON_SECRET` is handled entirely server-side.** A strong value is stored
+encrypted in Supabase Vault as `ns_cron_secret`. The scheduled job reads it from
+Vault at call time, and the Edge Function verifies it by calling
+`verify_cron_secret()`, which compares *inside the database*. The secret is
+therefore never in the cron job definition, never in an environment variable,
+never in frontend code, and never returned by any endpoint. You do not need to
+copy it anywhere.
+
+Check configuration without exposing anything (run from SQL, so the secret
+stays in the database):
+
+```sql
+select public.dispatch_notification_worker('?check=1');
+-- then read the response:
+select status_code, content::text from net._http_response order by created desc limit 1;
+```
+
+## 5. Remove two orphaned test photos
+
+End-to-end testing uploaded two 178-byte PNGs that are now unreferenced.
+Postgres blocks `delete from storage.objects`, so remove them from
+**Storage → request-photos → requests/0ddb09f6-95d6-46c4-8c56-08900ec4bb18/**
+in the dashboard, or just delete that whole folder.
+
+To find orphans in future (ARCHITECTURE.md documents the full strategy):
+
+```sql
+select o.name, o.created_at
+from storage.objects o
+left join public.job_attachments a on a.storage_path = o.name
+where o.bucket_id = 'request-photos' and a.id is null
+  and o.created_at < now() - interval '24 hours';
+```
 
 ## 6. Optional clean-up
 
-The legacy tables `job_requests`, `jobs`, `quotes` and the `job_from_request()`
-trigger are unused by every site and by the admin app. Dropping them is
-destructive so I left it to you:
+Legacy tables, unused by every site and by the admin app:
 
 ```sql
 drop table if exists public.quotes cascade;
@@ -146,27 +135,33 @@ drop function if exists public.job_from_request() cascade;
 
 ---
 
-## How notifications flow
+## How a submission flows
 
 ```
-submit_quote_request()  ->  inserts a row in notifications (status 'pending')
-pg_cron  every 2 min    ->  dispatch_notification_worker()  (reads CRON_SECRET from Vault)
-  -> net.http_post      ->  send-notifications Edge Function
-     -> claim_notifications()      pending -> sending   (atomic, SKIP LOCKED)
+Customer fills the form
+  -> Turnstile widget mints a token (hostname-bound)
+  -> POST /functions/v1/submit-request
+     -> siteverify with TURNSTILE_SECRET_KEY (+ client IP as remoteip)
+     -> reject unless success AND action=quote_request AND hostname allowed
+     -> submit_quote_request() as service_role
+        -> validation, honeypot, rate limit, service-key check
+        -> customer/property deduplication
+        -> notifications row (status 'pending')
+  -> customer uploads photos -> attach_request_photo() (1-hour window)
+
+pg_cron every 2 min
+  -> dispatch_notification_worker()        (secret from Vault)
+  -> send-notifications Edge Function      (verify_cron_secret)
+     -> claim_notifications()  pending -> sending   (atomic, SKIP LOCKED)
      -> Resend API
-     -> mark_notification_sent()   sending -> sent      (only after Resend returns an id)
-        or mark_notification_failed()  -> pending (retry, max 5) -> failed
-        or mark_notification_skipped() -> skipped (no API key)
+     -> mark_notification_sent()  sending -> sent   (only after a message id)
+        or mark_notification_failed() -> pending (retry, max 5) -> failed
 ```
 
-A row can only become `sent` if it was in `sending`, and only one worker can
-ever hold a claim, so concurrent runs cannot double-send. Delivery is
-at-least-once: if a worker dies after Resend accepts but before recording,
-`requeue_stale_notifications()` puts the row back after 15 minutes and it may
-send again. That is the standard trade-off and it is deliberate — a duplicate
-staff alert is better than a silently lost one.
+There is exactly one public write path. The anon role can no longer call
+`submit_quote_request()` directly.
 
-## Running it
+## Running it locally
 
 From `/home/demiurge/Downloads`:
 
@@ -178,9 +173,8 @@ python3 -m http.server 8123
 - Field tool — `http://localhost:8123/nova-shield/admin/`
 - Customer quote — `.../site/quote.html?id=<quote-uuid>`
 
-Three presentations, switchable from the footer or by URL: `?theme=refined`
-(default), `?theme=editorial`, `?theme=signal`. All three are CSS skins over
-identical markup and identical business logic.
+Themes: `?theme=refined` (default), `?theme=editorial`, `?theme=signal` — CSS
+skins over identical markup and identical business logic.
 
 ## Layout
 
@@ -197,5 +191,5 @@ nova-shield/
   ARCHITECTURE.md  review, known weaknesses, orphan-photo cleanup
 ```
 
-Edge Functions live in Supabase, not in this repo: `send-notifications`
-(queue worker) and `submit-request` (Turnstile gate).
+Edge Functions live in Supabase, not in this repo: `submit-request` (Turnstile
+gate) and `send-notifications` (queue worker).
