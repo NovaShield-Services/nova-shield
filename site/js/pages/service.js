@@ -19,7 +19,7 @@ function notFound(services) {
         el('p', { class: 'prose', style: 'margin:20px 0 34px',
                   text: 'That page does not exist. Here is everything we do.' }),
         el('div', { class: 'cards' }, services
-          .filter(s => s.category === 'cleaning' && s.quotable)
+          .filter(s => ['cleaning', 'winter'].includes(s.category) && s.quotable)
           .map(s => el('a', { class: 'card', href: `service.html?s=${encodeURIComponent(s.key)}` }, [
             el('h3', { text: s.name }),
             el('p', { text: s.blurb || '' }),
@@ -33,6 +33,11 @@ function notFound(services) {
 function sectionEl(children, attrs = {}) {
   return el('section', attrs, [el('div', { class: 'container' }, children)]);
 }
+
+const CATEGORY = {
+  cleaning: { label: 'Exterior care', href: 'care.html' },
+  winter:   { label: 'Winter services', href: 'winter.html' }
+};
 
 function renderService(service, allServices) {
   const d = service.detail || {};
@@ -62,7 +67,8 @@ function renderService(service, allServices) {
       el('nav', { class: 'where', 'aria-label': 'Breadcrumb' }, [
         el('a', { href: 'index.html', text: 'Nova Shield' }),
         el('i'),
-        el('a', { href: 'index.html#services', text: 'Exterior cleaning' }),
+        el('a', { href: CATEGORY[service.category].href,
+                  text: CATEGORY[service.category].label }),
         el('i'),
         el('b', { text: service.name })
       ]),
@@ -70,8 +76,9 @@ function renderService(service, allServices) {
       d.intro ? el('p', { class: 'lede', text: d.intro }) : null,
       el('div', { class: 'hero-actions' }, [
         el('a', { class: 'button button--gold', href: '#quote', text: 'Request a Quote' }),
-        el('a', { class: 'button button--ghost', href: 'index.html#services',
-                  text: 'All exterior services' })
+        el('a', { class: 'button button--ghost',
+                  href: CATEGORY[service.category].href,
+                  text: `All ${CATEGORY[service.category].label.toLowerCase()}` })
       ])
     ])
   ]);
@@ -211,17 +218,19 @@ function renderService(service, allServices) {
 }
 
 async function init() {
-  await mountChrome('cleaning');
 
   const key = new URLSearchParams(window.location.search).get('s');
   const services = await listPublicServices();
   const service = key ? await getService(key) : null;
 
-  if (!service || service.category !== 'cleaning') {
+  const TEMPLATED = ['cleaning', 'winter'];
+  if (!service || !TEMPLATED.includes(service.category)) {
+    await mountChrome(null);
     notFound(services);
     return;
   }
 
+  await mountChrome(service.category);
   renderService(service, services);
   mountReveals();
 

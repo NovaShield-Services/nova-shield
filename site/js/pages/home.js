@@ -11,8 +11,12 @@ import { MOOD_GROUPS, DEMO_MODES } from '../lib/lighting-assets.js';
    from the services table -- it is not a second catalogue. Only the group
    headings and their order live here, because that is presentation. */
 const GROUPS = [
-  { id: 'light',  label: '01 / Light',  test: s => s.category === 'lighting' },
-  { id: 'care',   label: '02 / Care',   test: s => s.category === 'cleaning' },
+  { id: 'light',  label: '01 / Light',  hub: 'lighting.html',
+    test: s => s.category === 'lighting' },
+  { id: 'care',   label: '02 / Care',   hub: 'care.html',
+    test: s => s.category === 'cleaning' },
+  { id: 'winter', label: '03 / Winter', hub: 'winter.html',
+    test: s => s.category === 'winter' }
 ];
 
 async function renderMatrix() {
@@ -32,7 +36,7 @@ async function renderMatrix() {
 
   clear(host).append(...groups.map(g =>
     el('div', { class: 'matrix-group' }, [
-      el('div', { class: 'matrix-label', text: g.label }),
+      el('a', { class: 'matrix-label', href: g.hub, text: g.label }),
       el('div', { class: 'matrix-items' }, g.items.map(s =>
         el('a', { class: 'mitem', 'data-service': s.key,
                   href: s.category === 'lighting'

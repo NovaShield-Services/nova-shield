@@ -14,14 +14,20 @@ const brandLockup = () => el('span', { class: 'brandart brandart--lockup brand-l
                                        role: 'img', 'aria-label': 'Nova Shield Maintenance Services' });
 
 
+/* Three worlds, each with a hub page. Individual services live inside their
+   hub rather than in the top-level navigation, which kept the bar from growing
+   to thirteen items. */
 const NAV = [
-  { href: 'lighting-permanent.html', label: 'Permanent Lighting', key: 'permanent' },
-  { href: 'lighting-christmas.html', label: 'Christmas Lighting', key: 'christmas' },
-  { href: 'index.html#services',     label: 'Exterior Cleaning',  key: 'cleaning' },
-  { href: 'index.html#about',        label: 'About',              key: 'about' }
+  { href: 'lighting.html', label: 'Lighting',       key: 'lighting' },
+  { href: 'care.html',     label: 'Exterior Care',  key: 'cleaning' },
+  { href: 'winter.html',   label: 'Winter',         key: 'winter'   },
+  { href: 'index.html#about', label: 'About',       key: 'about'    }
 ];
 
+const NAV_ALIAS = { permanent: 'lighting', christmas: 'lighting' };
+
 export function renderHeader(activeKey) {
+  activeKey = NAV_ALIAS[activeKey] || activeKey;
   const links = NAV.map(item => el('a', {
     href: item.href, text: item.label,
     'aria-current': item.key === activeKey ? 'page' : null
@@ -73,7 +79,8 @@ export function renderHeader(activeKey) {
 export async function renderFooter() {
   const [settings, services] = await Promise.all([getPublicSettings(), listPublicServices()]);
   const company = settings.company || {};
-  const cleaning = services.filter(s => s.category === 'cleaning');
+  const cleaning = services.filter(s => s.category === 'cleaning' && s.quotable);
+  const winter   = services.filter(s => s.category === 'winter'   && s.quotable);
 
   return el('footer', { class: 'site' }, [
     el('div', { class: 'container' }, [
@@ -85,13 +92,20 @@ export async function renderFooter() {
         ]),
         el('div', { class: 'footer-links' }, [
           el('div', {}, [
-            el('span', { text: 'Lighting' }),
+            el('a', { class: 'foot-hub', href: 'lighting.html', text: 'Lighting' }),
             el('a', { href: 'lighting-permanent.html', text: 'Permanent Outdoor Lighting' }),
             el('a', { href: 'lighting-christmas.html', text: 'Christmas Lighting' })
           ]),
           el('div', {}, [
-            el('span', { text: 'Exterior Care' }),
+            el('a', { class: 'foot-hub', href: 'care.html', text: 'Exterior Care' }),
             ...cleaning.slice(0, 5).map(s =>
+              el('a', { href: `service.html?s=${encodeURIComponent(s.key)}`, text: s.name })),
+            cleaning.length > 5
+              ? el('a', { href: 'care.html', text: `All ${cleaning.length} services →` }) : null
+          ]),
+          el('div', {}, [
+            el('a', { class: 'foot-hub', href: 'winter.html', text: 'Winter' }),
+            ...winter.map(s =>
               el('a', { href: `service.html?s=${encodeURIComponent(s.key)}`, text: s.name }))
           ]),
           el('div', {}, [

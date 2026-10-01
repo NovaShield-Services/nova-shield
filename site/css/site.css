@@ -628,3 +628,42 @@ footer.site { padding: 56px 0 38px; }
   .where { gap:6px 10px; }
   .where a { padding:9px 0; }
 }
+
+/* --- category hubs -------------------------------------------------------- */
+[data-service="winter_property_care"] { --accent:#9ec5e8; --accent-soft:rgba(158,197,232,.11) }
+[data-service="winter_deicing_cables"]{ --accent:#7fb2d9; --accent-soft:rgba(127,178,217,.11) }
+[data-category="lighting"] { --accent:#e8c87a; --accent-soft:rgba(232,200,122,.10) }
+[data-category="cleaning"] { --accent:#6fb3d8; --accent-soft:rgba(111,179,216,.10) }
+[data-category="winter"]   { --accent:#9ec5e8; --accent-soft:rgba(158,197,232,.11) }
+
+.hero--cat .hero-bg--atmos { background:
+    radial-gradient(1100px 620px at 20% 10%, var(--accent-soft), transparent 62%),
+    radial-gradient(900px 520px at 82% 36%, rgba(28,193,163,.07), transparent 64%),
+    repeating-linear-gradient(104deg, rgba(255,255,255,.015) 0 2px, transparent 2px 150px),
+    linear-gradient(170deg, #09182c 0%, #050e1f 54%, var(--ink) 100%); }
+
+/* service index on a hub: a list that reads like a contents page */
+.svc-index { margin-top:40px; border-top:1px solid var(--line); }
+.svc-row { display:grid; grid-template-columns:54px 1fr 34px; gap:22px; align-items:start;
+  padding:26px 4px; border-bottom:1px solid var(--line); text-decoration:none; color:inherit;
+  transition:background .34s, padding-left .34s; }
+.svc-row:hover { background:linear-gradient(90deg, var(--accent-soft), transparent 72%); padding-left:16px; }
+.svc-n { font-size:11px; letter-spacing:.16em; color:var(--accent); font-weight:700; padding-top:7px; }
+.svc-name { display:block; font-family:var(--serif); font-size:clamp(1.3rem,2.4vw,1.9rem);
+  font-weight:540; letter-spacing:-.02em; margin-bottom:6px; }
+.svc-row:hover .svc-name { color:var(--accent); }
+.svc-blurb { display:block; color:var(--muted); font-size:15px; line-height:1.6; max-width:62ch; }
+.svc-go { font-size:20px; color:var(--muted); text-align:right; padding-top:4px; transition:.34s; }
+.svc-row:hover .svc-go { color:var(--accent); transform:translateX(5px); }
+
+@media (max-width:760px){
+  .svc-row { grid-template-columns:34px 1fr 22px; gap:14px; padding:22px 2px; }
+}
+.footer-links .foot-hub { color:var(--cream); font-weight:600; letter-spacing:.02em;
+  text-decoration:none; margin-bottom:4px; display:block; }
+.footer-links .foot-hub:hover { color:var(--gold-2); }
+a.matrix-label { text-decoration:none; transition:color .25s; }
+a.matrix-label:hover { color:var(--gold-2); }
+/* Footer links measured 22px tall, just under the 24px WCAG target minimum. */
+.footer-links a { display:block; padding:5px 0; }
+@media (pointer:coarse), (max-width:760px){ .footer-links a { padding:8px 0; } }
