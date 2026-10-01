@@ -667,3 +667,15 @@ a.matrix-label:hover { color:var(--gold-2); }
 /* Footer links measured 22px tall, just under the 24px WCAG target minimum. */
 .footer-links a { display:block; padding:5px 0; }
 @media (pointer:coarse), (max-width:760px){ .footer-links a { padding:8px 0; } }
+
+/* hub comparison rows */
+.compare { display:grid; gap:0; border-top:1px solid var(--line); }
+.compare-row { display:grid; grid-template-columns:1fr 28px; gap:14px 18px; align-items:start;
+  padding:24px 4px; border-bottom:1px solid var(--line); text-decoration:none; color:inherit;
+  transition:background .34s, padding-left .34s; }
+.compare-row:hover { background:linear-gradient(90deg, var(--accent-soft), transparent 72%); padding-left:14px; }
+.compare-title { font-family:var(--serif); font-size:1.22rem; font-weight:540; letter-spacing:-.015em; }
+.compare-row:hover .compare-title { color:var(--accent); }
+.compare-text { grid-column:1; color:var(--muted); font-size:15px; line-height:1.6; }
+.compare-go { grid-row:1; grid-column:2; color:var(--muted); text-align:right; transition:.3s; }
+.compare-row:hover .compare-go { color:var(--accent); transform:translateX(4px); }

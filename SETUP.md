@@ -170,7 +170,36 @@ where o.bucket_id = 'request-photos' and a.id is null
   and o.created_at < now() - interval '24 hours';
 ```
 
-## 6. Optional clean-up
+## 6. Winter pricing is placeholder  (review before the season)
+
+The two winter services are live, quotable, and fully wired into the pricing
+engine — but their rates are market placeholders, not your numbers:
+
+| Service | Unit | Rate | Minimum |
+|---|---|---|---|
+| Winter Property Care | per visit | $55.00 | $45.00 |
+| Roof & Gutter De-Icing Cables | per linear foot | $14.00 | $450.00 |
+
+`pricing_rules` is date-versioned, so changing a rate never alters a quote
+already sent. Change them from the admin Settings screen, or:
+
+```sql
+-- close the old rate and open a new one, preserving history
+update public.pricing_rules set effective_to = now()
+ where service_id = (select id from public.services where key='winter_property_care')
+   and effective_to is null;
+
+insert into public.pricing_rules (service_id, rate, minimum, note)
+select id, 65.00, 50.00, 'Reviewed before the 2026/27 season'
+  from public.services where key='winter_property_care';
+```
+
+Salting is priced as a **flat** per-visit amount ($18 as needed, $30 every
+visit), not a multiplier — a material cost must never be multiplied by a
+quantity-derived subtotal. That is the same structural point that caused the
+original concrete bug.
+
+## 7. Optional clean-up
 
 Legacy tables, unused by every site and by the admin app:
 

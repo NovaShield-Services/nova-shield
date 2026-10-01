@@ -47,8 +47,75 @@ const CATEGORIES = {
   }
 };
 
+/* Each hub carries one substantial editorial block of its own. Without it a
+   hub is just a menu, and the thing a customer most needs before choosing is
+   usually an explanation rather than a list. */
+const EXTRA = {
+  lighting: {
+    chip: 'Choosing between them',
+    title: 'Permanent or seasonal?',
+    note: 'They are not competing products. One is a fixture, the other is a service you book each year.',
+    rows: [
+      ['Permanent outdoor lighting',
+       'Fitted once into the soffit and yours every night after that — warm white most evenings, any colour when you want one. Costs more up front and nothing after.',
+       'lighting-permanent.html'],
+      ['Seasonal Christmas lighting',
+       'We design it, install it in the fall, remove it after the season and store it under your name. Nothing to buy, nothing to store, cheaper every year after the first.',
+       'lighting-christmas.html']
+    ]
+  },
+  cleaning: {
+    chip: 'Before you pick a service',
+    title: 'Pressure is not\nthe default.',
+    note: 'Most exterior damage we are called to look at was caused by cleaning, not by dirt.',
+    prose: [
+      'Soft washing uses low pressure and a cleaning solution that breaks down algae, mildew and road film, then rinses. It is the right answer for siding, roofs and anything with a seam water can get behind.',
+      'Pressure washing uses the force of the water itself. It belongs on hard, non-porous surfaces built to take it — driveways, walkways, patios and steps.',
+      'Using the second where the first belongs is how water ends up behind siding, how a roof loses granules, and how joint sand gets blown out of interlock. Every service below says which method it uses and why.'
+    ]
+  },
+  winter: {
+    chip: 'When to book',
+    title: 'Both winter jobs\nare autumn jobs.',
+    note: 'Neither can be arranged well once the weather has already turned.',
+    rows: [
+      ['De-icing cable — before the freeze',
+       'Cable is fitted to a dry, accessible roof. Once there is ice on the overhang it is too late to install for that season.',
+       'service.html?s=winter_deicing_cables'],
+      ['Clearing — before the first snowfall',
+       'A route and a scope agreed in October is a service. The same conversation in January is a scramble, and we may already be full.',
+       'service.html?s=winter_property_care']
+    ]
+  }
+};
+
 function paragraphs(text) {
   return text.split('\n').map((line, i) => i === 0 ? line : [el('br'), line]).flat();
+}
+
+function extraBlock(key) {
+  const x = EXTRA[key];
+  if (!x) return null;
+
+  const body = x.prose
+    ? el('div', {}, x.prose.map(t => el('p', { class: 'prose', style: 'margin-bottom:14px', text: t })))
+    : el('div', { class: 'compare' }, x.rows.map(([title, text, href]) =>
+        el('a', { class: 'compare-row', href }, [
+          el('span', { class: 'compare-title', text: title }),
+          el('span', { class: 'compare-text', text }),
+          el('span', { class: 'compare-go', text: '→' })
+        ])));
+
+  return el('section', {}, [
+    el('div', { class: 'container split split--offset' }, [
+      el('div', {}, [
+        el('div', { class: 'chip', text: x.chip }),
+        el('h2', {}, paragraphs(x.title)),
+        x.note ? el('p', { class: 'prose', style: 'margin-top:16px', text: x.note }) : null
+      ]),
+      body
+    ])
+  ]);
 }
 
 async function init() {
@@ -105,7 +172,7 @@ async function init() {
     ])
   ]);
 
-  main.append(hero, list);
+  main.append(hero, extraBlock(key), list);
 
   if (cfg.gallery) {
     const gallery = createMoodGallery(MOOD_GROUPS);
