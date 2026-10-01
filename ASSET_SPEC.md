@@ -76,7 +76,7 @@ sky blends in. These are needed for any light ground, print, or small mark use.
 - **Lighting/mood:** deep blue sky, not black. Warm light against cool sky — that contrast *is* the brand
 - **Where:** homepage hero, full bleed
 - **Text overlay:** **yes, heavy** — headline, paragraph, two buttons. Keep the left 45% visually calm
-- **Dev placeholder:** `gallery/photo-02.jpg` (640×480, too small)
+- **Dev placeholder:** `gallery/photo-03.jpg` — **measured upscale 1.58x at 1024px and 2.25x at 1440px.** Because of that it is no longer presented as a hero photograph: the homepage hero softens and recedes it so it reads as atmospheric depth. Supplying HERO-01 and removing the `.hero--home .hero-bg` treatment block in site.css restores a real hero image
 
 ### `LIGHT-01` — Permanent lighting story
 - **Subject:** roofline with peaks/gables lit warm white at night; whole-house read
@@ -111,6 +111,13 @@ sky blends in. These are needed for any light ground, print, or small mark use.
 - **Aspect:** 3:2 · 2400×1600
 - **Where:** homepage seasonal band; Christmas page hero
 - **Text overlay:** yes
+
+### `XMAS-04` — Seasonal hero  (BLOCKING for the Christmas page)
+- **Purpose:** the Christmas page currently runs an atmospheric hero because only one honestly seasonal photograph exists in the library, and it is 640px
+- **Subject:** a Nova Shield seasonal display at blue hour, snow on the ground, warm windows. A normal Sault Ste. Marie house, not a mansion
+- **Composition:** wide, calm sky on one side for the headline
+- **Aspect:** 16:9 · 2880×1620, plus a 4:5 crop at 1400×1750
+- **Text overlay:** yes, heavy
 
 ### `XMAS-02` — Install in progress
 - **Subject:** crew installing in autumn daylight, ladder, clips, roofline
