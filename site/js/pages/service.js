@@ -39,11 +39,32 @@ function renderService(service, allServices) {
   const metaDesc = document.querySelector('meta[name="description"]');
   if (metaDesc && d.intro) metaDesc.setAttribute('content', d.intro.slice(0, 160));
 
+  // presentation accent per service -- the CSS carries the hue, the database
+  // still carries the service itself
+  document.documentElement.dataset.service = service.key;
+
+  // Every file currently in assets/gallery/ is a LIGHTING photograph. Using one
+  // behind "Glass, frames and the edges people miss" put a purple Christmas
+  // display behind a window-cleaning page. Until a real matching asset exists
+  // (ASSET_SPEC.md), the hero renders atmospherically instead of lying.
+  // A file outside assets/gallery/ is treated as a real, verified asset.
+  const generic = !d.hero || /^photo-\d+\.jpg$/.test(d.hero);
+  const heroBg = generic
+    ? el('div', { class: 'hero-bg hero-bg--atmos' })
+    : el('div', { class: 'hero-bg', style: `background-image:url('assets/${d.hero}')` });
+
   const hero = el('section', { class: 'hero hero--page' }, [
-    el('div', { class: 'hero-bg',
-      style: `background-image:url('assets/gallery/${d.hero || 'photo-02.jpg'}')` }),
+    heroBg,
+    generic ? el('span', { class: 'asset-note',
+      text: `Image pending — ${(service.key || '').toUpperCase().slice(0,4)}-01 in ASSET_SPEC.md` }) : null,
     el('div', { class: 'container hero-content' }, [
-      el('div', { class: 'eyebrow', text: 'Exterior cleaning' }),
+      el('nav', { class: 'where', 'aria-label': 'Breadcrumb' }, [
+        el('a', { href: 'index.html', text: 'Nova Shield' }),
+        el('i'),
+        el('a', { href: 'index.html#services', text: 'Exterior cleaning' }),
+        el('i'),
+        el('b', { text: service.name })
+      ]),
       el('h1', { text: d.headline || service.name }),
       d.intro ? el('p', { class: 'lede', text: d.intro }) : null,
       el('div', { class: 'hero-actions' }, [
@@ -79,8 +100,8 @@ function renderService(service, allServices) {
         el('div', {}, [el('div', { class: 'eyebrow', text: "What's included" }),
                        el('h2', { text: 'What you are paying for.' })])
       ]),
-      el('ul', { class: 'factlist' }, d.included.map(item =>
-        el('li', {}, [el('span', { class: 'dot' }), el('div', {}, [el('strong', { text: item })])])))
+      el('ul', { class: 'spec' }, d.included.map((item, i) =>
+        el('li', {}, [el('span', { text: String(i + 1).padStart(2, '0') }), el('div', { text: item })])))
     ]));
   }
 
@@ -110,11 +131,11 @@ function renderService(service, allServices) {
         el('div', {}, [el('div', { class: 'eyebrow', text: 'What to expect' }),
                        el('h2', { text: 'Before you book.' })])
       ]),
-      el('div', { class: 'cards' }, d.expect.map(x =>
-        el('div', { class: 'card' }, [
+      el('div', { class: 'expect' }, d.expect.map(x =>
+        el('div', { class: 'expect-item' }, [
           el('h3', { text: x.title }), el('p', { text: x.body })
         ])))
-    ]));
+    ], { class: 'band-soft' }));
   }
 
   if (d.good_to_know?.length) {
@@ -137,12 +158,24 @@ function renderService(service, allServices) {
                        el('h2', { text: 'While we are there.' })]),
         el('p', { text: 'One visit is cheaper than two, and the setup time is already spent.' })
       ]),
-      el('div', { class: 'cards' }, pairs.map(s =>
-        el('a', { class: 'card', href: `service.html?s=${encodeURIComponent(s.key)}` }, [
+      el('div', { class: 'pairs' }, pairs.map(s => {
+        const img = (s.detail || {}).hero;
+        const realImg = img && !/^photo-\d+\.jpg$/.test(img);
+        const card = el('a', { class: 'pair-card', 'data-service': s.key,
+                               href: `service.html?s=${encodeURIComponent(s.key)}` }, [
           el('h3', { text: s.name }),
           el('p', { text: s.blurb || '' }),
           el('span', { class: 'card__more', text: 'What this involves →' })
-        ])))
+        ]);
+        // Resolve against the document: a relative URL inside a CSS custom
+        // property is resolved against the STYLESHEET that consumes it, which
+        // put these at /css/assets/... and 404'd.
+        if (realImg) {
+          const abs = new URL(`assets/${img}`, document.baseURI).href;
+          card.style.setProperty('--pair-img', `url('${abs}')`);
+        }
+        return card;
+      }))
     ]));
   }
 

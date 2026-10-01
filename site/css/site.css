@@ -4,21 +4,29 @@
    one stylesheet instead of three copies drifting apart. */
 
 :root {
-  --ink: #070c0d;
-  --ink-2: #0a1414;
-  --panel: rgba(255,255,255,.035);
-  --cream: #f6f1e6;
-  --muted: #9caea9;
-  --muted-lt: #c3d0cb;
-  --line: rgba(246,241,230,.12);
+  /* Ground sampled from the supplied brand banner: #02040f at its darkest.
+     The previous value (#070c0d) was a GREEN black; the brand night is blue. */
+  --ink: #03070f;
+  --ink-2: #071226;
+  --ink-3: #0b1b33;
+  --panel: rgba(140,180,230,.045);
+  --cream: #f3f6fa;
+  --muted: #8b9cb3;
+  --muted-lt: #bccbdd;
+  --line: rgba(170,200,235,.13);
+  --line-strong: rgba(170,200,235,.26);
   --gold: #e0a53f;
   --gold-2: #ffd48c;
+  /* the aurora in the banner peaks at #019d8b -- the existing teal was on-brand */
   --teal: #2bb6a8;
   --teal-2: #8be9db;
-  --shadow: 0 50px 110px rgba(0,0,0,.5);
-  --shadow-sm: 0 18px 40px rgba(0,0,0,.35);
-  --radius: 26px;
-  --radius-sm: 16px;
+  --violet: #7d6cf0;
+  --violet-2: #b9a9ff;
+  --shadow: 0 50px 110px rgba(0,0,0,.55);
+  --shadow-sm: 0 18px 40px rgba(0,0,0,.4);
+  /* 26px read as a SaaS dashboard card. Architecture has edges. */
+  --radius: 4px;
+  --radius-sm: 3px;
   --max: 1260px;
   --serif: 'Fraunces', Georgia, serif;
   --sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -30,10 +38,14 @@ html { scroll-behavior: smooth; }
 
 body {
   margin: 0;
+  /* Night, sampled from the brand banner (#02040f / #011630 / #001433), with the
+     aurora as a wash rather than a colour. Previously hardcoded green-black and
+     disconnected from --ink. */
   background:
-    radial-gradient(1100px 620px at 85% -8%, rgba(43,182,168,.10), transparent 60%),
-    radial-gradient(900px 500px at -5% 8%, rgba(224,165,63,.08), transparent 55%),
-    linear-gradient(180deg,#060b0b 0%, #0a1313 45%, #0b1615 100%);
+    radial-gradient(1200px 700px at 80% -10%, rgba(43,182,168,.11), transparent 62%),
+    radial-gradient(1000px 620px at -8% 10%, rgba(125,108,240,.08), transparent 58%),
+    radial-gradient(900px 500px at 50% 104%, rgba(43,182,168,.05), transparent 60%),
+    linear-gradient(180deg, #03070f 0%, #061127 46%, #040b1a 100%);
   background-attachment: fixed;
   color: var(--cream);
   font-family: var(--sans);
@@ -253,4 +265,129 @@ footer.site { padding: 56px 0 38px; }
   .field--full, .form-note, .form-error { grid-column: auto; }
   .svc-boxes { grid-template-columns: 1fr; }
   .copyright { flex-direction: column; }
+}
+
+/* ============================================================================
+   SERVICE PAGE SYSTEM
+   Reusable primitives. The structure and copy of these pages was already the
+   strongest thing on the site; this is the visual layer on top of it.
+   ========================================================================== */
+
+/* --- per-service accent -------------------------------------------------
+   Presentation only. Service DEFINITIONS stay in the services table; this is
+   a hue per key, the way a brand guide assigns a colour to a chapter.
+   Each is a cool, desaturated tint -- never a full-colour theme. */
+:root { --accent: var(--teal); --accent-soft: rgba(43,182,168,.11); }
+[data-service="siding"]            { --accent:#6fb3d8; --accent-soft:rgba(111,179,216,.11) }
+[data-service="roof_soft_wash"]    { --accent:#5e8fd4; --accent-soft:rgba(94,143,212,.11) }
+[data-service="gutter_brightening"]{ --accent:#9fb6c9; --accent-soft:rgba(159,182,201,.11) }
+[data-service="concrete"]          { --accent:#c0a98a; --accent-soft:rgba(192,169,138,.11) }
+[data-service="deck"]              { --accent:#d2a06a; --accent-soft:rgba(210,160,106,.11) }
+[data-service="fence"]             { --accent:#b99a77; --accent-soft:rgba(185,154,119,.11) }
+[data-service="windows"]           { --accent:#7fd4e3; --accent-soft:rgba(127,212,227,.11) }
+[data-service="moss"]              { --accent:#6fc79a; --accent-soft:rgba(111,199,154,.11) }
+[data-service="graffiti"]          { --accent:#9d8fe0; --accent-soft:rgba(157,143,224,.11) }
+
+/* --- contextual location line (not a browser breadcrumb) ---------------- */
+.where { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  font-size:11px; letter-spacing:.2em; text-transform:uppercase; font-weight:600;
+  color:var(--muted); margin-bottom:18px; }
+.where a { color:var(--muted); text-decoration:none; transition:color .25s; }
+.where a:hover { color:var(--accent); }
+.where i { width:16px; height:1px; background:var(--line-strong); display:block; flex:none; }
+.where b { color:var(--accent); font-weight:600; }
+
+/* --- hero: accent wash so each service reads differently ---------------- */
+.hero--page .hero-bg::after {
+  content:''; position:absolute; inset:0;
+  background:
+    radial-gradient(900px 520px at 18% 12%, var(--accent-soft), transparent 64%),
+    linear-gradient(180deg, rgba(3,7,15,.74) 0%, rgba(3,7,15,.5) 42%, rgba(3,7,15,.94) 88%, var(--ink) 100%);
+}
+.hero--page .eyebrow { color:var(--accent); }
+
+/* --- section rhythm: alternating ground, with seams that dissolve -------- */
+.band-soft { position:relative; background:
+    linear-gradient(180deg, transparent, rgba(140,180,230,.028) 14%, rgba(140,180,230,.028) 86%, transparent); }
+.band-soft::before, .band-soft::after {
+  content:''; position:absolute; left:0; right:0; height:1px;
+  background:linear-gradient(90deg, transparent, var(--line), transparent); }
+.band-soft::before { top:0 } .band-soft::after { bottom:0 }
+
+/* --- included list: a specification, not bullet soup -------------------- */
+.spec { list-style:none; padding:0; margin:34px 0 0; border-top:1px solid var(--line); }
+.spec li { display:grid; grid-template-columns:40px 1fr; gap:18px; align-items:baseline;
+  padding:20px 2px; border-bottom:1px solid var(--line); font-size:16.5px; color:var(--muted-lt); }
+.spec li span { font-size:11px; letter-spacing:.14em; color:var(--accent); font-weight:600; }
+
+/* --- expect: ruled entries, not a card grid ----------------------------- */
+.expect { display:grid; gap:0; margin-top:34px; border-top:1px solid var(--line); }
+.expect-item { display:grid; grid-template-columns:minmax(200px,.9fr) 1.6fr; gap:clamp(20px,4vw,56px);
+  padding:28px 2px; border-bottom:1px solid var(--line); align-items:start;
+  transition:background .4s, padding .4s; }
+.expect-item:hover { background:linear-gradient(90deg, var(--accent-soft), transparent 72%); padding-left:16px; }
+.expect-item h3 { font-size:clamp(1.15rem,2vw,1.5rem); line-height:1.2; }
+.expect-item p { margin:0; color:var(--muted); font-size:15.5px; }
+
+/* --- pairs with: image-led, not text cards ------------------------------ */
+.pairs { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:18px; margin-top:34px; }
+.pair-card { position:relative; display:block; text-decoration:none; color:inherit; overflow:hidden;
+  border:1px solid var(--line); border-radius:var(--radius); min-height:230px;
+  display:flex; flex-direction:column; justify-content:flex-end; padding:24px;
+  transition:border-color .35s, transform .35s; }
+.pair-card::before { content:''; position:absolute; inset:0; background-size:cover; background-position:center;
+  opacity:.34; transition:opacity .5s, transform .7s; z-index:0; }
+.pair-card::after { content:''; position:absolute; inset:0; z-index:1;
+  background:linear-gradient(180deg, rgba(3,7,15,.35), rgba(3,7,15,.9)); }
+.pair-card > * { position:relative; z-index:2; }
+.pair-card:hover { border-color:var(--accent); transform:translateY(-3px); }
+.pair-card:hover::before { opacity:.5; transform:scale(1.04); }
+.pair-card h3 { margin-bottom:8px; }
+.pair-card p { font-size:14.5px; color:var(--muted-lt); margin:0 0 14px; }
+.pair-card .card__more { color:var(--accent); font-size:13px; font-weight:600; }
+
+/* --- quote section seam -------------------------------------------------- */
+.quote { position:relative; }
+.quote::before { content:''; position:absolute; left:0; right:0; top:0; height:260px; pointer-events:none;
+  background:radial-gradient(900px 300px at 50% 0%, var(--accent-soft), transparent 70%); }
+
+@media (max-width:820px){
+  .expect-item { grid-template-columns:1fr; gap:10px; }
+  .spec li { grid-template-columns:30px 1fr; gap:12px; }
+}
+@media (prefers-reduced-motion:reduce){
+  .expect-item, .pair-card, .pair-card::before { transition:none !important; }
+}
+.pair-card::before { background-image: var(--pair-img, none); }
+
+/* Atmospheric hero for services whose real photograph does not exist yet.
+   Light behaving against architecture, built from the service accent --
+   deliberately abstract rather than a stand-in photo of the wrong thing. */
+.hero-bg--atmos {
+  background:
+    radial-gradient(1100px 620px at 22% 8%,  var(--accent-soft), transparent 62%),
+    radial-gradient(900px 520px at 84% 34%, rgba(125,108,240,.10), transparent 64%),
+    repeating-linear-gradient(104deg, rgba(255,255,255,.016) 0 2px, transparent 2px 140px),
+    linear-gradient(170deg, #071226 0%, #050e1f 52%, var(--ink) 100%);
+}
+.hero-bg--atmos::after {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(180deg, transparent 54%, rgba(3,7,15,.75) 86%, var(--ink) 100%);
+}
+.asset-note {
+  position:absolute; left:50%; bottom:18px; transform:translateX(-50%); z-index:4;
+  font-size:10px; letter-spacing:.14em; text-transform:uppercase; font-weight:600;
+  color:rgba(240,246,252,.5); background:rgba(3,7,15,.6); border:1px solid var(--line);
+  padding:5px 12px; border-radius:2px; white-space:nowrap;
+}
+
+/* Mobile hero: the headline is the hero on a phone, so stop reserving desktop
+   breathing room above it. */
+@media (max-width:760px){
+  .hero--page { min-height:auto; }
+  .hero--page .hero-content { padding:112px 0 44px; }
+  .hero--page h1 { font-size:clamp(2.1rem,8.6vw,3rem); }
+  .where { font-size:10px; letter-spacing:.16em; gap:8px; margin-bottom:14px; }
+  .asset-note { left:20px; right:auto; transform:none; bottom:12px; font-size:9px; padding:4px 9px;
+    max-width:calc(100% - 40px); white-space:normal; }
 }
