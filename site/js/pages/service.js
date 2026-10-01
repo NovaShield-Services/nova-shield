@@ -2,6 +2,7 @@ import { el, clear } from '../../../shared/dom.js';
 import { mountChrome } from '../components/chrome.js';
 import { createQuoteForm } from '../components/quote-form.js';
 import { getService, listPublicServices } from '../lib/site-api.js';
+import { mountReveals } from '../lib/reveal.js';
 
 /* One template, but the content per service is genuinely different and lives
    in services.detail — so the page and the admin price book are the same list,
@@ -13,7 +14,7 @@ function notFound(services) {
   clear(main).append(
     el('section', { style: 'padding-top:160px' }, [
       el('div', { class: 'container' }, [
-        el('div', { class: 'eyebrow', text: 'Exterior cleaning' }),
+        el('div', { class: 'chip', text: 'Exterior cleaning' }),
         el('h1', { text: 'Pick a service' }),
         el('p', { class: 'prose', style: 'margin:20px 0 34px',
                   text: 'That page does not exist. Here is everything we do.' }),
@@ -82,7 +83,7 @@ function renderService(service, allServices) {
     blocks.push(sectionEl([
       el('div', { class: 'split' }, [
         el('div', {}, [
-          el('div', { class: 'eyebrow', text: 'The method' }),
+          el('div', { class: 'chip', text: 'The method' }),
           el('h2', { text: d.why.title }),
           el('p', { class: 'prose', style: 'margin-top:20px', text: d.why.body })
         ]),
@@ -96,12 +97,13 @@ function renderService(service, allServices) {
     ]));
   } else if (d.included?.length) {
     blocks.push(sectionEl([
-      el('div', { class: 'section-head' }, [
-        el('div', {}, [el('div', { class: 'eyebrow', text: "What's included" }),
-                       el('h2', { text: 'What you are paying for.' })])
-      ]),
-      el('ul', { class: 'spec' }, d.included.map((item, i) =>
-        el('li', {}, [el('span', { text: String(i + 1).padStart(2, '0') }), el('div', { text: item })])))
+      el('div', { class: 'split split--offset' }, [
+        el('div', {}, [el('div', { class: 'chip', text: "What's included" }),
+                       el('h2', { text: 'What you are paying for.' })]),
+        el('ul', { class: 'spec', style: 'margin-top:0' }, d.included.map((item, i) =>
+          el('li', {}, [el('span', { text: String(i + 1).padStart(2, '0') }),
+                        el('div', { text: item })])))
+      ])
     ]));
   }
 
@@ -117,7 +119,7 @@ function renderService(service, allServices) {
   if (d.optional?.length) {
     blocks.push(sectionEl([
       el('div', { class: 'section-head' }, [
-        el('div', {}, [el('div', { class: 'eyebrow', text: 'Optional extras' }),
+        el('div', {}, [el('div', { class: 'chip', text: 'Optional extras' }),
                        el('h2', { text: 'Only if you want them.' })]),
         el('p', { text: 'Quoted separately so you are not paying for work you did not ask for.' })
       ]),
@@ -128,7 +130,7 @@ function renderService(service, allServices) {
   if (d.expect?.length) {
     blocks.push(sectionEl([
       el('div', { class: 'section-head' }, [
-        el('div', {}, [el('div', { class: 'eyebrow', text: 'What to expect' }),
+        el('div', {}, [el('div', { class: 'chip', text: 'What to expect' }),
                        el('h2', { text: 'Before you book.' })])
       ]),
       el('div', { class: 'expect' }, d.expect.map(x =>
@@ -140,9 +142,11 @@ function renderService(service, allServices) {
 
   if (d.good_to_know?.length) {
     blocks.push(sectionEl([
-      el('div', { class: 'good-to-know', style: 'margin:0;border-top:0;padding-top:0' }, [
-        el('span', { class: 'gtk-title', text: 'Good to know' }),
-        el('ul', {}, d.good_to_know.map(g => el('li', { text: g })))
+      el('div', { class: 'split split--offset' }, [
+        el('div', {}, [el('div', { class: 'chip', text: 'Good to know' }),
+                       el('h2', { text: 'Before we arrive.' })]),
+        el('ul', { class: 'feature-list', style: 'margin-top:0' }, d.good_to_know.map(g =>
+          el('li', {}, [el('span', { class: 'fdot' }), el('div', { text: g })])))
       ])
     ], { style: 'padding-top:0' }));
   }
@@ -154,7 +158,7 @@ function renderService(service, allServices) {
   if (pairs.length) {
     blocks.push(sectionEl([
       el('div', { class: 'section-head' }, [
-        el('div', {}, [el('div', { class: 'eyebrow', text: 'Often booked together' }),
+        el('div', {}, [el('div', { class: 'chip', text: 'Often booked together' }),
                        el('h2', { text: 'While we are there.' })]),
         el('p', { text: 'One visit is cheaper than two, and the setup time is already spent.' })
       ]),
@@ -182,7 +186,7 @@ function renderService(service, allServices) {
   const quoteSection = el('section', { class: 'quote', id: 'quote' }, [
     el('div', { class: 'container quote-wrap' }, [
       el('div', {}, [
-        el('div', { class: 'eyebrow', text: service.name }),
+        el('div', { class: 'chip', text: service.name }),
         el('h2', { text: 'Request a quote.' }),
         el('p', { class: 'prose', style: 'margin-top:18px', text:
           'We have pre-selected this service for you — tick anything else you want looking at ' +
@@ -219,6 +223,7 @@ async function init() {
   }
 
   renderService(service, services);
+  mountReveals();
 
   const host = document.getElementById('quoteFormHost');
   try {

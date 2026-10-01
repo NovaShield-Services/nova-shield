@@ -391,3 +391,147 @@ footer.site { padding: 56px 0 38px; }
   .asset-note { left:20px; right:auto; transform:none; bottom:12px; font-size:9px; padding:4px 9px;
     max-width:calc(100% - 40px); white-space:normal; }
 }
+
+/* ============================================================================
+   HYBRID SYSTEM — Version 4's composition on V5's ground
+   ========================================================================== */
+
+/* --- chip: a label above a heading, from V4 ----------------------------- */
+.chip { display:inline-block; font-size:10.5px; letter-spacing:.22em; text-transform:uppercase;
+  font-weight:700; color:var(--muted); border:1px solid var(--line); border-radius:2px;
+  padding:7px 12px; margin-bottom:18px; }
+.chip--gold { color:var(--gold-2); border-color:rgba(224,165,63,.34);
+  background:linear-gradient(160deg, rgba(224,165,63,.10), transparent); }
+
+/* --- asymmetric splits, so no two sections are the same shape ------------ */
+.split--offset { grid-template-columns:5fr 7fr; align-items:start; }
+.split--media  { grid-template-columns:6.2fr 5.8fr; align-items:center; }
+.split--rev .stage { order:2; }
+.split--rev > div:not(.stage) { order:1; }
+
+/* --- hero ---------------------------------------------------------------- */
+.hero--home { min-height:94svh; display:flex; align-items:flex-end; padding-bottom:7vh; }
+.hero-scrim { position:absolute; inset:0; z-index:1;
+  background:
+    linear-gradient(180deg, rgba(3,7,15,.82) 0%, rgba(3,7,15,.34) 30%, rgba(3,7,15,.80) 72%, var(--ink) 100%),
+    linear-gradient(90deg, rgba(3,7,15,.80) 0%, rgba(3,7,15,.22) 58%, transparent 100%); }
+.hero--home .hero-content { position:relative; z-index:2; padding-bottom:0; }
+.hero--home h1 { max-width:14ch; }
+.hero--home .lede { max-width:52ch; }
+/* northern ridge seam, carried over from Version 4 */
+.ridge { position:absolute; left:0; right:0; bottom:-1px; height:120px; z-index:1; pointer-events:none;
+  background:var(--ink);
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120' preserveAspectRatio='none'%3E%3Cpath d='M0 120V74l60 18 55-34 48 26 62-44 70 40 54-28 66 34 58-46 72 42 60-26 64 36 56-30 70 38 62-22 58 30 65-34V120z' fill='%23000'/%3E%3C/svg%3E") bottom/100% 100% no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120' preserveAspectRatio='none'%3E%3Cpath d='M0 120V74l60 18 55-34 48 26 62-44 70 40 54-28 66 34 58-46 72 42 60-26 64 36 56-30 70 38 62-22 58 30 65-34V120z' fill='%23000'/%3E%3C/svg%3E") bottom/100% 100% no-repeat; }
+
+/* --- feature bullets: title + description + accent dot, from V4 ---------- */
+.feature-list { list-style:none; padding:0; margin:30px 0 0; display:grid; gap:20px; }
+.feature-list li { display:grid; grid-template-columns:10px 1fr; gap:16px; align-items:start; }
+.feature-list strong { display:block; font-family:var(--serif); font-weight:540; font-size:1.12rem;
+  color:var(--cream); margin-bottom:5px; letter-spacing:-.01em; }
+.feature-list div { color:var(--muted); font-size:15.5px; line-height:1.6; }
+.fdot { width:9px; height:9px; border-radius:50%; margin-top:8px; background:var(--teal);
+  box-shadow:0 0 0 4px rgba(43,182,168,.12); }
+.fdot--gold { background:var(--gold); box-shadow:0 0 0 4px rgba(224,165,63,.14); }
+
+.arrow-link { display:inline-flex; align-items:center; gap:9px; margin-top:28px;
+  color:var(--gold-2); text-decoration:none; font-size:14px; font-weight:600; }
+.arrow-link span { transition:transform .3s; }
+.arrow-link:hover span { transform:translateX(5px); }
+
+/* --- stage: the lighting preview + mode toggle --------------------------- */
+.feature { position:relative; }
+.feature--alt { background:linear-gradient(180deg, transparent, rgba(140,180,230,.03), transparent); }
+.stage { position:relative; margin:0; border:1px solid var(--line); border-radius:var(--radius);
+  overflow:hidden; background:var(--ink-2); }
+.stage img { width:100%; aspect-ratio:4/3; object-fit:cover; display:block;
+  transition:opacity .34s ease, filter .34s ease; }
+.stage img.is-swapping { opacity:.25; filter:blur(3px); }
+.stage::after { content:''; position:absolute; inset:0; pointer-events:none;
+  box-shadow:inset 0 -70px 90px -40px rgba(3,7,15,.9); }
+.stage-cap { position:absolute; left:16px; bottom:16px; z-index:2; font-size:11px;
+  letter-spacing:.1em; text-transform:uppercase; color:var(--muted-lt); }
+.stage-controls { position:absolute; right:16px; top:16px; z-index:2; display:flex; gap:6px; }
+.mode { font:inherit; font-size:11.5px; font-weight:600; letter-spacing:.06em; cursor:pointer;
+  padding:8px 13px; border-radius:2px; border:1px solid var(--line-strong);
+  background:rgba(3,7,15,.62); color:var(--muted-lt); backdrop-filter:blur(8px);
+  transition:background .28s, color .28s, border-color .28s; }
+.mode:hover { color:var(--cream); border-color:var(--gold-2); }
+.mode.is-on { background:var(--gold); border-color:var(--gold); color:#231204; }
+.mode:focus-visible { outline:2px solid var(--gold-2); outline-offset:2px; }
+
+/* --- mood gallery: Version 4's best section ----------------------------- */
+.moodset { display:grid; gap:54px; margin-top:44px; }
+.mood-head { display:flex; align-items:baseline; gap:18px; flex-wrap:wrap;
+  padding-bottom:14px; border-bottom:1px solid var(--line); margin-bottom:22px; }
+.mood-head h3 { font-size:1.45rem; }
+.mood-head p { margin:0; font-size:14.5px; color:var(--muted); }
+.mood-shots { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px; }
+.shot { margin:0; position:relative; overflow:hidden; border-radius:var(--radius-sm);
+  border:1px solid var(--line); }
+.shot img { width:100%; aspect-ratio:4/3; object-fit:cover; display:block;
+  transition:transform .6s ease; }
+.shot:hover img { transform:scale(1.04); }
+.shot figcaption { position:absolute; left:0; right:0; bottom:0; padding:28px 14px 11px;
+  font-size:11.5px; color:var(--muted-lt);
+  background:linear-gradient(180deg, transparent, rgba(3,7,15,.9)); }
+
+/* --- capability matrix: replaces the nine-card grid ---------------------- */
+.matrix { display:grid; gap:34px; margin-top:40px; }
+.matrix-label { font-size:10.5px; letter-spacing:.22em; text-transform:uppercase; font-weight:700;
+  color:var(--gold-2); padding-bottom:12px; border-bottom:1px solid var(--line); margin-bottom:4px; }
+.matrix-items { display:grid; grid-template-columns:repeat(auto-fit,minmax(252px,1fr)); gap:0; }
+.mitem { display:block; padding:20px 18px 20px 0; text-decoration:none; color:inherit;
+  border-bottom:1px solid var(--line); transition:background .34s, padding-left .34s; }
+.mitem:hover { background:linear-gradient(90deg, var(--accent-soft,rgba(43,182,168,.08)), transparent 70%);
+  padding-left:14px; }
+.mitem-name { display:block; font-family:var(--serif); font-size:1.18rem; font-weight:540;
+  letter-spacing:-.015em; margin-bottom:5px; }
+.mitem:hover .mitem-name { color:var(--accent, var(--teal-2)); }
+.mitem-blurb { display:block; font-size:13.5px; color:var(--muted); line-height:1.55; }
+
+/* --- about plate: the brand mark used as artwork ------------------------- */
+.plate { border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;
+  background:linear-gradient(165deg, var(--ink-3), var(--ink-2) 60%, var(--ink));
+  display:grid; place-items:center; padding:44px 30px; }
+.plate img { width:100%; max-width:420px; height:auto; display:block; }
+
+/* --- reveal on scroll ---------------------------------------------------- */
+.reveal { opacity:0; transform:translateY(16px); }
+.reveal.is-in { opacity:1; transform:none;
+  transition:opacity .7s cubic-bezier(.22,.8,.3,1), transform .7s cubic-bezier(.22,.8,.3,1); }
+
+@media (max-width:900px){
+  .split--offset, .split--media { grid-template-columns:1fr; gap:30px; }
+  .split--rev .stage, .split--rev > div:not(.stage) { order:initial; }
+  .hero--home { min-height:auto; padding:0 0 46px; }
+  .hero--home .hero-content { padding-top:118px; }
+  .hero--home h1 { max-width:none; }
+  .stage-controls { right:12px; top:12px; }
+  .mood-head { display:block; }
+  .mood-head p { margin-top:6px; }
+  .ridge { height:70px; }
+}
+@media (prefers-reduced-motion:reduce){
+  .reveal { opacity:1 !important; transform:none !important; }
+  .stage img, .shot img, .arrow-link span { transition:none !important; }
+}
+
+/* A lone gallery image was stretching to 1260px from a 640px source. Fixed
+   columns mean one image occupies a third, not the whole row. */
+.mood-shots { grid-template-columns:repeat(3,1fr); }
+.hero--home .hero-bg { background-position:center 42%; }
+@media (max-width:1000px){ .mood-shots { grid-template-columns:repeat(2,1fr); } }
+@media (max-width:640px){ .mood-shots { grid-template-columns:1fr; } }
+
+/* The "Maintenance Services" sub-line crowds the lockup on a phone; Version 4
+   dropped it at this size and was right to. */
+@media (max-width:500px){
+  .brand-sub { display:none; }
+  .brand-name { font-size:1.05rem; letter-spacing:.06em; }
+}
+
+/* Touch targets: the mode toggles measured 36px, under the 44px guideline. */
+@media (pointer:coarse), (max-width:760px){
+  .mode { padding:12px 15px; min-height:44px; }
+}

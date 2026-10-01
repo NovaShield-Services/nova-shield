@@ -68,6 +68,13 @@ their own sky inside. Verified in all three prototypes.
 - **Aspect:** 4:5 · 1600×2000
 - **Text overlay:** no — caption beneath
 
+### `LIGHT-04` — The same house, daylight, lights off  (NEW — blocks the toggle's third state)
+- **Subject:** exactly the house in `LIGHT-01`, photographed in daylight with the system off
+- **Why:** the homepage lighting toggle currently has two states (Warm white / Colour). An "Off" state is the most persuasive one — it proves the channel disappears by day — but faking it by dimming a night photograph would be dishonest, so it is not built until this exists
+- **Composition:** identical camera position and framing to `LIGHT-01`. Lock the tripod
+- **Aspect:** 4:3 · 2400×1800
+- **Text overlay:** no
+
 ### `LIGHT-03` — Colour scene
 - **Subject:** same house as LIGHT-01 if possible, in a colour scene (single tasteful colour, not rainbow)
 - **Why:** pairs with LIGHT-01 as a before/after of *mood*, not of cleaning
