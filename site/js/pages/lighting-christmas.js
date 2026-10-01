@@ -1,7 +1,9 @@
 import { clear, el } from '../../../shared/dom.js';
 import { mountChrome } from '../components/chrome.js';
 import { createQuoteForm } from '../components/quote-form.js';
-import { getPublicSettings } from '../lib/site-api.js';
+import { getPublicSettings, listPublicServices } from '../lib/site-api.js';
+import { PHOTOS } from '../lib/lighting-assets.js';
+import { mountReveals } from '../lib/reveal.js';
 
 async function applySettings() {
   const settings = await getPublicSettings();
@@ -10,21 +12,68 @@ async function applySettings() {
   // Install/removal windows are settings, so shifting the season is an admin
   // edit rather than a copy change across several pages.
   if (lighting.christmas_install_window) {
-    const el1 = document.getElementById('installWindow');
-    if (el1) el1.textContent = lighting.christmas_install_window;
-    for (const node of document.querySelectorAll('.js-install-window')) {
-      node.textContent = lighting.christmas_install_window;
-    }
+    const main = document.getElementById('installWindow');
+    if (main) main.textContent = lighting.christmas_install_window;
+    // mid-sentence the range reads better as "October and November"; month
+    // names stay capitalised because they are proper nouns
+    const inline = lighting.christmas_install_window.replace(/\s*[–-]\s*/, ' and ');
+    for (const node of document.querySelectorAll('.js-install-window')) node.textContent = inline;
   }
   if (lighting.christmas_removal_window) {
-    const el2 = document.getElementById('removalWindow');
-    if (el2) el2.textContent = lighting.christmas_removal_window;
+    const r = document.getElementById('removalWindow');
+    if (r) r.textContent = lighting.christmas_removal_window;
   }
 }
 
+/* The only honestly seasonal photograph in the library is the warm-white
+   install with a wreath on the door. The colour scenes are permanent-lighting
+   shots and are NOT reused here just because they are festive-looking.
+   Real seasonal imagery is specified as XMAS-01/02/03 in ASSET_SPEC.md. */
+function renderSeasonImage() {
+  const slot = document.getElementById('seasonSlot');
+  if (!slot) return;
+  const p = PHOTOS.warm_wreath;
+  slot.replaceWith(el('figure', { class: 'stage' }, [
+    el('img', { src: p.src, alt: p.alt, loading: 'lazy', decoding: 'async' }),
+    el('figcaption', { class: 'stage-cap', text: p.caption })
+  ]));
+}
+
+async function renderRelated() {
+  const host = document.getElementById('relatedHost');
+  if (!host) return;
+  const services = await listPublicServices();
+  const wanted = ['permanent_lighting', 'gutter_brightening', 'windows'];
+  const items = wanted
+    .map(k => services.find(s => s.key === k && s.quotable))
+    .filter(Boolean);
+
+  if (!items.length) { host.remove(); return; }
+
+  clear(host).append(...items.map(s => el('a', {
+    class: 'pair-card', 'data-service': s.key,
+    href: s.key === 'permanent_lighting'
+      ? 'lighting-permanent.html'
+      : `service.html?s=${encodeURIComponent(s.key)}`
+  }, [
+    el('h3', { text: s.name }),
+    el('p', { text: s.blurb || '' }),
+    el('span', { class: 'card__more', text: 'What this involves →' })
+  ])));
+}
+
 async function init() {
+  document.documentElement.dataset.service = 'christmas_lighting';
   await mountChrome('christmas');
-  await applySettings().catch(err => console.error(err));
+
+  renderSeasonImage();
+
+  await Promise.allSettled([
+    applySettings().catch(err => console.error(err)),
+    renderRelated().catch(err => console.error(err))
+  ]);
+
+  mountReveals();
 
   const host = document.getElementById('quoteFormHost');
   try {

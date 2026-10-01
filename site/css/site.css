@@ -586,3 +586,45 @@ footer.site { padding: 56px 0 38px; }
   .brand .brand-mark { width:34px; height:34px; }
   .hero-lockup { width:min(280px,66vw); margin-bottom:20px; }
 }
+
+/* Homepage hero: the only source available is 640px on the long edge, so at
+   1440 it would be upscaled 2.25x and read as a soft photograph. Rather than
+   present it as a hero image it is treated as atmospheric depth -- slightly
+   softened, pushed back, with the architectural gradient carrying the frame.
+   The sharp photography lives where it renders at native scale: the lighting
+   demo and the gallery tiles. Replace with HERO-01 and remove this block. */
+.hero--home .hero-bg {
+  filter: blur(2.5px) saturate(.88);
+  transform: scale(1.06);          /* hides the blur's soft edge */
+  opacity: .72;
+}
+.hero--home .hero-scrim {
+  background:
+    radial-gradient(1200px 680px at 24% 16%, rgba(28,193,163,.09), transparent 62%),
+    linear-gradient(180deg, rgba(3,7,15,.88) 0%, rgba(3,7,15,.52) 30%, rgba(3,7,15,.86) 72%, var(--ink) 100%),
+    linear-gradient(90deg, rgba(3,7,15,.86) 0%, rgba(3,7,15,.34) 58%, rgba(3,7,15,.1) 100%);
+}
+
+/* Lighting service accents. Warm, not coloured -- the lighting pages are about
+   warm white against night, and the brand gold is the right temperature. */
+[data-service="permanent_lighting"] { --accent:#e8c87a; --accent-soft:rgba(232,200,122,.10) }
+[data-service="christmas_lighting"] { --accent:#e7a86a; --accent-soft:rgba(231,168,106,.11) }
+.hero--light .hero-bg--atmos { background:
+    radial-gradient(1100px 620px at 20% 10%, rgba(232,200,122,.11), transparent 62%),
+    radial-gradient(900px 520px at 82% 36%, rgba(28,193,163,.09), transparent 64%),
+    repeating-linear-gradient(104deg, rgba(255,255,255,.015) 0 2px, transparent 2px 150px),
+    linear-gradient(170deg, #09182c 0%, #050e1f 54%, var(--ink) 100%); }
+.hero--xmas .hero-bg--atmos { background:
+    radial-gradient(1100px 620px at 22% 12%, rgba(231,168,106,.12), transparent 62%),
+    radial-gradient(880px 500px at 80% 40%, rgba(28,193,163,.07), transparent 66%),
+    repeating-linear-gradient(104deg, rgba(255,255,255,.015) 0 2px, transparent 2px 150px),
+    linear-gradient(170deg, #0b1526 0%, #060f1f 54%, var(--ink) 100%); }
+
+/* Breadcrumb links were 16px tall -- below the 24px WCAG minimum and far below
+   a comfortable touch target. Padding gives them height without changing the
+   visual rhythm of the line. */
+.where a { display:inline-block; padding:6px 0; }
+@media (pointer:coarse), (max-width:760px){
+  .where { gap:6px 10px; }
+  .where a { padding:9px 0; }
+}

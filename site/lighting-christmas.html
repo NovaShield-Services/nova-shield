@@ -24,15 +24,20 @@
 
 </head>
 <body>
+<a class="sr-only" href="#main">Skip to content</a>
 <main id="main">
 
-  <section class="hero hero--page">
-    <div class="hero-bg" style="background-image:url('assets/gallery/photo-05.jpg')"></div>
+  <section class="hero hero--page hero--xmas" id="top">
+    <div class="hero-bg hero-bg--atmos"></div>
     <div class="container hero-content">
-      <div class="eyebrow eyebrow--gold">Nova — the season</div>
-      <h1>Christmas lighting,<br>completely handled.</h1>
-      <p class="lede">We put it up in the fall. We take it down after the season. We keep it
-        stored for you until next year. You never buy a set, climb a ladder in November,
+      <nav class="where" aria-label="Breadcrumb">
+        <a href="index.html">Nova Shield</a><i></i>
+        <a href="index.html#services">Lighting</a><i></i>
+        <b>Seasonal Christmas Lighting</b>
+      </nav>
+      <h1>The season,<br>completely handled.</h1>
+      <p class="lede">We design it, install it in the fall, take it down after the season, and keep
+        it stored under your name until next year. You never buy a set, climb a ladder in November,
         or open a box of tangled lights in December.</p>
       <div class="hero-actions">
         <a class="button button--gold" href="#quote">Book a Property Assessment</a>
@@ -41,71 +46,101 @@
     </div>
   </section>
 
-  <section id="season">
-    <div class="container">
-      <div class="section-head">
-        <div><div class="eyebrow">The arrangement</div><h2>You are not buying lights.<br>You are buying the season.</h2></div>
-        <p>The lighting stays ours. Everything that usually makes holiday lighting a chore
-           stays ours too.</p>
+  <section class="band-soft">
+    <div class="container split split--offset">
+      <div>
+        <div class="chip">The arrangement</div>
+        <h2>You are not buying<br>lights. You are<br>buying the season.</h2>
       </div>
-
-      <div class="cards cards--2">
-        <div class="card">
-          <h3>What you never deal with again</h3>
-          <ul class="factlist" style="margin-top:8px">
-            <li><span class="dot"></span><div><strong>Buying a set</strong><span>No upfront purchase, and no replacing a display that has faded to three different shades of white.</span></div></li>
-            <li><span class="dot"></span><div><strong>Getting on a ladder</strong><span>In November, on a roofline, in Northern Ontario. We would rather it was us.</span></div></li>
-            <li><span class="dot"></span><div><strong>Storing it</strong><span>Nothing takes up a shelf in your garage for ten months of the year.</span></div></li>
-            <li><span class="dot"></span><div><strong>A bulb failing</strong><span>If something in your stored set stops working, that is ours to fix. It gets repaired or replaced before it goes back up.</span></div></li>
-          </ul>
-        </div>
-        <div class="card">
-          <h3>What you get each year</h3>
-          <ul class="factlist" style="margin-top:8px">
-            <li><span class="dot"></span><div><strong>The same display, fitted to your house</strong><span>Cut and laid out for your roofline the first year, then reused. It fits because it was made to.</span></div></li>
-            <li><span class="dot"></span><div><strong>A cheaper second season</strong><span>The first year covers the design and the set. After that you are paying for installation and removal, not for building it again.</span></div></li>
-            <li><span class="dot"></span><div><strong>Modular, so it is repairable</strong><span>We use commercial-grade modular lighting specifically because a failed section can be replaced instead of the whole run.</span></div></li>
-            <li><span class="dot"></span><div><strong>Two visits and nothing else</strong><span>One to install, one to remove. You do not need to be home for either.</span></div></li>
-          </ul>
-        </div>
+      <div>
+        <p class="lede">The display stays ours. That is the point of it — because everything that
+          normally makes holiday lighting a chore stays ours as well.</p>
+        <ul class="feature-list">
+          <li><span class="fdot fdot--gold"></span><div><strong>No set to buy</strong>
+            No upfront purchase, and no replacing a display that has faded to three different
+            shades of white.</div></li>
+          <li><span class="fdot"></span><div><strong>No ladder in November</strong>
+            On a roofline, in the cold, in Northern Ontario. We would rather it was us.</div></li>
+          <li><span class="fdot"></span><div><strong>Nothing stored in your garage</strong>
+            It does not take up a shelf for ten months of the year.</div></li>
+          <li><span class="fdot"></span><div><strong>A failure is ours to fix</strong>
+            If something in your stored set stops working, it is repaired or replaced before it
+            goes back up.</div></li>
+        </ul>
       </div>
     </div>
   </section>
 
-  <section>
+  <section class="feature" id="season">
+    <div class="container split split--media">
+      <div id="seasonSlot"></div>
+      <div>
+        <div class="chip chip--gold">Fitted to your house</div>
+        <h2>Cut once,<br>then reused.</h2>
+        <p class="lede">The first season we measure your elevations and build the display to fit
+          them — the runs are cut and laid out for your roofline specifically. After that, the same
+          display goes back on the same house, which is why it fits and why it keeps fitting.</p>
+        <ul class="feature-list">
+          <li><span class="fdot fdot--gold"></span><div><strong>A cheaper second season</strong>
+            The first year covers the design and the set. After that you are paying for
+            installation and removal, not for building it again.</div></li>
+          <li><span class="fdot"></span><div><strong>Commercial-grade and modular</strong>
+            We use modular lighting specifically so a failed section can be replaced instead of the
+            whole run.</div></li>
+          <li><span class="fdot"></span><div><strong>Two visits, and nothing else</strong>
+            One to install, one to remove. You do not need to be home for either.</div></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="band-soft">
     <div class="container">
       <div class="section-head">
-        <div><div class="eyebrow">The calendar</div><h2>How a season runs.</h2></div>
+        <div><div class="chip">The calendar</div><h2>How a season runs.</h2></div>
+        <p>Dates move a little with the weather. The shape of it does not.</p>
       </div>
       <div class="steps">
-        <div class="step"><b>01 / CONSULT</b><h4>What you are picturing</h4><p>Warm white and classic, or colour. Roofline only, or trees and entry as well.</p></div>
-        <div class="step"><b>02 / DESIGN</b><h4>Measured and planned</h4><p>We measure the elevations and plan the run, then quote it before anything is ordered.</p></div>
-        <div class="step"><b>03 / INSTALL</b><h4><span id="installWindow">October – November</span></h4><p>Fitted and tested before the cold really arrives. Lit whenever you want it lit.</p></div>
-        <div class="step"><b>04 / SEASON</b><h4>Through the holidays</h4><p>If something stops working while it is up, call us. It is our equipment.</p></div>
-        <div class="step"><b>05 / REMOVE</b><h4><span id="removalWindow">January – February</span></h4><p>Taken down, checked over, and stored under your name for next year.</p></div>
+        <div class="step"><b>01 / Consult</b><h4>What you are picturing</h4>
+          <p>Warm white and classic, or colour. Roofline only, or trees and the entry as well.</p></div>
+        <div class="step"><b>02 / Design</b><h4>Measured and quoted</h4>
+          <p>We measure the elevations and plan the run, then quote it before anything is ordered.</p></div>
+        <div class="step"><b>03 / Install</b><h4><span id="installWindow">October – November</span></h4>
+          <p>Fitted and tested before the cold really arrives. Lit whenever you want it lit.</p></div>
+        <div class="step"><b>04 / Season</b><h4>Through the holidays</h4>
+          <p>If something stops working while it is up, call us. It is our equipment.</p></div>
+        <div class="step"><b>05 / Remove</b><h4><span id="removalWindow">January – February</span></h4>
+          <p>Taken down, checked over, and stored under your name for next year.</p></div>
       </div>
     </div>
   </section>
 
   <section>
-    <div class="container split">
-      <div class="media"><img src="assets/gallery/photo-06.jpg" alt="House lit for the holiday season"></div>
+    <div class="container split split--offset">
       <div>
-        <div class="eyebrow">Straight answers</div>
-        <h2>The questions people actually ask.</h2>
-        <div class="callout" style="margin-top:24px">
+        <div class="chip">Straight answers</div>
+        <h2>The questions<br>people actually ask.</h2>
+      </div>
+      <div>
+        <div class="callout">
           <h3>So I do not own the lights?</h3>
-          <p>Correct — they stay ours, and that is deliberate. It is why you are not buying a set,
-             not storing it, and not paying for it when a section fails. Your display is kept under
-             your name and goes back on your house next season.</p>
+          <p>Correct — and that is deliberate. It is why you are not buying a set, not storing it,
+             and not paying for it when a section fails. Your display is kept under your name and
+             goes back on your house next season.</p>
         </div>
         <div class="callout" style="margin-top:14px">
           <h3>What if I stop after one year?</h3>
           <p>Then we collect the set at removal and that is the end of it. You are never left with
-             equipment you did not want or a contract for seasons you have not asked for.</p>
+             equipment you did not want, or a contract for seasons you have not asked for.</p>
         </div>
         <div class="callout" style="margin-top:14px">
-          <h3>Can I have permanent lighting instead?</h3>
+          <h3>Can I have it lit before December?</h3>
+          <p>Yes. We install through <span class="js-install-window">October and November</span> and
+             you decide when it comes on. Plenty of people have it fitted early and leave it dark
+             until they are ready.</p>
+        </div>
+        <div class="callout" style="margin-top:14px">
+          <h3>Could I just have permanent lighting instead?</h3>
           <p>Plenty of people move to it after a season or two, because it covers the holidays and
              every other night of the year.
              <a href="lighting-permanent.html" style="color:var(--teal-2)">Have a look at permanent lighting</a>.</p>
@@ -114,20 +149,30 @@
     </div>
   </section>
 
+  <section class="band-soft">
+    <div class="container">
+      <div class="section-head">
+        <div><div class="chip">Also worth knowing</div><h2>While we are<br>on the roofline.</h2></div>
+        <p>The access is already set up, which is the expensive part of most exterior work.</p>
+      </div>
+      <div class="pairs" id="relatedHost"></div>
+    </div>
+  </section>
+
   <section class="quote" id="quote">
     <div class="container quote-wrap">
       <div>
-        <div class="eyebrow">Christmas lighting</div>
-        <h2>Book a property assessment.</h2>
+        <div class="chip chip--gold">Christmas lighting</div>
+        <h2>Book a property<br>assessment.</h2>
         <p class="prose" style="margin-top:18px">Seasonal installs are measured the same way as
           permanent ones — by the footage we are actually lighting. Get in early: the fall
           installation calendar fills from the front.</p>
         <div class="good-to-know">
           <span class="gtk-title">Worth knowing first</span>
           <ul>
-            <li><strong>Book before the snow.</strong> Installation runs <span class="js-install-window">October – November</span>, and earlier bookings get the better slots.</li>
-            <li><strong>Removal is included.</strong> It is part of the season, not an extra call-out in January.</li>
-            <li><strong>Returning customers pay less.</strong> Your display already exists and already fits.</li>
+            <li><strong>Priced by measured footage. </strong>Not by a flat package that may not fit your house.</li>
+            <li><strong>The first season costs more. </strong>It includes designing and building the display. Later seasons do not.</li>
+            <li><strong>Book before the fall. </strong>Installation runs <span class="js-install-window">October and November</span> and fills from the front.</li>
           </ul>
         </div>
       </div>

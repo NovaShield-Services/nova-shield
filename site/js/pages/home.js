@@ -3,6 +3,9 @@ import { mountChrome } from '../components/chrome.js';
 import { createQuoteForm } from '../components/quote-form.js';
 import { listPublicServices, getPublicSettings } from '../lib/site-api.js';
 import { mountReveals } from '../lib/reveal.js';
+import { createLightingDemo } from '../components/lighting-demo.js';
+import { createMoodGallery } from '../components/mood-gallery.js';
+import { MOOD_GROUPS, DEMO_MODES } from '../lib/lighting-assets.js';
 
 /* The capability matrix replaces the nine identical cards. Grouping is derived
    from the services table -- it is not a second catalogue. Only the group
@@ -41,84 +44,18 @@ async function renderMatrix() {
     ])));
 }
 
-/* The mood gallery: the strongest idea in Version 4. Grouped by how the system
-   is used rather than by service, because that is how the product is actually
-   experienced. Images are the real job photos; captions stay neutral until
-   provenance is confirmed (see ASSET_COMPARISON.md). */
-const MOODS = [
-  { title: 'Warm white', note: 'The everyday setting — subtle, architectural, designed around your roofline.',
-    shots: [
-      ['photo-08.jpg', 'Bungalow roofline at blue hour'],
-      ['photo-02.jpg', 'Single-storey roofline at dusk'],
-      ['photo-09.jpg', 'Two-storey roofline, blue hour']
-    ] },
-  { title: 'Colour scenes', note: 'For holidays, birthdays and the evenings that are not ordinary.',
-    shots: [
-      ['photo-05.jpg', 'Teal scene, winter evening'],
-      ['photo-06.jpg', 'Single-colour scene across the front'],
-      ['photo-07.jpg', 'Multi-colour scene along the roofline']
-    ] },
-  { title: 'Soffit & detail', note: 'Low-profile channel, colour-matched so the hardware is not the feature.',
-    shots: [
-      ['photo-01.jpg', 'Channel colour options with LED modules']
-    ] }
-];
-
 function renderMoods() {
   const host = document.getElementById('moodGallery');
-  if (!host) return;
-  clear(host).append(...MOODS.map(m =>
-    el('div', { class: 'mood' }, [
-      el('div', { class: 'mood-head' }, [
-        el('h3', { text: m.title }),
-        el('p', { text: m.note })
-      ]),
-      el('div', { class: 'mood-shots' }, m.shots.map(([file, caption]) =>
-        el('figure', { class: 'shot' }, [
-          el('img', { src: `assets/gallery/${file}`, alt: caption,
-                      loading: 'lazy', decoding: 'async' }),
-          el('figcaption', { text: caption })
-        ])))
-    ])));
+  const gallery = createMoodGallery(MOOD_GROUPS);
+  if (host && gallery) clear(host).append(gallery);
 }
 
-/* The one signature interaction: it demonstrates the product rather than
-   decorating the page. An "off" state needs a real daylight photograph of the
-   same house (ASSET_SPEC LIGHT-04) -- faking it with a dimmed night shot would
-   be dishonest, so there are two states until that exists. */
-const MODES = {
-  warm:   { src: 'assets/gallery/photo-03.jpg', cap: 'Warm white — the everyday setting',
-            alt: 'Home with warm white permanent lighting along the roofline at night' },
-  colour: { src: 'assets/gallery/photo-07.jpg', cap: 'Colour scene — set from the app',
-            alt: 'Home with multi-colour permanent lighting along the roofline at night' }
-};
-
-function wireStage() {
-  const img = document.getElementById('stageImg');
-  const cap = document.getElementById('stageCap');
-  const buttons = [...document.querySelectorAll('.mode')];
-  if (!img || !buttons.length) return;
-
-  buttons.forEach(btn => btn.addEventListener('click', () => {
-    const mode = MODES[btn.dataset.mode];
-    if (!mode || btn.classList.contains('is-on')) return;
-
-    buttons.forEach(b => {
-      const on = b === btn;
-      b.classList.toggle('is-on', on);
-      b.setAttribute('aria-pressed', String(on));
-    });
-
-    img.classList.add('is-swapping');
-    const next = new Image();
-    next.onload = () => {
-      img.src = mode.src; img.alt = mode.alt;
-      if (cap) cap.textContent = mode.cap;
-      requestAnimationFrame(() => img.classList.remove('is-swapping'));
-    };
-    next.onerror = () => img.classList.remove('is-swapping');
-    next.src = mode.src;
-  }));
+function renderStage() {
+  const host = document.querySelector('.split--media');
+  const slot = document.getElementById('stageSlot');
+  const demo = createLightingDemo({ modes: DEMO_MODES });
+  if (slot && demo) slot.replaceWith(demo);
+  else if (host && demo) host.prepend(demo);
 }
 
 async function renderContact() {
@@ -144,7 +81,7 @@ async function init() {
   await mountChrome(null);
 
   renderMoods();
-  wireStage();
+  renderStage();
 
   // independent so one slow or failed section cannot blank the page
   await Promise.allSettled([renderMatrix(), renderContact()]);
