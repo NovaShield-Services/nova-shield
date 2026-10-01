@@ -15,16 +15,29 @@ is intact.
 
 ---
 
-## 1. Create your staff account  (required — nothing works without this)
+## 1. Create the first staff account  (required — nothing works without this)
 
-There are currently **no user accounts at all**, so the field tool cannot be
-signed into by anyone.
+There are currently **zero** Supabase auth users, so the field tool cannot be
+signed into by anyone. I did not create one: that would mean inventing a
+password, and a real credential should never originate in a chat transcript or
+a repository. These are the exact clicks.
 
-1. **Authentication → Users → Add user → Create new user**
-2. Email: `novashield@novashieldmaintenance.com`
-3. Set your own password, tick **Auto Confirm User**
+**Step 1 — create the user**
 
-Then grant access — signing in is not enough:
+1. Open the Supabase dashboard for project `xrgutmdgjzclaeyugsqg`
+2. Left sidebar → **Authentication**
+3. **Users** → green **Add user** button (top right) → **Create new user**
+4. Email: `novashield@novashieldmaintenance.com`
+5. Password: choose a strong one in your password manager — not reused
+6. Tick **Auto Confirm User**
+   *(without this the account stays unconfirmed and cannot sign in; the
+   built-in SMTP is rate limited to a couple of messages an hour)*
+7. **Create user**
+
+**Step 2 — grant it admin access**
+
+Signing in is not enough. Every table denies access unless the account is
+listed in `admin_users`. Left sidebar → **SQL Editor** → **New query**:
 
 ```sql
 insert into public.admin_users (user_id)
@@ -33,50 +46,85 @@ where email = 'novashield@novashieldmaintenance.com'
 on conflict do nothing;
 ```
 
-To revoke someone later:
+**Step 3 — confirm it worked**
+
+```sql
+select u.email, u.email_confirmed_at is not null as confirmed,
+       (a.user_id is not null) as is_admin
+from auth.users u
+left join public.admin_users a on a.user_id = u.id;
+```
+
+You want one row, `confirmed = true`, `is_admin = true`. If `confirmed` is
+false, go back and tick Auto Confirm User.
+
+**Step 4 — tell me**
+
+Once that row looks right, say so and I will drive the real admin UI with it:
+login, dashboard, requests, convert-to-job, sections, measurements, inspection,
+quote builder, send, settings — on desktop and mobile, with the database state
+checked at each step.
+
+**Adding your business partner later** is the same two steps with their email.
+To revoke someone:
 
 ```sql
 delete from public.admin_users
 where user_id = (select id from auth.users where email = 'them@example.com');
 ```
 
-## 2. Deploy the site to the production domain  (this is the main blocker)
+They stay signed in but every screen shows "Account not authorised" and no
+customer data is reachable.
 
-The public site is static files — no build step, no Node. It needs to be served
-at `https://novashieldmaintenance.com`, replacing the Squarespace parking page.
+## 2. Deploy the site  (waiting on Cloudflare)
 
-Whatever you host it on, two things must line up:
+Nameservers have been changed at Squarespace and Cloudflare shows the zone as
+**PENDING**. Nothing below can be done until it shows **ACTIVE**.
 
-1. **Cloudflare Turnstile → your widget → Allowed hostnames** must include
-   `novashieldmaintenance.com` (and `www.` if you serve that).
-2. The gate already restricts the server side to exactly those two hostnames,
-   defaulted in code, so a token minted anywhere else is refused even if
-   Cloudflare issued it.
+The deployment is prepared and tested locally. Everything you need is in
+**`deploy/`**, with step-by-step commands in **`deploy/README.md`**:
 
-**For local development**, add `localhost` and `127.0.0.1` to the widget's
-allowed hostnames and set the Edge Function secret
-`TURNSTILE_DEV_HOSTNAMES=localhost,127.0.0.1`. Both are needed — Cloudflare has
-to render the widget, and the server has to accept the hostname it reports.
-**`TURNSTILE_DEV_HOSTNAMES` must be unset in production**; the config check
-below warns loudly whenever it is set.
+| File | Purpose |
+|---|---|
+| `Caddyfile` | static server: routing, cache policy, security headers |
+| `cloudflared-config.yml` | tunnel ingress for the two hostnames |
+| `novashield-web.container` | systemd/podman unit for the web server |
+| `novashield-tunnel.container` | systemd/podman unit for cloudflared |
 
-Without this, the form on your own machine shows Turnstile error `110200` and
-refuses to submit. That is the current state.
+Architecture: `Cloudflare -> Tunnel -> cloudflared (podman) -> 127.0.0.1:8080
+Caddy (podman) -> nova-shield/ read-only`. **No router port is opened** —
+cloudflared dials outbound.
 
-## 3. Set the admin URL
+One thing to know: development served `/home/demiurge/Downloads`, which through
+a tunnel would have published your partnership agreement, the DNS settings PDF,
+torrents and the repo's `.git` history. Production roots at `nova-shield/` with
+dotfiles refused. Verified 404 on `/.git/config`, `/.gitignore`, `/SETUP.md`
+and traversal above the root.
 
-Notification emails include a link into the field tool. It is currently unset,
-so emails are sent **without the link**. Once the field tool has a URL:
+When the zone goes ACTIVE, also add both hostnames to the Turnstile widget's
+allowed list (dashboard → Turnstile → your widget). The server already restricts
+to exactly those two.
+
+**For local development**, add `localhost` and `127.0.0.1` to the widget and set
+the Edge Function secret `TURNSTILE_DEV_HOSTNAMES=localhost,127.0.0.1`. Both are
+needed. **It must stay unset in production** — the config check warns whenever
+it is set.
+
+## 3. Admin URL  (done)
+
+Set to `https://novashieldmaintenance.com/admin`, derived from the actual
+deployed layout rather than invented: the field tool is served at `/admin/` on
+the same origin and its router uses hash paths.
+
+Emails now link to `https://novashieldmaintenance.com/admin/#/requests`, which
+is a real route — verified rendering locally through the production server
+config. No redeploy is needed to change it later:
 
 ```sql
 update public.app_settings
-   set value = jsonb_build_object('base_url', 'https://your-admin-host/path')
+   set value = jsonb_build_object('base_url', 'https://.../admin')
  where key = 'admin';
 ```
-
-No redeploy needed — the worker reads it per run. Link construction is tested:
-a base of `https://x/admin` produces `https://x/admin/#/requests`, which is a
-real route.
 
 ## 4. Configuration that is already done
 

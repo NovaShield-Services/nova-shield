@@ -1,0 +1,25 @@
+# Podman Quadlet unit -- install to ~/.config/containers/systemd/
+#
+# Outbound-only connection to Cloudflare. Requires ~/.cloudflared to contain
+# config.yml and the tunnel credentials JSON.
+
+[Unit]
+Description=Cloudflare Tunnel for Nova Shield
+After=novashield-web.service
+Wants=novashield-web.service
+
+[Container]
+Image=docker.io/cloudflare/cloudflared:latest
+ContainerName=novashield-tunnel
+# Host network so cloudflared can reach the origin on 127.0.0.1:8080.
+Network=host
+Volume=%h/.cloudflared:/etc/cloudflared:ro,Z
+Exec=tunnel --config /etc/cloudflared/config.yml --no-autoupdate run
+NoNewPrivileges=true
+
+[Service]
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

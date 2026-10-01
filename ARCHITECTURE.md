@@ -53,11 +53,18 @@ edit in one place**, and all three skins pick it up on next load.
 
 ## Findings
 
-### 1. No cache-busting on static assets — real, will bite on deploy
+### 1. No cache-busting on static assets — FIXED in the production server
 Editing `api.js` had no effect until the page was loaded with a changed query
 string. In production a user could sit on a stale module for a long time.
-**Fix before launch:** version the asset URLs (`?v=<build>`) or serve
-`Cache-Control: no-cache` for `.js`/`.css` and long-cache only hashed files.
+
+**Fixed in `deploy/Caddyfile`:** `.html`/`.js`/`.css`/`.json` are served
+`Cache-Control: no-cache`, so they revalidate against an ETag before use — a
+deploy can never be masked by a cached module. Verified returning **304** with
+`If-None-Match`. Images and fonts get `max-age=31536000, immutable`.
+
+This is a server-side fix, so no `?v=` query strings are needed in source and
+nested module imports are covered too (which query-string versioning on entry
+points would have missed).
 
 ### 2. `JOB_STATUSES` is duplicated
 `admin/js/views/job.js` hardcodes the status list that also lives in the
@@ -203,3 +210,28 @@ sweep, or changing the constraint, if customer deletion ever becomes routine.
 there, the real Turnstile path cannot be exercised end to end, because
 Cloudflare binds tokens to allowed hostnames. This is the single remaining
 blocker to calling the system production-ready.
+
+
+### 14. The development document root was dangerously wide
+`python3 -m http.server 8123` served **`/home/demiurge/Downloads`** — 41
+entries including the partnership agreement, the domain's DNS settings PDF,
+torrents, game directories, and the repository's own `.git`. That was harmless
+on loopback and would have been a serious exposure through a tunnel.
+
+Production roots at `nova-shield/` with path-scoped handlers, dotfiles refused
+and listings off. Verified 404: `/.git/config`, `/.gitignore`, `/SETUP.md`,
+`/deploy/Caddyfile`, and traversal above the root.
+
+### 15. get_customer_quote returns HTTP 500 for an unknown id
+The RPC raises `P0002` with the customer-safe message "Quote not found.", which
+PostgREST maps to 500. The customer experience is correct — `quote.js` catches
+it and renders "Quote not available" — but a mistyped link logging as a server
+error is noise. Returning NULL instead of raising would make it a clean 200.
+Cosmetic; left alone to avoid changing a working contract.
+
+### 16. The field tool is reachable at a public path
+`/admin/` is served from the same origin. Defence in depth is real and verified
+(Supabase Auth, `admin_users`, RLS, table GRANTs — anonymous and non-admin both
+rejected at the data layer), but the login page itself is Internet-facing.
+**Recommended:** a Cloudflare Access policy on the `admin` path, which adds an
+identity check without needing a second domain. Steps in `deploy/README.md`.

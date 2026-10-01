@@ -1,0 +1,25 @@
+# Podman Quadlet unit -- install to ~/.config/containers/systemd/
+#
+# Serves the Nova Shield static files on loopback for Cloudflare Tunnel.
+# Read-only mount: the web server can never write to the repository.
+
+[Unit]
+Description=Nova Shield static web server (Caddy)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=docker.io/library/caddy:2-alpine
+ContainerName=novashield-web
+# Loopback only. Never 0.0.0.0 -- the tunnel is the only way in.
+PublishPort=127.0.0.1:8080:8080
+Volume=/home/demiurge/Downloads/nova-shield:/srv:ro,Z
+Volume=/home/demiurge/Downloads/nova-shield/deploy/Caddyfile:/etc/caddy/Caddyfile:ro,Z
+NoNewPrivileges=true
+
+[Service]
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

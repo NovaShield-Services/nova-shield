@@ -1,0 +1,28 @@
+# Cloudflare Tunnel ingress for Nova Shield.
+#
+# Copy to ~/.cloudflared/config.yml on the Bazzite host and replace
+# <TUNNEL_ID> with the id printed by `cloudflared tunnel create nova-shield`.
+#
+# Nothing here opens a router port. cloudflared makes an OUTBOUND connection to
+# Cloudflare; the origin listens on loopback only and is unreachable from the
+# LAN or the Internet except through the tunnel.
+
+tunnel: <TUNNEL_ID>
+credentials-file: /etc/cloudflared/<TUNNEL_ID>.json
+
+# Be conservative: the origin is plain HTTP on loopback, so there is no TLS to
+# verify, and we do not want cloudflared buffering large responses.
+originRequest:
+  connectTimeout: 10s
+  noTLSVerify: false
+  httpHostHeader: novashieldmaintenance.com
+
+ingress:
+  - hostname: novashieldmaintenance.com
+    service: http://127.0.0.1:8080
+
+  - hostname: www.novashieldmaintenance.com
+    service: http://127.0.0.1:8080
+
+  # Anything else that somehow reaches this tunnel is refused.
+  - service: http_status:404

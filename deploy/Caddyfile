@@ -1,0 +1,66 @@
+# Nova Shield — production static server.
+#
+# Sits behind Cloudflare Tunnel, so it listens on loopback only and does NOT
+# terminate TLS. Cloudflare does that at the edge.
+#
+# Document root is the nova-shield/ directory, NOT the parent folder. The
+# development server served /home/demiurge/Downloads, which would have
+# published 40+ unrelated personal files and the repository's .git directory.
+
+{
+	admin off
+	auto_https off
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+:8080 {
+	encode zstd gzip
+
+	header {
+		-Server
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(), microphone=(), camera=(), interest-cohort=()"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://xrgutmdgjzclaeyugsqg.supabase.co https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; form-action 'self'; base-uri 'self'; object-src 'none'"
+	}
+
+	# Never serve dotfiles. .git lives in this tree.
+	@dotfiles path_regexp dotfiles /\.[^/]+(/|$)
+	respond @dotfiles 404
+
+	# Cache policy. This is the fix for the stale-module problem: HTML, JS and
+	# CSS must revalidate (cheap 304 via ETag), so a deploy is never masked by
+	# a browser holding an old module. Media is content that does not change
+	# under the same name, so it can be cached hard.
+	@code path *.html *.js *.css *.json /
+	header @code Cache-Control "no-cache"
+
+	@media path *.jpg *.jpeg *.png *.webp *.svg *.ico *.woff2 *.woff
+	header @media Cache-Control "public, max-age=31536000, immutable"
+
+	# Shared modules are imported by BOTH apps, so they must be reachable at
+	# /shared/. A module at /js/lib/site-api.js importing ../../../shared/x.js
+	# clamps to /shared/x.js, which lands here.
+	handle /shared/* {
+		root * /srv
+		file_server
+	}
+
+	# Internal field tool. Same origin, own path. Protect with Cloudflare
+	# Access once the zone is ACTIVE -- see deploy/README.md.
+	redir /admin /admin/
+	handle /admin/* {
+		root * /srv
+		file_server
+	}
+
+	# Public website is the default.
+	handle {
+		root * /srv/site
+		file_server
+	}
+}
