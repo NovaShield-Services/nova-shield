@@ -12,7 +12,7 @@ Postgres (Supabase)         ← the only source of truth
   ├─ app_settings                (company, tax, quote defaults, lighting)
   ├─ customers → properties → quote_requests → ns_jobs → ns_quotes
   └─ RPCs = the API boundary
-       submit_quote_request()     public write   (validated, rate-limited)
+       submit_quote_request()     service_role   (behind the Turnstile gate)
        attach_request_photo()     public write   (id-gated, 1-hour window)
        get_customer_quote()       public read    (curated payload)
        respond_to_quote()         public write   (accept / decline)
@@ -25,6 +25,10 @@ site/js/lib/       site-api.js       ← the ONLY public data access
 site/js/components chrome.js · quote-form.js               (all three skins)
 site/css/          site.css + theme-refined/editorial/signal.css
 admin/js/lib/      api.js            ← the ONLY admin data access
+
+Edge Functions (in Supabase, not in this repo)
+  submit-request       Turnstile gate in front of submit_quote_request()
+  send-notifications   queue worker, driven by pg_cron every 2 minutes
 ```
 
 **One backend, one business-logic layer, three CSS skins.** The three
@@ -79,11 +83,22 @@ still hold the old anon INSERT grant. **Recommended:** drop them once you are
 satisfied, in that order (`quotes` → `jobs` → `job_requests`). I have not
 dropped them — that is destructive and should be your call.
 
-### 6. Rate limiting cannot see IP addresses
+### 6. Rate limiting cannot see IP addresses — now mitigated by Turnstile
 PostgREST does not pass the client IP to Postgres, so `submit_quote_request()`
 limits on email / phone / address only. A determined bot can vary all three.
-**Fix before launch:** put Cloudflare Turnstile (or similar) in front of the
-form. The honeypot catches naive bots only.
+
+**Fixed structurally:** the browser no longer calls that RPC. It posts to the
+`submit-request` Edge Function, which verifies a Cloudflare Turnstile token
+server-side (and *can* see the client IP, which it forwards to siteverify as
+`remoteip`) before forwarding to the same validated RPC as `service_role`.
+
+Two residual items, both tracked in SETUP.md:
+- `TURNSTILE_SECRET_KEY` is not set yet, so the gate currently fails closed
+  (HTTP 503, customer-safe message) and no submission can succeed.
+- `anon` still holds execute on `submit_quote_request()`, so the gate is
+  bypassable by anyone who knows the RPC name. That grant is deliberately left
+  until the gate is proven working; revoking it is the last step in SETUP.md
+  section 4.
 
 ### 7. Photo bucket accepts anonymous writes
 Required, so a customer can attach photos before an account exists.
@@ -92,10 +107,34 @@ Constrained by: private bucket, 10 MB cap, image-only MIME allowlist, and
 hour. **Orphan risk is real** — see the cleanup strategy below.
 
 ### 8. Email delivery depends on a key you must supply
-`send-notifications` is deployed and works, but with no `RESEND_API_KEY` it
-marks rows `skipped` with the reason recorded rather than pretending to send.
+`send-notifications` is deployed and the whole loop around it is proven working
+(pg_cron -> pg_net -> function -> claim -> settle, verified with real rows and
+HTTP 200 responses). With no `RESEND_API_KEY` it marks rows `skipped` with the
+reason recorded rather than pretending to send.
+
+The Resend key configured under **Authentication -> Emails -> SMTP Settings** is
+*not* visible to Edge Functions — that store is only for Supabase Auth's own
+emails. The key has to be added separately under Edge Functions -> Secrets.
+
 Failure handling is real: transient errors stay `pending` and retry up to 5
 attempts, then become `failed` with `last_error` preserved.
+
+### 10. Notification delivery is claim-based, and at-least-once
+Rows move `pending -> sending -> sent|failed|skipped`. The claim is atomic
+(`FOR UPDATE SKIP LOCKED`), and `mark_notification_sent()` only fires on a row
+still in `sending`, so two concurrent workers cannot both email the same row —
+verified by firing three workers simultaneously at one row: one claimed it, two
+claimed nothing.
+
+A row is marked `sent` only after Resend returns a message id, which is stored
+in `provider_message_id`. If a worker dies mid-send the row sits in `sending`
+until `requeue_stale_notifications()` returns it after 15 minutes, counting the
+attempt. That window is genuinely at-least-once: a message that reached Resend
+but was never recorded can send twice. Accepted deliberately — these are
+internal staff alerts, and a duplicate beats a silent loss.
+
+Two unique indexes also stop duplicate *rows* being queued for the same event
+(one per request+kind, one per quote response).
 
 ### 9. The customer quote page is deliberately unthemed
 `quote.html` keeps one light, printable document design regardless of the
@@ -128,9 +167,12 @@ linking for one hour after submission.
 
 ## What I would do next, in order
 
-1. Add Turnstile to the public form (finding 6) — this is the one real
-   pre-launch security gap.
-2. Set `RESEND_API_KEY` and schedule `send-notifications` via `pg_cron`.
-3. Add cache-busting (finding 1) before the first real deploy.
-4. Drop the legacy tables (finding 5).
-5. Pick one skin as the public default; keep the others behind `?theme=`.
+1. Add `RESEND_API_KEY` and `TURNSTILE_SECRET_KEY` to Edge Function secrets
+   (SETUP.md section 2). Nothing else can be proven until these exist.
+2. Add `localhost` to the Turnstile widget's allowed hostnames so the form can
+   be exercised locally at all (currently error 110200).
+3. Revoke `anon` execute on `submit_quote_request()` once the gate works
+   (SETUP.md section 4) — until then Turnstile is bypassable.
+4. Add cache-busting (finding 1) before the first real deploy.
+5. Drop the legacy tables (finding 5).
+6. Pick one skin as the public default; keep the others behind `?theme=`.
