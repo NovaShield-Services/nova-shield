@@ -65,8 +65,8 @@ function render(q) {
     el('div', { class: 'sheet' }, [
       el('div', { class: 'sheet-head' }, [
         el('div', {}, [
-          el('div', { class: 'brand-name', text: 'NOVA SHIELD' }),
-          el('div', { class: 'brand-sub', text: 'Maintenance Services' }),
+          el('span', { class: 'qlockup', role: 'img',
+                       'aria-label': 'Nova Shield Maintenance Services' }),
           el('p', { style: 'margin:10px 0 0;font-size:.84rem;color:#6c7772' }, [
             company.phone || '', el('br'), company.email || ''
           ])

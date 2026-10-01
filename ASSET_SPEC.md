@@ -10,12 +10,36 @@ checklist.
 
 ---
 
-## Priority 0 — brand files (BLOCKING)
+## Priority 0 — brand files
 
-The supplied `nova-shield-lockup.jpg` and `nova-shield-brand-banner.png` are
-beautiful, but both have the **aurora photograph baked into the background**.
-Placed on a dark navy nav bar they render as a visible rectangular patch with
-their own sky inside. Verified in all three prototypes.
+### CANONICAL ARTWORK — located and in use
+
+**Aurora Nova Shield Maintenance Banner**
+
+| | |
+|---|---|
+| **Master in project** | `site/assets/brand/logo-hi.jpeg` |
+| **Original location** | `Downloads/websie pics/logo .jpeg` |
+| **Dimensions** | **2172 × 724** (3:1) |
+| **Transparency** | none — opaque, alpha 255 throughout |
+| **Vector / higher-res** | none found anywhere in Downloads |
+
+Other copies found, and why they are not the master:
+
+| File | Size | Verdict |
+|---|---|---|
+| `Nova-Shield-Website/assets/nova-shield-brand-banner.png` | 2048×682 | **Damaged.** Alpha collapses to 66 at 90% height and 10 at 97%, losing the snow and mist. Verified over red. Do not use |
+| `Nova-Shield-Website/assets/nova-shield-lockup.jpg` | 1620×350 | A lower-resolution pre-made crop. Superseded by CSS crop windows on the master |
+
+**Contexts that work without awkward cropping** (all verified undistorted):
+`--mark` 1:1 down to 40px · `--lockup` 5.087:1 down to 300px · `--full` 3:1 at any size.
+Below 300px the artwork's own "MAINTENANCE SERVICES" is unreadable, so the
+header pairs the mark with a typeset wordmark.
+
+### Derivatives still needed
+
+All three placements currently sit on dark grounds where the artwork's own navy
+sky blends in. These are needed for any light ground, print, or small mark use.
 
 ### `BRAND-01` — Shield mark, transparent
 - **Purpose:** nav bar, favicon, constellation centre, footer, email header

@@ -19,8 +19,14 @@
   .sheet-head { display: flex; justify-content: space-between; gap: 24px;
                 flex-wrap: wrap; align-items: flex-start;
                 border-bottom: 1px solid #e6e1d6; padding-bottom: 24px; }
-  .doc .brand-name { color: #16211f; font-size: 1.15rem; letter-spacing: .1em; }
-  .doc .brand-sub { color: #7a8580; }
+  /* Canonical Aurora Nova Shield Maintenance Banner, cropped to the lockup.
+     Same window as site.css .brandart--lockup, so the quote and the website
+     carry identical artwork. Letterhead scale keeps print ink sensible. */
+  .qlockup { display:block; width:232px; aspect-ratio:1694/333;
+    background:url('assets/brand/logo-hi.jpeg') no-repeat;
+    background-size:128.21% 217.39%; background-position:54.55% 27.78%;
+    border-radius:2px; }
+  @media print { .qlockup { width:200px; } }
   .meta { text-align: right; font-size: .84rem; color: #6c7772; }
   .meta strong { display: block; color: #16211f; font-size: 1rem; }
   .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 28px 0; }

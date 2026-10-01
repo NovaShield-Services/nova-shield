@@ -8,7 +8,7 @@
      The previous value (#070c0d) was a GREEN black; the brand night is blue. */
   --ink: #03070f;
   --ink-2: #071226;
-  --ink-3: #0b1b33;
+  --ink-3: #091933;  /* sampled: deepest night in the banner */
   --panel: rgba(140,180,230,.045);
   --cream: #f3f6fa;
   --muted: #8b9cb3;
@@ -18,10 +18,18 @@
   --gold: #e0a53f;
   --gold-2: #ffd48c;
   /* the aurora in the banner peaks at #019d8b -- the existing teal was on-brand */
-  --teal: #2bb6a8;
-  --teal-2: #8be9db;
-  --violet: #7d6cf0;
+  --teal: #1cc1a3;   /* sampled: aurora green in the banner */
+  --teal-2: #7fe3cd;
+  --violet: #8a58f9; /* sampled: aurora violet in the banner */
   --violet-2: #b9a9ff;
+  /* sampled directly from assets/brand/logo-hi.jpeg -- see DESIGN_SYSTEM.md */
+  --art-night: #091933;
+  --art-sky:   #07456a;
+  --art-green: #1cc1a3;
+  --art-cyan:  #0b999a;
+  --art-violet:#8a58f9;
+  --art-gold:  #ddb675;
+  --art-chrome:#fbfaff;
   --shadow: 0 50px 110px rgba(0,0,0,.55);
   --shadow-sm: 0 18px 40px rgba(0,0,0,.4);
   /* 26px read as a SaaS dashboard card. Architecture has edges. */
@@ -534,4 +542,47 @@ footer.site { padding: 56px 0 38px; }
 /* Touch targets: the mode toggles measured 36px, under the 44px guideline. */
 @media (pointer:coarse), (max-width:760px){
   .mode { padding:12px 15px; min-height:44px; }
+}
+
+/* ============================================================================
+   BRAND — the Aurora Nova Shield Maintenance Banner is the canonical artwork.
+   Every presentation is a WINDOW onto the same master file. Nothing is
+   redrawn, recoloured or stretched: each box carries the aspect-ratio of its
+   crop window, so the artwork can only ever be scaled proportionally.
+
+   Master: assets/brand/logo-hi.jpeg  (2172x724, opaque)
+   The 2048x682 PNG is NOT the master -- its alpha channel collapses to ~10
+   over the bottom 15%, losing the snow and mist. See ASSET_SPEC.md.
+   ========================================================================== */
+:root { --brand-art: url('../assets/brand/logo-hi.jpeg'); }
+
+.brandart { background-image:var(--brand-art); background-repeat:no-repeat;
+  display:block; border-radius:2px; }
+
+/* shield mark only — square window, x12% y17% w18% h54% */
+.brandart--mark { aspect-ratio:1/1; background-size:555.56% 185.19%;
+  background-position:14.63% 36.96%; }
+
+/* shield + wordmark — x12% y15% w78% h46% */
+.brandart--lockup { aspect-ratio:1694/333; background-size:128.21% 217.39%;
+  background-position:54.55% 27.78%; }
+
+/* the whole banner, for brand moments */
+.brandart--full { aspect-ratio:2172/724; background-size:cover;
+  background-position:center; }
+
+/* --- brand placements ---------------------------------------------------- */
+.brand .brand-mark { width:38px; flex:none; }
+.brand-lockup { width:100%; max-width:300px; }
+/* below ~300px the artwork's own "MAINTENANCE SERVICES" stops being legible,
+   so the header pairs the canonical MARK with a typeset wordmark instead */
+.hero-lockup { width:min(360px,74vw); margin-bottom:26px;
+  filter:drop-shadow(0 18px 40px rgba(3,7,15,.6)); }
+.plate--art { padding:0; border:0; background:none; }
+.plate--art .brandart--full { width:100%; border-radius:var(--radius);
+  border:1px solid var(--line); }
+
+@media (max-width:760px){
+  .brand .brand-mark { width:34px; }
+  .hero-lockup { width:min(280px,66vw); margin-bottom:20px; }
 }

@@ -5,22 +5,14 @@ import { applyTheme, decorateLinks, THEMES, resolveTheme } from '../lib/theme.js
 /* Header and footer live here so four pages share one nav instead of three
    copies quietly drifting apart. */
 
-const LOGO_SVG = `
-<svg class="brand-mark" viewBox="0 0 100 128" aria-hidden="true">
-  <defs>
-    <linearGradient id="nsSilver" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#eafffa"/><stop offset=".5" stop-color="#8fd4c8"/><stop offset="1" stop-color="#eafffa"/>
-    </linearGradient>
-    <linearGradient id="nsGold" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ffe3ab"/><stop offset="1" stop-color="#c9832e"/>
-    </linearGradient>
-  </defs>
-  <path d="M50 4L94 22V64Q94 96 50 124Q6 96 6 64V22Z" fill="#081213" stroke="url(#nsSilver)" stroke-width="7" stroke-linejoin="round"/>
-  <path d="M50 10L88 25V64Q88 92 50 116Q12 92 12 64V25Z" fill="none" stroke="url(#nsGold)" stroke-width="1.6"/>
-  <rect x="30" y="34" width="9" height="60" fill="url(#nsSilver)"/>
-  <rect x="61" y="34" width="9" height="60" fill="url(#nsSilver)"/>
-  <path d="M30 34h11l29 60H59z" fill="url(#nsGold)"/>
-</svg>`;
+/* The brand mark is a window onto the canonical Aurora Nova Shield Maintenance
+   Banner (assets/brand/logo-hi.jpeg), never a redrawn symbol. The crop windows
+   live in site.css as .brandart--mark / --lockup / --full. */
+const brandMark = () => el('span', { class: 'brandart brandart--mark brand-mark',
+                                     role: 'img', 'aria-label': 'Nova Shield' });
+const brandLockup = () => el('span', { class: 'brandart brandart--lockup brand-lockup',
+                                       role: 'img', 'aria-label': 'Nova Shield Maintenance Services' });
+
 
 const NAV = [
   { href: 'lighting-permanent.html', label: 'Permanent Lighting', key: 'permanent' },
@@ -60,7 +52,7 @@ export function renderHeader(activeKey) {
   const header = el('header', { class: 'site' }, [
     el('nav', { class: 'container' }, [
       el('a', { class: 'brand', href: 'index.html', 'aria-label': 'Nova Shield home' }, [
-        el('span', { html: LOGO_SVG }).firstElementChild,
+        brandMark(),
         el('div', {}, [
           el('div', { class: 'brand-name', text: 'NOVA SHIELD' }),
           el('span', { class: 'brand-sub', text: 'Maintenance Services' })
@@ -87,9 +79,7 @@ export async function renderFooter() {
     el('div', { class: 'container' }, [
       el('div', { class: 'footer-top' }, [
         el('div', { class: 'footer-brand' }, [
-          el('span', { html: LOGO_SVG }).firstElementChild,
-          el('div', { class: 'brand-name', style: 'margin-top:14px', text: 'NOVA SHIELD' }),
-          el('div', { class: 'brand-sub', text: 'Maintenance Services' }),
+          brandLockup(),
           el('p', { text: 'Permanent lighting, seasonal displays and exterior care for homes in ' +
                           (company.service_area || 'our area') + '.' })
         ]),
@@ -113,8 +103,7 @@ export async function renderFooter() {
         ])
       ]),
       el('div', { class: 'copyright' }, [
-        el('span', { text: `© ${new Date().getFullYear()} ${company.legal_name || 'Nova Shield Maintenance Services'}` }),
-        themeSwitcher()
+        el('span', { text: `© ${new Date().getFullYear()} ${company.legal_name || 'Nova Shield Maintenance Services'}` })
       ])
     ])
   ]);
@@ -122,24 +111,6 @@ export async function renderFooter() {
 
 /* Review aid: lets you flip between the three presentations without editing
    anything. Delete this function and its call when a skin is chosen. */
-function themeSwitcher() {
-  const current = resolveTheme();
-  const select = el('select', {
-    'aria-label': 'Presentation',
-    style: 'min-height:34px;padding:4px 8px;font-size:.75rem;max-width:180px',
-    onChange: e => {
-      const url = new URL(window.location.href);
-      url.searchParams.set('theme', e.target.value);
-      window.location.href = url.toString();
-    }
-  }, Object.entries(THEMES).map(([key, t]) =>
-    el('option', { value: key, text: t.label, selected: key === current })));
-
-  return el('span', { style: 'display:flex;align-items:center;gap:8px' }, [
-    el('span', { text: 'Presentation' }), select
-  ]);
-}
-
 /** Mounts chrome around whatever the page rendered into #main. */
 export async function mountChrome(activeKey) {
   applyTheme();
