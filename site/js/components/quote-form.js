@@ -1,5 +1,6 @@
 import { el, clear } from '../../../shared/dom.js';
 import { listPublicServices, submitQuoteRequest, uploadRequestPhoto } from '../lib/site-api.js';
+import { mountTurnstile } from '../lib/turnstile.js';
 
 const PROPERTY_TYPES = [
   '', 'Detached house', 'Semi-detached', 'Townhouse', 'Bungalow',
@@ -71,6 +72,7 @@ export async function createQuoteForm({ preselect = [] } = {}) {
     placeholder: 'Anything that helps us understand the property — access, problem areas, what you have already tried.' });
   const otherInput  = el('input', { maxlength: '200', placeholder: 'Something else? Tell us what.' });
   const honeypot    = el('input', { tabindex: '-1', autocomplete: 'off', 'aria-hidden': 'true' });
+  const turnstileHost = el('div');
 
   const photoInput = el('input', { type: 'file', accept: 'image/*', multiple: true });
   const photoList = el('div', { class: 'photo-list' });
@@ -154,6 +156,7 @@ export async function createQuoteForm({ preselect = [] } = {}) {
     ]),
 
     errorEl,
+    el('div', { class: 'field field--full', style: 'display:flex;justify-content:center' }, [turnstileHost]),
     el('div', { class: 'field field--full' }, [
       submitBtn,
       el('p', { class: 'form-note', style: 'grid-column:auto;text-align:center;margin-top:8px',
@@ -199,12 +202,23 @@ export async function createQuoteForm({ preselect = [] } = {}) {
     if (walkaroundBox.checked) otherBits.push('Property walk-around requested');
     if (otherInput.value.trim()) otherBits.push(otherInput.value.trim());
 
+    const turnstile = await turnstileReady;
+    if (!turnstile.ok) {
+      return fail('The verification check could not load — please refresh the page, ' +
+                  'or call or text 437-436-3360 and we will take the details directly.');
+    }
+    const turnstileToken = turnstile.getToken();
+    if (!turnstileToken) {
+      return fail('Please complete the verification check just above the button.');
+    }
+
     submitBtn.disabled = true;
     submitBtn.textContent = 'Sending…';
 
     let requestId;
     try {
       requestId = await submitQuoteRequest({
+        turnstileToken,
         name, email, phone,
         preferredContact: contactSel.value || null,
         address,
@@ -220,6 +234,7 @@ export async function createQuoteForm({ preselect = [] } = {}) {
     } catch (err) {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Request My Quote';
+      turnstile.reset();  // tokens are single-use; a retry needs a fresh one
       return fail(err.message || 'Something went wrong. Please call or text 437-436-3360.');
     }
 
@@ -256,5 +271,8 @@ export async function createQuoteForm({ preselect = [] } = {}) {
   }
 
   root.append(form);
+  // started, not awaited: the widget can only render once the caller has put
+  // this node in the document, which happens after we return.
+  const turnstileReady = mountTurnstile(turnstileHost, { action: 'quote_request' });
   return root;
 }

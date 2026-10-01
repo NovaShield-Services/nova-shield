@@ -1,4 +1,4 @@
-import { supabase } from '../../../shared/supabase.js';
+import { supabase, SUPABASE_URL } from '../../../shared/supabase.js';
 
 /* Public-site data access. Everything here runs as the anonymous role, which
    can read only the service menu and two settings keys, and can write only
@@ -38,29 +38,39 @@ export async function getPublicSettings() {
   return settingsCache;
 }
 
-/** Calls the validated RPC. Never writes to a table directly. */
+/** Submits through the Turnstile-gated endpoint, which verifies the token
+    server-side and then calls the same validated RPC as before. The anon role
+    never writes to a table directly. */
 export async function submitQuoteRequest(payload) {
-  const { data, error } = await supabase.rpc('submit_quote_request', {
-    p_name: payload.name,
-    p_email: payload.email || null,
-    p_phone: payload.phone || null,
-    p_preferred_contact: payload.preferredContact || null,
-    p_address: payload.address,
-    p_city: payload.city || null,
-    p_postal_code: payload.postalCode || null,
-    p_property_type: payload.propertyType || null,
-    p_service_keys: payload.serviceKeys || [],
-    p_other_service: payload.otherService || null,
-    p_message: payload.message || null,
-    p_preferred_schedule: payload.preferredSchedule || null,
-    p_website: payload.honeypot || null
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/submit-request`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: payload.name,
+      email: payload.email || null,
+      phone: payload.phone || null,
+      preferredContact: payload.preferredContact || null,
+      address: payload.address,
+      city: payload.city || null,
+      postalCode: payload.postalCode || null,
+      propertyType: payload.propertyType || null,
+      serviceKeys: payload.serviceKeys || [],
+      otherService: payload.otherService || null,
+      message: payload.message || null,
+      preferredSchedule: payload.preferredSchedule || null,
+      honeypot: payload.honeypot || null,
+      turnstileToken: payload.turnstileToken || null
+    })
   });
 
-  if (error) {
-    // the RPC raises friendly, customer-safe messages for validation failures
-    throw new Error(error.message || 'We could not send that request.');
+  let body = null;
+  try { body = await res.json(); } catch { /* non-JSON error page */ }
+
+  if (!res.ok) {
+    // the endpoint and the RPC both return customer-safe messages
+    throw new Error(body?.error || 'We could not send that request. Please call or text us.');
   }
-  return data; // request uuid
+  return body.requestId;
 }
 
 const SAFE_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp',
