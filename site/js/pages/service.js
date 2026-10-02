@@ -3,12 +3,16 @@ import { mountChrome } from '../components/chrome.js';
 import { createQuoteForm } from '../components/quote-form.js';
 import { getService, listPublicServices } from '../lib/site-api.js';
 import { mountReveals } from '../lib/reveal.js';
-import { serviceSchema, breadcrumbSchema, setServiceMeta } from '../lib/schema.js';
+import { serviceSchema, breadcrumbSchema } from '../lib/schema.js';
 import { getPublicSettings } from '../lib/site-api.js';
+import { CATEGORIES, categoryUrl, urlForKey } from '../lib/routes.js';
 
 /* One template, but the content per service is genuinely different and lives
    in services.detail — so the page and the admin price book are the same list,
-   and adding a service does not mean writing a new HTML file. */
+   and adding a service does not mean writing a new HTML file.
+
+   Which service this page is comes from the shell's data-service attribute,
+   so every service has a real indexable URL rather than a query string. */
 
 const main = document.getElementById('main');
 
@@ -22,7 +26,7 @@ function notFound(services) {
                   text: 'That page does not exist. Here is everything we do.' }),
         el('div', { class: 'cards' }, services
           .filter(s => ['cleaning', 'winter'].includes(s.category) && s.quotable)
-          .map(s => el('a', { class: 'card', href: `service.html?s=${encodeURIComponent(s.key)}` }, [
+          .map(s => el('a', { class: 'card', href: urlForKey(s.key) || '/' }, [
             el('h3', { text: s.name }),
             el('p', { text: s.blurb || '' }),
             el('span', { class: 'card__more', text: 'What this involves →' })
@@ -37,9 +41,25 @@ function sectionEl(children, attrs = {}) {
 }
 
 const CATEGORY = {
-  cleaning: { label: 'Exterior care', href: 'care.html' },
-  winter:   { label: 'Winter services', href: 'winter.html' }
+  cleaning: { label: CATEGORIES.cleaning.label, href: categoryUrl('cleaning') },
+  winter:   { label: CATEGORIES.winter.label,   href: categoryUrl('winter')   }
 };
+
+/* Two pages can share one service: the winter walkway and deck pages are the
+   same priced visit seen from two sides. A variant overlays its own copy onto
+   the service's detail; everything the variant does not state falls through to
+   the shared content, so the two pages can never drift apart on the facts. */
+function applyVariant(service, slug) {
+  const variant = (service.detail?.variants || {})[slug];
+  if (!variant) return service;
+  const { name, blurb, scope, ...content } = variant;
+  return {
+    ...service,
+    name: name || service.name,
+    blurb: blurb || service.blurb,
+    detail: { ...service.detail, ...content, variants: undefined }
+  };
+}
 
 function renderService(service, allServices) {
   const d = service.detail || {};
@@ -60,13 +80,13 @@ function renderService(service, allServices) {
   const generic = !d.hero || /^photo-\d+\.jpg$/.test(d.hero);
   const heroBg = generic
     ? el('div', { class: 'hero-bg hero-bg--atmos' })
-    : el('div', { class: 'hero-bg', style: `background-image:url('assets/${d.hero}')` });
+    : el('div', { class: 'hero-bg', style: `background-image:url('/assets/${d.hero}')` });
 
   const hero = el('section', { class: 'hero hero--page' }, [
     heroBg,
     el('div', { class: 'container hero-content' }, [
       el('nav', { class: 'where', 'aria-label': 'Breadcrumb' }, [
-        el('a', { href: 'index.html', text: 'Nova Shield' }),
+        el('a', { href: '/', text: 'Nova Shield' }),
         el('i'),
         el('a', { href: CATEGORY[service.category].href,
                   text: CATEGORY[service.category].label }),
@@ -148,6 +168,25 @@ function renderService(service, allServices) {
     ], { class: 'band-soft' }));
   }
 
+  /* What moves the price. Each factor here corresponds to a real modifier
+     group in the price book, so the page cannot advertise a factor that does
+     not price, and cannot quietly leave one out. */
+  if (d.affects_quote?.length) {
+    blocks.push(sectionEl([
+      el('div', { class: 'section-head' }, [
+        el('div', {}, [el('div', { class: 'chip', text: 'What affects the quote' }),
+                       el('h2', { text: 'Why two houses price differently.' })]),
+        el('p', { text: 'These are the things we measure and ask about on site. '
+                      + 'Nothing is added after the fact.' })
+      ]),
+      el('ul', { class: 'spec', style: 'margin-top:0' }, d.affects_quote.map((f, i) =>
+        el('li', {}, [
+          el('span', { text: String(i + 1).padStart(2, '0') }),
+          el('div', {}, [el('strong', { text: f.factor }), ' — ', f.note])
+        ])))
+    ], { style: 'padding-top:0' }));
+  }
+
   if (d.good_to_know?.length) {
     blocks.push(sectionEl([
       el('div', { class: 'split split--offset' }, [
@@ -174,18 +213,15 @@ function renderService(service, allServices) {
         const img = (s.detail || {}).hero;
         const realImg = img && !/^photo-\d+\.jpg$/.test(img);
         const card = el('a', { class: 'pair-card', 'data-service': s.key,
-                               href: `service.html?s=${encodeURIComponent(s.key)}` }, [
+                               href: urlForKey(s.key) || '/' }, [
           el('h3', { text: s.name }),
           el('p', { text: s.blurb || '' }),
           el('span', { class: 'card__more', text: 'What this involves →' })
         ]);
-        // Resolve against the document: a relative URL inside a CSS custom
+        // Root-relative, not relative: a relative URL inside a CSS custom
         // property is resolved against the STYLESHEET that consumes it, which
         // put these at /css/assets/... and 404'd.
-        if (realImg) {
-          const abs = new URL(`assets/${img}`, document.baseURI).href;
-          card.style.setProperty('--pair-img', `url('${abs}')`);
-        }
+        if (realImg) card.style.setProperty('--pair-img', `url('/assets/${img}')`);
         return card;
       }))
     ]));
@@ -220,27 +256,34 @@ function renderService(service, allServices) {
 
 async function init() {
 
-  const key = new URLSearchParams(window.location.search).get('s');
+  // the shell names the service; ?s= is still honoured so links shared before
+  // the route change keep working
+  const key = document.body.dataset.service
+           || new URLSearchParams(window.location.search).get('s');
+  const variantSlug = document.body.dataset.variant || null;
+
   const services = await listPublicServices();
-  const service = key ? await getService(key) : null;
+  const base = key ? await getService(key) : null;
 
   const TEMPLATED = ['cleaning', 'winter'];
-  if (!service || !TEMPLATED.includes(service.category)) {
+  if (!base || !TEMPLATED.includes(base.category)) {
     await mountChrome(null);
     notFound(services);
     return;
   }
 
+  const service = variantSlug ? applyVariant(base, variantSlug) : base;
+
   await mountChrome(service.category);
 
-  // per-service canonical, social tags and structured data; the static shell is
-  // noindex until a real service is resolved
-  setServiceMeta(service);
+  // The shell already carries the canonical, title and social tags in the
+  // markup, which is what a crawler reads. Structured data is still built here
+  // because it is generated from the database rather than restated.
   const settings = await getPublicSettings().catch(() => ({}));
   serviceSchema(service, settings.company || {});
   breadcrumbSchema([
     { name: 'Nova Shield', path: '/' },
-    { name: CATEGORY[service.category].label, path: '/' + CATEGORY[service.category].href },
+    { name: CATEGORY[service.category].label, path: CATEGORY[service.category].href },
     { name: service.name }
   ]);
 

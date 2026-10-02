@@ -6,23 +6,21 @@ import { mountReveals } from '../lib/reveal.js';
 import { createLightingDemo } from '../components/lighting-demo.js';
 import { createMoodGallery } from '../components/mood-gallery.js';
 import { MOOD_GROUPS, DEMO_MODES } from '../lib/lighting-assets.js';
+import { rowsForCategory, categoryUrl, preselectFromLocation } from '../lib/routes.js';
 
 /* The capability matrix replaces the nine identical cards. Grouping is derived
    from the services table -- it is not a second catalogue. Only the group
    headings and their order live here, because that is presentation. */
 const GROUPS = [
-  { id: 'light',  label: '01 / Light',  hub: 'lighting.html',
-    test: s => s.category === 'lighting' },
-  { id: 'care',   label: '02 / Care',   hub: 'care.html',
-    test: s => s.category === 'cleaning' },
-  { id: 'winter', label: '03 / Winter', hub: 'winter.html',
-    test: s => s.category === 'winter' }
+  { label: '01 / Lighting',          cat: 'lighting' },
+  { label: '02 / Exterior Cleaning', cat: 'cleaning' },
+  { label: '03 / Winter Care',       cat: 'winter'   }
 ];
 
 async function renderMatrix() {
   const host = document.getElementById('servicesGrid');
   if (!host) return;
-  const services = (await listPublicServices()).filter(s => s.quotable);
+  const services = await listPublicServices();
 
   if (!services.length) {
     clear(host).append(el('p', { class: 'form-note',
@@ -31,19 +29,16 @@ async function renderMatrix() {
   }
 
   const groups = GROUPS
-    .map(g => ({ ...g, items: services.filter(g.test) }))
-    .filter(g => g.items.length);
+    .map(g => ({ ...g, rows: rowsForCategory(g.cat, services) }))
+    .filter(g => g.rows.length);
 
   clear(host).append(...groups.map(g =>
     el('div', { class: 'matrix-group' }, [
-      el('a', { class: 'matrix-label', href: g.hub, text: g.label }),
-      el('div', { class: 'matrix-items' }, g.items.map(s =>
-        el('a', { class: 'mitem', 'data-service': s.key,
-                  href: s.category === 'lighting'
-                    ? (s.key === 'christmas_lighting' ? 'lighting-christmas.html' : 'lighting-permanent.html')
-                    : `service.html?s=${encodeURIComponent(s.key)}` }, [
-          el('span', { class: 'mitem-name', text: s.name }),
-          el('span', { class: 'mitem-blurb', text: s.blurb || '' })
+      el('a', { class: 'matrix-label', href: categoryUrl(g.cat), text: g.label }),
+      el('div', { class: 'matrix-items' }, g.rows.map(r =>
+        el('a', { class: 'mitem', 'data-service': r.key, href: r.href }, [
+          el('span', { class: 'mitem-name', text: r.name }),
+          el('span', { class: 'mitem-blurb', text: r.blurb })
         ])))
     ])));
 }
@@ -94,7 +89,7 @@ async function init() {
 
   const formHost = document.getElementById('quoteFormHost');
   try {
-    clear(formHost).append(await createQuoteForm());
+    clear(formHost).append(await createQuoteForm({ preselect: preselectFromLocation() }));
   } catch (err) {
     clear(formHost).append(el('div', { class: 'callout' }, [
       el('h3', { text: 'The form could not load' }),

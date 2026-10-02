@@ -9,11 +9,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,340;9..144,480;9..144,560&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/site.css">
+<link rel="stylesheet" href="/css/site.css">
 <script>
   // resolve the presentation before first paint (avoids a flash of the default skin)
   (function () {
-    var THEMES = { refined: 'css/theme-refined.css', editorial: 'css/theme-editorial.css', signal: 'css/theme-signal.css' };
+    var THEMES = { refined: '/css/theme-refined.css', editorial: '/css/theme-editorial.css', signal: '/css/theme-signal.css' };
     var t = new URLSearchParams(location.search).get('theme');
     try { if (!THEMES[t]) t = localStorage.getItem('novaShieldTheme'); } catch (e) {}
     if (!THEMES[t]) t = 'refined';
@@ -21,13 +21,11 @@
     document.write('<link id="themeCss" rel="stylesheet" href="' + THEMES[t] + '">');
   })();
 </script>
-
-
-<link rel="canonical" href="https://novashieldmaintenance.com/lighting.html">
+<link rel="canonical" href="https://novashieldmaintenance.com/services/lighting/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Nova Shield Maintenance Services">
 <meta property="og:locale" content="en_CA">
-<meta property="og:url" content="https://novashieldmaintenance.com/lighting.html">
+<meta property="og:url" content="https://novashieldmaintenance.com/services/lighting/">
 <meta property="og:title" content="Outdoor Lighting | Nova Shield">
 <meta property="og:description" content="Permanent architectural lighting and seasonal Christmas displays from Nova Shield in Sault Ste. Marie.">
 <meta property="og:image" content="https://novashieldmaintenance.com/assets/brand/logo-hi.jpeg">
@@ -40,43 +38,7 @@
 </head>
 <body data-category="lighting">
 <a class="sr-only" href="#main">Skip to content</a>
-<main id="main"></main>
-
-<section class="quote" id="quote">
-  <div class="container quote-wrap">
-    <div>
-      <div class="chip chip--gold">Next step</div>
-      <h2>Tell us about<br>your property.</h2>
-      <p class="prose" style="margin-top:18px">We review every request, arrange a visit if the job
-        needs measuring properly, and send a clear written quote before anything is booked.</p>
-      <div class="good-to-know">
-        <span class="gtk-title">Booking a service at your home</span>
-        <ul>
-          <li><strong>You don't need to be home for a quote. </strong>Most measuring is done from the outside.</li>
-          <li><strong>Pricing is confirmed on site. </strong>We measure the actual work before giving a firm number.</li>
-          <li><strong>Same two people, start to finish. </strong>Whoever quotes it is who does it.</li>
-        </ul>
-      </div>
-      <p class="prose" id="contactBlock"></p>
-    </div>
-    <div id="quoteFormHost"><p class="form-note">Loading form…</p></div>
-  </div>
-</section>
-
-<script type="module" src="js/pages/category.js"></script>
-<script type="module">
-  import { createQuoteForm } from './js/components/quote-form.js';
-  import { clear, el } from '../shared/dom.js';
-  const host = document.getElementById('quoteFormHost');
-  try {
-    clear(host).append(await createQuoteForm({ preselect: [] }));
-  } catch (err) {
-    clear(host).append(el('div', { class: 'callout' }, [
-      el('h3', { text: 'The form could not load' }),
-      el('p', { text: 'Please call or text 437-436-3360.' })
-    ]));
-    console.error(err);
-  }
-</script>
+<main id="main"><div class="container" style="padding:160px 0 80px"><p class="form-note">Loading…</p></div></main>
+<script type="module" src="/js/pages/category.js"></script>
 </body>
 </html>

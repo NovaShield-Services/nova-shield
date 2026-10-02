@@ -7,97 +7,103 @@
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://novashieldmaintenance.com/lighting.html</loc>
+    <loc>https://novashieldmaintenance.com/services/lighting/</loc>
     <lastmod>2026-10-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://novashieldmaintenance.com/lighting-permanent.html</loc>
+    <loc>https://novashieldmaintenance.com/services/exterior-cleaning/</loc>
     <lastmod>2026-10-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://novashieldmaintenance.com/lighting-christmas.html</loc>
+    <loc>https://novashieldmaintenance.com/services/winter-care/</loc>
     <lastmod>2026-10-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://novashieldmaintenance.com/care.html</loc>
-    <lastmod>2026-10-02</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://novashieldmaintenance.com/winter.html</loc>
-    <lastmod>2026-10-02</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://novashieldmaintenance.com/service.html?s=siding</loc>
+    <loc>https://novashieldmaintenance.com/services/lighting/permanent-outdoor-lighting/</loc>
     <lastmod>2026-10-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://novashieldmaintenance.com/service.html?s=roof_soft_wash</loc>
+    <loc>https://novashieldmaintenance.com/services/lighting/christmas-lighting/</loc>
     <lastmod>2026-10-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://novashieldmaintenance.com/service.html?s=gutter_brightening</loc>
+    <loc>https://novashieldmaintenance.com/services/exterior-cleaning/siding-washing/</loc>
     <lastmod>2026-10-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://novashieldmaintenance.com/service.html?s=concrete</loc>
+    <loc>https://novashieldmaintenance.com/services/exterior-cleaning/roof-cleaning/</loc>
     <lastmod>2026-10-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://novashieldmaintenance.com/service.html?s=deck</loc>
+    <loc>https://novashieldmaintenance.com/services/exterior-cleaning/gutter-brightening/</loc>
     <lastmod>2026-10-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://novashieldmaintenance.com/service.html?s=fence</loc>
+    <loc>https://novashieldmaintenance.com/services/exterior-cleaning/concrete-cleaning/</loc>
     <lastmod>2026-10-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://novashieldmaintenance.com/service.html?s=windows</loc>
+    <loc>https://novashieldmaintenance.com/services/exterior-cleaning/window-cleaning/</loc>
     <lastmod>2026-10-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://novashieldmaintenance.com/service.html?s=moss</loc>
+    <loc>https://novashieldmaintenance.com/services/exterior-cleaning/deck-cleaning/</loc>
     <lastmod>2026-10-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://novashieldmaintenance.com/service.html?s=graffiti</loc>
+    <loc>https://novashieldmaintenance.com/services/exterior-cleaning/fence-cleaning/</loc>
     <lastmod>2026-10-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://novashieldmaintenance.com/service.html?s=winter_property_care</loc>
+    <loc>https://novashieldmaintenance.com/services/exterior-cleaning/moss-removal/</loc>
     <lastmod>2026-10-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://novashieldmaintenance.com/service.html?s=winter_deicing_cables</loc>
+    <loc>https://novashieldmaintenance.com/services/exterior-cleaning/graffiti-removal/</loc>
+    <lastmod>2026-10-02</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://novashieldmaintenance.com/services/winter-care/heating-wire-installation/</loc>
+    <lastmod>2026-10-02</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://novashieldmaintenance.com/services/winter-care/sidewalk-walkway-snow-removal/</loc>
+    <lastmod>2026-10-02</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://novashieldmaintenance.com/services/winter-care/deck-tight-access-snow-removal/</loc>
     <lastmod>2026-10-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>

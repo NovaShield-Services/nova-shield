@@ -4,6 +4,8 @@ import { listPublicServices, getPublicSettings } from '../lib/site-api.js';
 import { mountReveals } from '../lib/reveal.js';
 import { createMoodGallery } from '../components/mood-gallery.js';
 import { MOOD_GROUPS } from '../lib/lighting-assets.js';
+import { createQuoteForm } from '../components/quote-form.js';
+import { rowsForCategory, preselectFromLocation } from '../lib/routes.js';
 
 /* One hub template for all three categories. The services themselves come from
    the services table; only the framing copy lives here, because that is
@@ -18,9 +20,7 @@ const CATEGORIES = {
     listTitle: 'Two ways to light\na house.',
     listNote: 'One is permanent and works every night of the year. The other is the season, handled '
             + 'for you. Plenty of people end up with both.',
-    gallery: true,
-    // lighting services have their own dedicated pages
-    href: s => s.key === 'christmas_lighting' ? 'lighting-christmas.html' : 'lighting-permanent.html'
+    gallery: true
   },
   cleaning: {
     nav: 'cleaning',
@@ -30,8 +30,7 @@ const CATEGORIES = {
         + 'comfort and seasonal readiness — each priced on what it actually involves.',
     listTitle: 'Every surface wants\nsomething different.',
     listNote: 'Soft washing, pressure washing and hand work are not interchangeable. Picking the '
-            + 'wrong one is how siding gets water behind it and how a roof loses granules.',
-    href: s => `service.html?s=${encodeURIComponent(s.key)}`
+            + 'wrong one is how siding gets water behind it and how a roof loses granules.'
   },
   winter: {
     nav: 'winter',
@@ -40,10 +39,9 @@ const CATEGORIES = {
     lede: 'The plow takes the driveway. Everything else — the steps, the side walkway, the deck, '
         + 'the path to the door — is hand work, and it is the part that decides whether your '
         + 'property is safe to walk on.',
-    listTitle: 'Two winter jobs,\nbooked before the snow.',
-    listNote: 'Both are arranged in the autumn. De-icing cable has to go on a dry roof, and a '
-            + 'clearing route has to be agreed before the first snowfall to be any use.',
-    href: s => `service.html?s=${encodeURIComponent(s.key)}`
+    listTitle: 'Three winter jobs,\nbooked before the snow.',
+    listNote: 'All three are arranged in the autumn. Heating wire has to go on a dry roof, and a '
+            + 'clearing route has to be agreed before the first snowfall to be any use.'
   }
 };
 
@@ -58,10 +56,10 @@ const EXTRA = {
     rows: [
       ['Permanent outdoor lighting',
        'Fitted once into the soffit and yours every night after that — warm white most evenings, any colour when you want one. Costs more up front and nothing after.',
-       'lighting-permanent.html'],
+       '/services/lighting/permanent-outdoor-lighting/'],
       ['Seasonal Christmas lighting',
        'We design it, install it in the fall, remove it after the season and store it under your name. Nothing to buy, nothing to store, cheaper every year after the first.',
-       'lighting-christmas.html']
+       '/services/lighting/christmas-lighting/']
     ]
   },
   cleaning: {
@@ -76,15 +74,15 @@ const EXTRA = {
   },
   winter: {
     chip: 'When to book',
-    title: 'Both winter jobs\nare autumn jobs.',
+    title: 'Winter work\nis autumn work.',
     note: 'Neither can be arranged well once the weather has already turned.',
     rows: [
-      ['De-icing cable — before the freeze',
+      ['Heating wire — before the freeze',
        'Cable is fitted to a dry, accessible roof. Once there is ice on the overhang it is too late to install for that season.',
-       'service.html?s=winter_deicing_cables'],
+       '/services/winter-care/heating-wire-installation/'],
       ['Clearing — before the first snowfall',
        'A route and a scope agreed in October is a service. The same conversation in January is a scramble, and we may already be full.',
-       'service.html?s=winter_property_care']
+       '/services/winter-care/sidewalk-walkway-snow-removal/']
     ]
   }
 };
@@ -126,8 +124,7 @@ async function init() {
   document.documentElement.dataset.category = key;
   await mountChrome(cfg.nav);
 
-  const services = (await listPublicServices())
-    .filter(s => s.category === key && s.quotable);
+  const rows = rowsForCategory(key, await listPublicServices());
 
   const main = document.getElementById('main');
 
@@ -135,7 +132,7 @@ async function init() {
     el('div', { class: 'hero-bg hero-bg--atmos' }),
     el('div', { class: 'container hero-content' }, [
       el('nav', { class: 'where', 'aria-label': 'Breadcrumb' }, [
-        el('a', { href: 'index.html', text: 'Nova Shield' }),
+        el('a', { href: '/', text: 'Nova Shield' }),
         el('i'),
         el('b', { text: document.title.split('|')[0].trim() })
       ]),
@@ -158,13 +155,13 @@ async function init() {
         ]),
         el('p', { text: cfg.listNote })
       ]),
-      services.length
-        ? el('div', { class: 'svc-index' }, services.map((s, i) =>
-            el('a', { class: 'svc-row', 'data-service': s.key, href: cfg.href(s) }, [
+      rows.length
+        ? el('div', { class: 'svc-index' }, rows.map((r, i) =>
+            el('a', { class: 'svc-row', 'data-service': r.key, href: r.href }, [
               el('span', { class: 'svc-n', text: String(i + 1).padStart(2, '0') }),
               el('span', { class: 'svc-body' }, [
-                el('span', { class: 'svc-name', text: s.name }),
-                el('span', { class: 'svc-blurb', text: s.blurb || '' })
+                el('span', { class: 'svc-name', text: r.name }),
+                el('span', { class: 'svc-blurb', text: r.blurb })
               ]),
               el('span', { class: 'svc-go', text: '→' })
             ])))
@@ -172,7 +169,7 @@ async function init() {
     ])
   ]);
 
-  main.append(hero, extraBlock(key), list);
+  clear(main).append(hero, extraBlock(key), list);
 
   if (cfg.gallery) {
     const gallery = createMoodGallery(MOOD_GROUPS);
@@ -192,15 +189,55 @@ async function init() {
     }
   }
 
-  // the quote section is appended by the page shell; fill it
+  /* One quote flow for the whole site. The hub mounts the same multi-select
+     form every other page uses, so a customer who arrived here for one thing
+     can tick everything they want looking at in a single submission. */
+  const contact = el('p', { class: 'prose', id: 'contactBlock' });
+  const formHost = el('div', { id: 'quoteFormHost' },
+    [el('p', { class: 'form-note', text: 'Loading form…' })]);
+
+  main.append(el('section', { class: 'quote', id: 'quote' }, [
+    el('div', { class: 'container quote-wrap' }, [
+      el('div', {}, [
+        el('div', { class: 'chip chip--gold', text: 'Next step' }),
+        el('h2', {}, paragraphs('Tell us about\nyour property.')),
+        el('p', { class: 'prose', style: 'margin-top:18px', text:
+          'We review every request, arrange a visit if the job needs measuring properly, '
+          + 'and send a clear written quote before anything is booked.' }),
+        el('div', { class: 'good-to-know' }, [
+          el('span', { class: 'gtk-title', text: 'Booking a service at your home' }),
+          el('ul', {}, [
+            el('li', {}, [el('strong', { text: "You don't need to be home for a quote. " }),
+                          'Most measuring is done from the outside.']),
+            el('li', {}, [el('strong', { text: 'Pricing is confirmed on site. ' }),
+                          'We measure the actual work before giving a firm number.']),
+            el('li', {}, [el('strong', { text: 'Same two people, start to finish. ' }),
+                          'Whoever quotes it is who does it.'])
+          ])
+        ]),
+        contact
+      ]),
+      formHost
+    ])
+  ]));
+
   const settings = await getPublicSettings().catch(() => ({}));
   const company = settings.company || {};
-  const contact = document.getElementById('contactBlock');
-  if (contact && company.phone) {
+  if (company.phone) {
     clear(contact).append(
       el('strong', { text: 'Call or text: ' }),
       el('a', { href: `tel:${company.phone.replace(/[^0-9+]/g, '')}`, text: company.phone })
     );
+  }
+
+  try {
+    clear(formHost).append(await createQuoteForm({ preselect: preselectFromLocation() }));
+  } catch (err) {
+    clear(formHost).append(el('div', { class: 'callout' }, [
+      el('h3', { text: 'The form could not load' }),
+      el('p', { text: 'Please call or text 437-436-3360.' })
+    ]));
+    console.error(err);
   }
 
   mountReveals();

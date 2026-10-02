@@ -1,3 +1,4 @@
+import { urlForKey } from './routes.js';
 /* JSON-LD structured data.
  *
  * Built from app_settings.company and the services table rather than written
@@ -68,7 +69,7 @@ export function serviceSchema(service, company = {}) {
     name: service.name,
     serviceType: service.name,
     description: d.intro || service.blurb || undefined,
-    url: `${SITE}/service.html?s=${encodeURIComponent(service.key)}`,
+    url: SITE + (urlForKey(service.key) || '/'),
     provider: { '@id': `${SITE}/#business` },
     areaServed: {
       '@type': 'Place',
@@ -109,7 +110,7 @@ export function faqSchema(pairs = []) {
 /** Per-service canonical, title and social tags for the client-rendered page. */
 export function setServiceMeta(service) {
   const d = service.detail || {};
-  const url = `${SITE}/service.html?s=${encodeURIComponent(service.key)}`;
+  const url = SITE + (urlForKey(service.key) || '/');
   const title = `${service.name} | Nova Shield`;
   const desc = (d.intro || service.blurb || '').slice(0, 160);
 

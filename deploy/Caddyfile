@@ -36,7 +36,7 @@
 	# CSS must revalidate (cheap 304 via ETag), so a deploy is never masked by
 	# a browser holding an old module. Media is content that does not change
 	# under the same name, so it can be cached hard.
-	@code path *.html *.js *.css *.json /
+	@code path *.html *.js *.css *.json / */
 	header @code Cache-Control "no-cache"
 
 	@media path *.jpg *.jpeg *.png *.webp *.svg *.ico *.woff2 *.woff
@@ -57,6 +57,10 @@
 		root * /srv
 		file_server
 	}
+
+	# 301s from the pre-/services/ URL scheme. Generated from the route map by
+	# tools/build-routes.py; the repo is already mounted at /srv.
+	import /srv/deploy/redirects.caddy
 
 	# Public website is the default.
 	handle {

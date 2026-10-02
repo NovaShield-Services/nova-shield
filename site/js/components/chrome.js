@@ -2,6 +2,7 @@ import { el, clear } from '../../../shared/dom.js';
 import { businessSchema } from '../lib/schema.js';
 import { getPublicSettings, listPublicServices } from '../lib/site-api.js';
 import { applyTheme, decorateLinks, THEMES, resolveTheme } from '../lib/theme.js';
+import { rowsForCategory, categoryUrl } from '../lib/routes.js';
 
 /* Header and footer live here so four pages share one nav instead of three
    copies quietly drifting apart. */
@@ -19,10 +20,10 @@ const brandLockup = () => el('span', { class: 'brandart brandart--lockup brand-l
    hub rather than in the top-level navigation, which kept the bar from growing
    to thirteen items. */
 const NAV = [
-  { href: 'lighting.html', label: 'Lighting',       key: 'lighting' },
-  { href: 'care.html',     label: 'Exterior Care',  key: 'cleaning' },
-  { href: 'winter.html',   label: 'Winter',         key: 'winter'   },
-  { href: 'index.html#about', label: 'About',       key: 'about'    }
+  { href: categoryUrl('lighting'), label: 'Lighting',          key: 'lighting' },
+  { href: categoryUrl('cleaning'), label: 'Exterior Cleaning', key: 'cleaning' },
+  { href: categoryUrl('winter'),   label: 'Winter Care',       key: 'winter'   },
+  { href: '/#about',               label: 'About',             key: 'about'    }
 ];
 
 const NAV_ALIAS = { permanent: 'lighting', christmas: 'lighting' };
@@ -36,7 +37,7 @@ export function renderHeader(activeKey) {
 
   const navLinks = el('div', { class: 'navlinks', id: 'navlinks' }, [
     ...links,
-    el('a', { class: 'nav-cta', href: 'index.html#quote', text: 'Request a Quote' })
+    el('a', { class: 'nav-cta', href: '/#quote', text: 'Request a Quote' })
   ]);
 
   const menuBtn = el('button', {
@@ -58,7 +59,7 @@ export function renderHeader(activeKey) {
 
   const header = el('header', { class: 'site' }, [
     el('nav', { class: 'container' }, [
-      el('a', { class: 'brand', href: 'index.html', 'aria-label': 'Nova Shield home' }, [
+      el('a', { class: 'brand', href: '/', 'aria-label': 'Nova Shield home' }, [
         brandMark(),
         el('div', {}, [
           el('div', { class: 'brand-name', text: 'NOVA SHIELD' }),
@@ -82,8 +83,9 @@ export async function renderFooter() {
   const company = settings.company || {};
   businessSchema(company, services);
 
-  const cleaning = services.filter(s => s.category === 'cleaning' && s.quotable);
-  const winter   = services.filter(s => s.category === 'winter'   && s.quotable);
+  const lighting = rowsForCategory('lighting', services);
+  const cleaning = rowsForCategory('cleaning', services);
+  const winter   = rowsForCategory('winter',   services);
 
   return el('footer', { class: 'site' }, [
     el('div', { class: 'container' }, [
@@ -95,27 +97,25 @@ export async function renderFooter() {
         ]),
         el('div', { class: 'footer-links' }, [
           el('div', {}, [
-            el('a', { class: 'foot-hub', href: 'lighting.html', text: 'Lighting' }),
-            el('a', { href: 'lighting-permanent.html', text: 'Permanent Outdoor Lighting' }),
-            el('a', { href: 'lighting-christmas.html', text: 'Christmas Lighting' })
+            el('a', { class: 'foot-hub', href: categoryUrl('lighting'), text: 'Lighting' }),
+            ...lighting.map(r => el('a', { href: r.href, text: r.name }))
           ]),
           el('div', {}, [
-            el('a', { class: 'foot-hub', href: 'care.html', text: 'Exterior Care' }),
-            ...cleaning.slice(0, 5).map(s =>
-              el('a', { href: `service.html?s=${encodeURIComponent(s.key)}`, text: s.name })),
+            el('a', { class: 'foot-hub', href: categoryUrl('cleaning'), text: 'Exterior Cleaning' }),
+            ...cleaning.slice(0, 5).map(r => el('a', { href: r.href, text: r.name })),
             cleaning.length > 5
-              ? el('a', { href: 'care.html', text: `All ${cleaning.length} services →` }) : null
+              ? el('a', { href: categoryUrl('cleaning'),
+                          text: `All ${cleaning.length} services →` }) : null
           ]),
           el('div', {}, [
-            el('a', { class: 'foot-hub', href: 'winter.html', text: 'Winter' }),
-            ...winter.map(s =>
-              el('a', { href: `service.html?s=${encodeURIComponent(s.key)}`, text: s.name }))
+            el('a', { class: 'foot-hub', href: categoryUrl('winter'), text: 'Winter Care' }),
+            ...winter.map(r => el('a', { href: r.href, text: r.name }))
           ]),
           el('div', {}, [
             el('span', { text: 'Contact' }),
             company.email ? el('a', { href: `mailto:${company.email}`, text: company.email }) : null,
             company.phone ? el('a', { href: `tel:${company.phone.replace(/[^0-9+]/g,'')}`, text: company.phone }) : null,
-            el('a', { href: 'index.html#quote', text: 'Request a Quote' })
+            el('a', { href: '/#quote', text: 'Request a Quote' })
           ])
         ])
       ]),

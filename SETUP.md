@@ -240,15 +240,27 @@ There is exactly one public write path. The anon role can no longer call
 
 ## Running it locally
 
-From `/home/demiurge/Downloads`:
+**The site must be served at a document root.** Pages reference `/css/...`,
+`/js/...` and `/assets/...` with root-relative paths, because a page at
+`/services/exterior-cleaning/siding-washing/` cannot use relative ones. A plain
+`python3 -m http.server` in `Downloads/` therefore no longer works for the
+public site — it puts everything under `/nova-shield/site/`, and every asset
+404s.
+
+Use the same Caddy config production uses (`deploy/`, see `deploy/README.md`).
+It maps `site/` to `/`, `shared/` to `/shared/` and `admin/` to `/admin/`,
+which is exactly what the modules expect:
 
 ```bash
-python3 -m http.server 8123
+podman run --rm -p 127.0.0.1:8080:8080 \
+  -v /home/demiurge/Downloads/nova-shield:/srv:ro,Z \
+  -v /home/demiurge/Downloads/nova-shield/deploy/Caddyfile:/etc/caddy/Caddyfile:ro,Z \
+  docker.io/library/caddy:alpine
 ```
 
-- Public site — `http://localhost:8123/nova-shield/site/`
-- Field tool — `http://localhost:8123/nova-shield/admin/`
-- Customer quote — `.../site/quote.html?id=<quote-uuid>`
+- Public site — `http://127.0.0.1:8080/`
+- Field tool — `http://127.0.0.1:8080/admin/`
+- Customer quote — `http://127.0.0.1:8080/quote.html?id=<quote-uuid>`
 
 Themes: `?theme=refined` (default), `?theme=editorial`, `?theme=signal` — CSS
 skins over identical markup and identical business logic.
@@ -259,14 +271,48 @@ skins over identical markup and identical business logic.
 nova-shield/
   shared/          supabase client, DOM + formatting helpers (both apps)
   site/            public website — 3 skins, one implementation
+    index.html     the homepage
+    services/      generated route tree (see below)
     js/lib/        site-api.js   <- the only public data access
+                   routes.js     <- the only place a public URL is decided
                    turnstile.js  <- widget (site key only)
     js/components/ chrome.js - quote-form.js
     css/           site.css + theme-refined|editorial|signal.css
   admin/           internal field tool
     js/lib/api.js  <- the only admin data access
+  tools/           build-routes.py  <- regenerates services/ + sitemap
   ARCHITECTURE.md  review, known weaknesses, orphan-photo cleanup
 ```
+
+### The service route tree
+
+```
+/services/lighting/                     3 category hubs      -> js/pages/category.js
+/services/exterior-cleaning/
+/services/winter-care/
+/services/<category>/<service>/         14 service pages     -> js/pages/service.js
+```
+
+Each service page is a ~2 KB shell carrying only its title, description,
+canonical and Open Graph tags; the content is rendered from `services.detail`
+by the shared template. **Two lighting pages are hand-built** and are never
+overwritten by the generator.
+
+After changing a service, a name, a blurb or `services.detail`, regenerate:
+
+```bash
+python3 tools/build-routes.py
+```
+
+That rewrites the shells, `site/sitemap.xml` and `deploy/redirects.caddy`
+(the 301s from the old `.html` / `?s=` URLs). Slugs live in
+`site/js/lib/routes.js` — add a service there and in the database, then run it.
+
+Two winter pages deliberately share one service. `winter_property_care` is a
+single priced visit with a "what is cleared" scope, so splitting walkway and
+deck clearing into two services would charge the per-visit minimum twice to
+anyone who wants both. They are two pages over one service, with their copy in
+`detail.variants`.
 
 Edge Functions live in Supabase, not in this repo: `submit-request` (Turnstile
 gate) and `send-notifications` (queue worker).

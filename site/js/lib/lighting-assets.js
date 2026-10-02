@@ -14,7 +14,7 @@
  * never as a full-bleed hero on a large viewport.
  */
 
-const G = 'assets/gallery/';
+const G = '/assets/gallery/';
 
 export const PHOTOS = {
   channel_colours: {

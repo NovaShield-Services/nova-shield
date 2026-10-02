@@ -9,11 +9,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,340;9..144,480;9..144,560&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/site.css">
+<link rel="stylesheet" href="/css/site.css">
 <script>
   // resolve the presentation before first paint (avoids a flash of the default skin)
   (function () {
-    var THEMES = { refined: 'css/theme-refined.css', editorial: 'css/theme-editorial.css', signal: 'css/theme-signal.css' };
+    var THEMES = { refined: '/css/theme-refined.css', editorial: '/css/theme-editorial.css', signal: '/css/theme-signal.css' };
     var t = new URLSearchParams(location.search).get('theme');
     try { if (!THEMES[t]) t = localStorage.getItem('novaShieldTheme'); } catch (e) {}
     if (!THEMES[t]) t = 'refined';
@@ -23,11 +23,11 @@
 </script>
 
 
-<link rel="canonical" href="https://novashieldmaintenance.com/lighting-permanent.html">
+<link rel="canonical" href="https://novashieldmaintenance.com/services/lighting/permanent-outdoor-lighting/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Nova Shield Maintenance Services">
 <meta property="og:locale" content="en_CA">
-<meta property="og:url" content="https://novashieldmaintenance.com/lighting-permanent.html">
+<meta property="og:url" content="https://novashieldmaintenance.com/services/lighting/permanent-outdoor-lighting/">
 <meta property="og:title" content="Permanent Outdoor Lighting | Nova Shield">
 <meta property="og:description" content="Permanently installed architectural lighting for your roofline — warm white every day, any colour when you want it, controlled from an app. Installed by Nova Shield in Sault Ste. Marie.">
 <meta property="og:image" content="https://novashieldmaintenance.com/assets/brand/logo-hi.jpeg">
@@ -47,8 +47,8 @@
     <div class="hero-bg hero-bg--atmos"></div>
     <div class="container hero-content">
       <nav class="where" aria-label="Breadcrumb">
-        <a href="index.html">Nova Shield</a><i></i>
-        <a href="index.html#services">Lighting</a><i></i>
+        <a href="/">Nova Shield</a><i></i>
+        <a href="/services/lighting/">Lighting</a><i></i>
         <b>Permanent Outdoor Lighting</b>
       </nav>
       <h1>Light changes how<br>a home feels.</h1>
@@ -211,6 +211,6 @@
   </section>
 
 </main>
-<script type="module" src="js/pages/lighting-permanent.js"></script>
+<script type="module" src="/js/pages/lighting-permanent.js"></script>
 </body>
 </html>

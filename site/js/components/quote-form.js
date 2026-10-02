@@ -20,7 +20,7 @@ const TIMING = [
   'Weekday afternoons', 'Weekends', 'Just planning ahead'
 ];
 
-const CATEGORY_LABELS = { lighting: 'Lighting', cleaning: 'Exterior cleaning', winter: 'Winter services' };
+const CATEGORY_LABELS = { lighting: 'Lighting', cleaning: 'Exterior cleaning', winter: 'Winter care' };
 
 function labelled(text, control, extraClass = '') {
   return el('label', { class: `field ${extraClass}` }, [el('span', { text }), control]);

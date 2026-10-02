@@ -7,6 +7,7 @@ import { getPublicSettings, listPublicServices } from '../lib/site-api.js';
 import { MOOD_GROUPS, DEMO_MODES, PHOTOS } from '../lib/lighting-assets.js';
 import { mountReveals } from '../lib/reveal.js';
 import { breadcrumbSchema } from '../lib/schema.js';
+import { urlForKey } from '../lib/routes.js';
 
 async function applySettings() {
   const settings = await getPublicSettings();
@@ -73,8 +74,8 @@ async function renderRelated() {
   clear(host).append(...items.map(s => el('a', {
     class: 'pair-card', 'data-service': s.key,
     href: s.key === 'christmas_lighting'
-      ? 'lighting-christmas.html'
-      : `service.html?s=${encodeURIComponent(s.key)}`
+      ? '/services/lighting/christmas-lighting/'
+      : (urlForKey(s.key) || '/')
   }, [
     el('h3', { text: s.name }),
     el('p', { text: s.blurb || '' }),
@@ -95,7 +96,7 @@ async function init() {
     renderRelated().catch(err => console.error(err))
   ]);
 
-  breadcrumbSchema([{ name: 'Nova Shield', path: '/' }, { name: 'Lighting', path: '/lighting.html' }, { name: 'Permanent Outdoor Lighting' }]);
+  breadcrumbSchema([{ name: 'Nova Shield', path: '/' }, { name: 'Lighting', path: '/services/lighting/' }, { name: 'Permanent Outdoor Lighting' }]);
 
   mountReveals();
 
