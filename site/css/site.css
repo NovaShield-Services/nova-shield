@@ -708,3 +708,108 @@ a.matrix-label:hover { color:var(--gold-2); }
   .hero--home .hero-bg { transform: none !important; }
   html { scroll-behavior: auto !important; }
 }
+
+/* ===========================================================================
+   VISUAL REFINEMENT PASS
+   Surgical fixes to the composition problems visible in the review renders.
+   No new components, no new direction.
+   ========================================================================= */
+
+/* --- 1 + 2 + 4. Inner-page heroes had a dead right half, were identical to
+   each other, and the service accent was invisible.
+   The canonical shield mark now anchors that space at large scale, bled off
+   the right edge, tinted by the service accent. It uses the brand artwork
+   rather than inventing a shape, fills the void without faking a photograph,
+   and finally makes the accent system visible. ------------------------------ */
+.hero--page .hero-content { position: relative; z-index: 2; }
+.hero--page .hero-bg--atmos::before {
+  content: '';
+  position: absolute;
+  /* .hero-bg:before already sets inset:0; without clearing left/bottom the
+     element stays full-width and the mark lands behind the headline */
+  inset: auto;
+  left: auto;
+  bottom: auto;
+  right: -7%;
+  top: 50%;
+  transform: translateY(-50%);
+  width: min(58vh, 620px);
+  aspect-ratio: 1 / 1;
+  background: var(--brand-art) no-repeat;
+  background-size: 555.56% 185.19%;
+  background-position: 14.63% 36.96%;
+  /* fade it into the ground from the centre out, so there is no rectangle */
+  -webkit-mask: radial-gradient(circle at 50% 50%, #000 34%, transparent 72%);
+  mask: radial-gradient(circle at 50% 50%, #000 34%, transparent 72%);
+  opacity: .16;
+  filter: saturate(.5);
+  pointer-events: none;
+}
+/* the accent reaches the mark, so gold / amber / slate read differently */
+.hero--page .hero-bg--atmos::after {
+  background:
+    radial-gradient(70% 90% at 78% 50%, var(--accent-soft), transparent 70%),
+    linear-gradient(180deg, transparent 50%, rgba(3,7,15,.72) 84%, var(--ink) 100%);
+}
+
+/* lighting pages get a wider, lower mark so they do not match the service
+   pages exactly -- same device, different composition */
+.hero--light .hero-bg--atmos::before,
+.hero--xmas  .hero-bg--atmos::before { width: min(66vh, 720px); right: -12%; top: 58%; opacity: .2; }
+.hero--cat   .hero-bg--atmos::before { width: min(50vh, 520px); right: -4%;  opacity: .13; }
+
+/* --- 3. The homepage hero was suppressed too far and lost its subject.
+   Enough blur to stop a 640px source being read as a photograph, not enough
+   to erase the house. ------------------------------------------------------- */
+.hero--home .hero-bg {
+  filter: blur(1.6px) saturate(.95) contrast(1.06);
+  transform: scale(1.04);
+  opacity: .9;
+}
+.hero--home .hero-scrim {
+  background:
+    radial-gradient(1200px 680px at 24% 16%, rgba(28,193,163,.08), transparent 62%),
+    linear-gradient(180deg, rgba(3,7,15,.76) 0%, rgba(3,7,15,.34) 32%, rgba(3,7,15,.80) 74%, var(--ink) 100%),
+    linear-gradient(90deg, rgba(3,7,15,.9) 0%, rgba(3,7,15,.46) 52%, rgba(3,7,15,.08) 100%);
+}
+
+/* --- 5. The hero lockup read as a pasted rectangle because its own aurora sky
+   met the photograph at a hard edge. Feathering the edges lets it sit in the
+   scene instead of on top of it. ------------------------------------------- */
+.hero-lockup {
+  -webkit-mask: linear-gradient(90deg, #000 72%, transparent 100%),
+                linear-gradient(180deg, transparent 0%, #000 12%, #000 86%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask: linear-gradient(90deg, #000 72%, transparent 100%),
+        linear-gradient(180deg, transparent 0%, #000 12%, #000 86%, transparent 100%);
+  mask-composite: intersect;
+  filter: drop-shadow(0 14px 34px rgba(3,7,15,.75));
+  opacity: .96;
+}
+
+/* --- 7. Hero rhythm: tighten the stack above the headline so the h1 lands
+   sooner and reads as the entry point, and give the lede room. ------------- */
+.hero--page .where { margin-bottom: 14px; }
+.hero--page .chip  { margin-bottom: 14px; }
+.hero--page h1     { margin-bottom: 20px; }
+.hero--page .lede  { font-size: clamp(1.02rem, 1.25vw, 1.16rem); max-width: 48ch; color: var(--muted-lt); }
+
+/* --- 6. The asset-pending marker belongs at the edge, not in the middle of
+   the composition. --------------------------------------------------------- */
+.asset-note {
+  left: auto; right: 22px; bottom: 20px; transform: none;
+  background: rgba(3,7,15,.45); border-color: rgba(170,200,235,.1);
+  color: rgba(240,246,252,.34); font-size: 9px; letter-spacing: .1em;
+}
+
+@media (max-width: 900px) {
+  .hero--page .hero-bg--atmos::before,
+  .hero--light .hero-bg--atmos::before,
+  .hero--xmas .hero-bg--atmos::before,
+  .hero--cat .hero-bg--atmos::before {
+    width: min(46vh, 380px); right: -18%; top: auto; bottom: -4%; transform: none; opacity: .12;
+  }
+  /* --- 8. less dead space above the breadcrumb on a phone */
+  .hero--page .hero-content { padding: 96px 0 40px; }
+  .asset-note { right: 16px; bottom: 14px; }
+}
