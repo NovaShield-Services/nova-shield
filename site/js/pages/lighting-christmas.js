@@ -4,6 +4,7 @@ import { createQuoteForm } from '../components/quote-form.js';
 import { getPublicSettings, listPublicServices } from '../lib/site-api.js';
 import { PHOTOS } from '../lib/lighting-assets.js';
 import { mountReveals } from '../lib/reveal.js';
+import { faqSchema, breadcrumbSchema } from '../lib/schema.js';
 
 async function applySettings() {
   const settings = await getPublicSettings();
@@ -71,6 +72,17 @@ async function init() {
   await Promise.allSettled([
     applySettings().catch(err => console.error(err)),
     renderRelated().catch(err => console.error(err))
+  ]);
+
+  // the page genuinely shows questions and answers, so the markup is honest
+  faqSchema([...document.querySelectorAll('.callout')]
+    .map(c => [c.querySelector('h3')?.textContent?.trim(),
+               c.querySelector('p')?.textContent?.replace(/\s+/g, ' ').trim()])
+    .filter(([q, a]) => q && a));
+  breadcrumbSchema([
+    { name: 'Nova Shield', path: '/' },
+    { name: 'Lighting', path: '/lighting.html' },
+    { name: 'Seasonal Christmas Lighting' }
   ]);
 
   mountReveals();

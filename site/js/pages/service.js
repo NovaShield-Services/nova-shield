@@ -3,6 +3,8 @@ import { mountChrome } from '../components/chrome.js';
 import { createQuoteForm } from '../components/quote-form.js';
 import { getService, listPublicServices } from '../lib/site-api.js';
 import { mountReveals } from '../lib/reveal.js';
+import { serviceSchema, breadcrumbSchema, setServiceMeta } from '../lib/schema.js';
+import { getPublicSettings } from '../lib/site-api.js';
 
 /* One template, but the content per service is genuinely different and lives
    in services.detail — so the page and the admin price book are the same list,
@@ -230,6 +232,18 @@ async function init() {
   }
 
   await mountChrome(service.category);
+
+  // per-service canonical, social tags and structured data; the static shell is
+  // noindex until a real service is resolved
+  setServiceMeta(service);
+  const settings = await getPublicSettings().catch(() => ({}));
+  serviceSchema(service, settings.company || {});
+  breadcrumbSchema([
+    { name: 'Nova Shield', path: '/' },
+    { name: CATEGORY[service.category].label, path: '/' + CATEGORY[service.category].href },
+    { name: service.name }
+  ]);
+
   renderService(service, services);
   mountReveals();
 

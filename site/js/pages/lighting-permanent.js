@@ -6,6 +6,7 @@ import { createMoodGallery } from '../components/mood-gallery.js';
 import { getPublicSettings, listPublicServices } from '../lib/site-api.js';
 import { MOOD_GROUPS, DEMO_MODES, PHOTOS } from '../lib/lighting-assets.js';
 import { mountReveals } from '../lib/reveal.js';
+import { breadcrumbSchema } from '../lib/schema.js';
 
 async function applySettings() {
   const settings = await getPublicSettings();
@@ -93,6 +94,8 @@ async function init() {
     applySettings().catch(err => console.error(err)),
     renderRelated().catch(err => console.error(err))
   ]);
+
+  breadcrumbSchema([{ name: 'Nova Shield', path: '/' }, { name: 'Lighting', path: '/lighting.html' }, { name: 'Permanent Outdoor Lighting' }]);
 
   mountReveals();
 

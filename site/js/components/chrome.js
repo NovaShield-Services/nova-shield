@@ -1,4 +1,5 @@
 import { el, clear } from '../../../shared/dom.js';
+import { businessSchema } from '../lib/schema.js';
 import { getPublicSettings, listPublicServices } from '../lib/site-api.js';
 import { applyTheme, decorateLinks, THEMES, resolveTheme } from '../lib/theme.js';
 
@@ -79,6 +80,8 @@ export function renderHeader(activeKey) {
 export async function renderFooter() {
   const [settings, services] = await Promise.all([getPublicSettings(), listPublicServices()]);
   const company = settings.company || {};
+  businessSchema(company, services);
+
   const cleaning = services.filter(s => s.category === 'cleaning' && s.quotable);
   const winter   = services.filter(s => s.category === 'winter'   && s.quotable);
 

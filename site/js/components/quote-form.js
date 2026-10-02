@@ -74,7 +74,11 @@ export async function createQuoteForm({ preselect = [] } = {}) {
   const honeypot    = el('input', { tabindex: '-1', autocomplete: 'off', 'aria-hidden': 'true' });
   const turnstileHost = el('div');
 
-  const photoInput = el('input', { type: 'file', accept: 'image/*', multiple: true });
+  // a bare file input announces only as "file upload button"; the label says
+  // what it is for
+  const photoInput = el('input', { type: 'file', accept: 'image/*', multiple: true,
+                                   id: 'quotePhotos',
+                                   'aria-label': 'Photos of the property (optional, up to 10)' });
   const photoList = el('div', { class: 'photo-list' });
   let chosenPhotos = [];
 

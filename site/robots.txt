@@ -1,0 +1,8 @@
+# Nova Shield Maintenance Services
+User-agent: *
+Allow: /
+
+# The customer quote page is a private document reached by link only.
+Disallow: /quote.html
+
+Sitemap: https://novashieldmaintenance.com/sitemap.xml
