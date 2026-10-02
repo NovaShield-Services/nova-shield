@@ -382,12 +382,6 @@ footer.site { padding: 56px 0 38px; }
   content:''; position:absolute; inset:0;
   background:linear-gradient(180deg, transparent 54%, rgba(3,7,15,.75) 86%, var(--ink) 100%);
 }
-.asset-note {
-  position:absolute; left:50%; bottom:18px; transform:translateX(-50%); z-index:4;
-  font-size:10px; letter-spacing:.14em; text-transform:uppercase; font-weight:600;
-  color:rgba(240,246,252,.5); background:rgba(3,7,15,.6); border:1px solid var(--line);
-  padding:5px 12px; border-radius:2px; white-space:nowrap;
-}
 
 /* Mobile hero: the headline is the hero on a phone, so stop reserving desktop
    breathing room above it. */
@@ -396,8 +390,6 @@ footer.site { padding: 56px 0 38px; }
   .hero--page .hero-content { padding:112px 0 44px; }
   .hero--page h1 { font-size:clamp(2.1rem,8.6vw,3rem); }
   .where { font-size:10px; letter-spacing:.16em; gap:8px; margin-bottom:14px; }
-  .asset-note { left:20px; right:auto; transform:none; bottom:12px; font-size:9px; padding:4px 9px;
-    max-width:calc(100% - 40px); white-space:normal; }
 }
 
 /* ============================================================================
@@ -796,11 +788,6 @@ a.matrix-label:hover { color:var(--gold-2); }
 
 /* --- 6. The asset-pending marker belongs at the edge, not in the middle of
    the composition. --------------------------------------------------------- */
-.asset-note {
-  left: auto; right: 22px; bottom: 20px; transform: none;
-  background: rgba(3,7,15,.45); border-color: rgba(170,200,235,.1);
-  color: rgba(240,246,252,.34); font-size: 9px; letter-spacing: .1em;
-}
 
 @media (max-width: 900px) {
   .hero--page .hero-bg--atmos::before,
@@ -811,5 +798,126 @@ a.matrix-label:hover { color:var(--gold-2); }
   }
   /* --- 8. less dead space above the breadcrumb on a phone */
   .hero--page .hero-content { padding: 96px 0 40px; }
-  .asset-note { right: 16px; bottom: 14px; }
+}
+
+/* ===========================================================================
+   FINAL PASS — hero rhythm, CTA system, per-family composition
+   ========================================================================= */
+
+/* --- 2. Hero typography rhythm -------------------------------------------
+   Previously breadcrumb / chip / h1 / lede / buttons sat on one even rhythm.
+   The headline is now the event: the eyebrow is pushed well clear of it, the
+   display scale steps up, and the lede is pulled in tight underneath on a
+   narrower measure so it reads as support rather than a second block. */
+.hero--page .where {
+  margin-bottom: 0;
+  /* no max-width: constraining it wrapped the trail onto three lines */
+}
+/* the rule belongs to the headline, not the breadcrumb, so it stays a short
+   editorial mark instead of a full-width divider */
+.hero--page h1::before {
+  content: '';
+  display: block;
+  width: 64px;
+  height: 1px;
+  background: var(--accent);
+  opacity: .75;
+  margin-bottom: 28px;
+}
+.hero--page .chip { display: none; }          /* breadcrumb already locates the page */
+.hero--page h1 {
+  font-size: clamp(2.9rem, 6.2vw, 5.4rem);
+  line-height: .96;
+  letter-spacing: -.035em;
+  margin: 30px 0 0;
+  max-width: 17ch;
+}
+.hero--page .lede {
+  margin: 22px 0 0;
+  max-width: 44ch;
+  font-size: clamp(1rem, 1.15vw, 1.1rem);
+  line-height: 1.62;
+  color: var(--muted);
+  border-left: 2px solid var(--accent);
+  padding-left: 18px;
+}
+.hero--page .hero-actions { margin-top: 38px; }
+
+/* --- 3. CTA system --------------------------------------------------------
+   Architectural geometry rather than pills: a square-edged primary with a
+   light sweep on hover, and a secondary reduced to a ruled link so the
+   hierarchy is unambiguous. */
+.hero-actions .button,
+.quote .button,
+.cta .button { border-radius: 2px; }
+
+.hero-actions .button--gold {
+  position: relative; overflow: hidden;
+  padding: 16px 30px; letter-spacing: .06em; text-transform: uppercase;
+  font-size: .78rem; font-weight: 700;
+  background: linear-gradient(135deg, var(--gold-2), var(--gold));
+  box-shadow: 0 14px 34px -14px rgba(224,165,63,.6);
+}
+.hero-actions .button--gold::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(105deg, transparent 38%, rgba(255,255,255,.42) 50%, transparent 62%);
+  transform: translateX(-120%);
+  transition: transform .62s cubic-bezier(.22,.8,.3,1);
+}
+.hero-actions .button--gold:hover::after { transform: translateX(120%); }
+.hero-actions .button--gold:hover { transform: none; box-shadow: 0 18px 44px -14px rgba(224,165,63,.75); }
+
+/* secondary: a ruled link, deliberately quieter than a second button */
+.hero-actions .button--ghost {
+  background: none; border: 0; box-shadow: none; padding: 16px 2px;
+  border-bottom: 1px solid var(--line-strong); border-radius: 0;
+  color: var(--muted-lt); font-weight: 600; font-size: .86rem;
+  letter-spacing: .02em; text-transform: none;
+}
+.hero-actions .button--ghost::after { content: '→'; margin-left: 2px; transition: transform .3s; }
+.hero-actions .button--ghost:hover {
+  color: var(--cream); border-bottom-color: var(--accent); transform: none; box-shadow: none;
+}
+.hero-actions .button--ghost:hover::after { transform: translateX(4px); }
+.hero-actions { align-items: center; gap: 26px; }
+
+/* --- 4 + 5. The mark is a compositional element, weighted by page family ---
+   Lighting leans on it (night, illumination, architecture). Cleaning keeps it
+   faint so material and texture lead. The homepage does not use it at all --
+   there the photograph is the subject. */
+.hero--light .hero-bg--atmos::before { opacity: .26; width: min(72vh, 780px); right: -14%; top: 56%; }
+.hero--xmas  .hero-bg--atmos::before { opacity: .2;  width: min(64vh, 700px); right: -11%; top: 60%;
+                                       filter: saturate(.72) hue-rotate(-6deg); }
+.hero--page:not(.hero--light):not(.hero--xmas):not(.hero--cat) .hero-bg--atmos::before {
+  opacity: .085; width: min(44vh, 460px); right: -6%; top: 46%; filter: saturate(.3);
+}
+.hero--cat .hero-bg--atmos::before { opacity: .12; }
+
+/* cleaning heroes lead on material instead: a raking light across the ground */
+.hero--page:not(.hero--light):not(.hero--xmas):not(.hero--cat) .hero-bg--atmos {
+  background:
+    radial-gradient(1000px 560px at 14% 6%, var(--accent-soft), transparent 60%),
+    repeating-linear-gradient(97deg, rgba(255,255,255,.022) 0 1px, transparent 1px 86px),
+    linear-gradient(168deg, #081426 0%, #050d1d 56%, var(--ink) 100%);
+}
+
+@media (max-width: 900px) {
+  .hero--page h1::before { width: 44px; margin-bottom: 20px; }
+  .hero--page h1 { font-size: clamp(2.2rem, 9vw, 3.1rem); margin-top: 26px; }
+  .hero--page .lede { padding-left: 14px; margin-top: 18px; }
+  .hero-actions { gap: 18px; align-items: stretch; flex-direction: column; }
+  .hero-actions .button--gold { width: 100%; }
+  .hero-actions .button--ghost { align-self: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-actions .button--gold::after,
+  .hero-actions .button--ghost::after { transition: none !important; transform: none !important; }
+}
+
+/* Desktop nav links measured 30px. Fine under a mouse, short of a comfortable
+   touch target on a tablet at the same width, so height is added by input type
+   rather than by viewport. */
+@media (pointer: coarse) {
+  .navlinks a { padding-top: 10px; padding-bottom: 10px; }
+  .where a { padding: 10px 0; }
 }

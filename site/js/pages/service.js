@@ -49,10 +49,11 @@ function renderService(service, allServices) {
   // still carries the service itself
   document.documentElement.dataset.service = service.key;
 
-  // Every file currently in assets/gallery/ is a LIGHTING photograph. Using one
-  // behind "Glass, frames and the edges people miss" put a purple Christmas
-  // display behind a window-cleaning page. Until a real matching asset exists
-  // (ASSET_SPEC.md), the hero renders atmospherically instead of lying.
+  // Every file currently in assets/gallery/ is a LIGHTING photograph, so using
+  // one behind a cleaning headline would misrepresent the service. Until a real
+  // matching asset exists the hero renders atmospherically. The missing assets
+  // are tracked in ASSET_SPEC.md -- deliberately NOT surfaced to the customer,
+  // who should never read a development note on a marketing page.
   // A file outside assets/gallery/ is treated as a real, verified asset.
   const generic = !d.hero || /^photo-\d+\.jpg$/.test(d.hero);
   const heroBg = generic
@@ -61,8 +62,6 @@ function renderService(service, allServices) {
 
   const hero = el('section', { class: 'hero hero--page' }, [
     heroBg,
-    generic ? el('span', { class: 'asset-note',
-      text: `Image pending — ${(service.key || '').toUpperCase().slice(0,4)}-01 in ASSET_SPEC.md` }) : null,
     el('div', { class: 'container hero-content' }, [
       el('nav', { class: 'where', 'aria-label': 'Breadcrumb' }, [
         el('a', { href: 'index.html', text: 'Nova Shield' }),
