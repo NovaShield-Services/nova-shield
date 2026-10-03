@@ -138,7 +138,7 @@ export function createQuotePanel({ job, onChange }) {
     ]);
   }
 
-  function renderQuote(quote) {
+  function renderQuote(quote, isLatest) {
     const editable = quote.status === 'draft';
     const lines = (quote.quote_line_items || []).sort((a, b) => a.sort_order - b.sort_order);
     const adjustments = (quote.quote_adjustments || []).sort((a, b) => a.sort_order - b.sort_order);
@@ -182,8 +182,41 @@ export function createQuotePanel({ job, onChange }) {
 
       editable ? addAdjustmentForm(quote) : null,
 
+      !editable && isLatest ? revisionPrompt(quote) : null,
+
       deliveryActions(quote, editable),
       internalNotesBox(quote)
+    ]);
+  }
+
+  /** A sent/accepted/declined/expired/superseded quote is never edited in
+   *  place -- the number a customer saw stays exactly what they saw, for
+   *  dispute prevention. Changing anything means a new version, cloned from
+   *  this one via duplicate_quote() (parent_quote_id stamped), left as an
+   *  editable draft with its own id and so its own canonical quote.html
+   *  link, while this record stays on file untouched. */
+  function revisionPrompt(quote) {
+    return el('div', { class: 'warn', style: 'margin-top:14px' }, [
+      el('strong', { style: 'display:block;margin-bottom:4px', text: 'This quote is locked.' }),
+      el('span', { text: `Version ${quote.version} was ${quote.status === 'sent' ? 'sent to the customer' : humanise(quote.status).toLowerCase()} ` +
+            'and is kept exactly as they saw it. To change anything, create a new revision.' }),
+      el('div', { class: 'btn-row', style: 'margin-top:10px' }, [
+        el('button', {
+          class: 'btn btn--primary', text: `Create New Revision (v${quote.version + 1})`,
+          onClick: async () => {
+            if (!confirmAction(
+              `Create a new revision of this quote? Version ${quote.version} stays on file ` +
+              'unchanged, and the new version opens as an editable draft.')) return;
+            try {
+              await api.duplicateQuote(quote.id);
+              toast(`Revision v${quote.version + 1} created as a new draft`);
+              onChange();
+            } catch (err) {
+              toast(err.message, 'error');
+            }
+          }
+        })
+      ])
     ]);
   }
 
@@ -361,7 +394,7 @@ export function createQuotePanel({ job, onChange }) {
           })
         ])
       ]),
-      ...quotes.map(renderQuote)
+      ...quotes.map((q, i) => renderQuote(q, i === 0))
     );
 
     async function build(kind) {

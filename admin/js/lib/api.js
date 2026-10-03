@@ -109,6 +109,21 @@ export async function listJobs(status = 'all') {
   return unwrap(await q);
 }
 
+/** Field console's schedule screen: jobs booked for today, with enough on
+ *  each row (customer, address, time, latest quoted value) to decide what
+ *  to do next without opening the job. Quotes come embedded per job --
+ *  the caller picks the highest version for "quoted value" since a job can
+ *  carry several. */
+export async function listTodaysVisits() {
+  const start = new Date(); start.setHours(0, 0, 0, 0);
+  const end = new Date(start); end.setDate(end.getDate() + 1);
+  return unwrap(await supabase.from('ns_jobs')
+    .select('*, customers(name,phone,email), properties(address_line1,city,postal_code), ' +
+            'ns_quotes(id,version,total,status)')
+    .gte('scheduled_for', start.toISOString()).lt('scheduled_for', end.toISOString())
+    .order('scheduled_for'));
+}
+
 export async function getJob(id) {
   return unwrap(await supabase.from('ns_jobs')
     .select('*, customers(*), properties(*)')
@@ -117,6 +132,13 @@ export async function getJob(id) {
 
 export async function updateJob(id, patch) {
   return unwrap(await supabase.from('ns_jobs')
+    .update(patch).eq('id', id).select().single());
+}
+
+/** Property Passport lives on properties.passport (jsonb) -- this is a
+ *  plain generic patch, same shape as updateJob/updateQuote. */
+export async function updateProperty(id, patch) {
+  return unwrap(await supabase.from('properties')
     .update(patch).eq('id', id).select().single());
 }
 
@@ -220,12 +242,40 @@ export async function listAttachments(jobId) {
     .select('*').eq('job_id', jobId).order('created_at'));
 }
 
-/** Private bucket: a short-lived signed URL is minted per view. */
-export async function signedPhotoUrl(storagePath, seconds = 900) {
+/** Private bucket: a short-lived signed URL is minted per view. Defaults to
+ *  the customer-upload bucket for existing callers; the field console's own
+ *  site photos live in the separate 'job-photos' bucket. */
+export async function signedPhotoUrl(storagePath, seconds = 900, bucket = 'request-photos') {
   const { data, error } = await supabase.storage
-    .from('request-photos').createSignedUrl(storagePath, seconds);
+    .from(bucket).createSignedUrl(storagePath, seconds);
   if (error) throw new Error(error.message);
   return data.signedUrl;
+}
+
+/** Uploads a staff-captured site photo to the private 'job-photos' bucket
+ *  and records it as a job_attachments row. kind is one of site_photo |
+ *  before | after | damage | measurement | document. */
+export async function uploadJobPhoto(jobId, file, { kind = 'site_photo', caption, elevationTag, issueFlag = false } = {}) {
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const path = `${jobId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('job-photos').upload(path, file, { contentType: file.type || 'image/jpeg' });
+  if (uploadError) throw new Error(uploadError.message);
+
+  return unwrap(await supabase.from('job_attachments').insert({
+    job_id: jobId, storage_path: path, kind,
+    caption: caption || null, elevation_tag: elevationTag || null,
+    issue_flag: !!issueFlag, mime_type: file.type || null, size_bytes: file.size ?? null
+  }).select().single());
+}
+
+export async function updateAttachment(id, patch) {
+  return unwrap(await supabase.from('job_attachments').update(patch).eq('id', id).select().single());
+}
+
+export async function deleteAttachment(id) {
+  return unwrap(await supabase.from('job_attachments').delete().eq('id', id));
 }
 
 /* ----------------------------------------------------------------- notes -- */

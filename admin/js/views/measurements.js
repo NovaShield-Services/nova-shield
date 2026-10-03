@@ -208,15 +208,20 @@ export function createMeasurementsPanel({ job, refs, onChange }) {
       return renderServiceBlock(service, ms, pricedByService.get(serviceId));
     }).filter(Boolean);
 
-    clear(root).append(
+    // Element.append() stringifies any non-Node argument (including null),
+    // so a conditional that can yield null -- addServiceControl, once every
+    // quotable service is already on the job -- must be filtered out here
+    // rather than passed straight through, or it renders as the literal
+    // text "null".
+    clear(root).append(...[
       blocks.length
         ? el('div', {}, blocks)
         : el('div', { class: 'empty', text: 'No services on this job yet. Add one below.' }),
       addServiceControl,
       el('p', { class: 'hint',
-        text: 'Height and access come from the property section, not from each measurement — ' +
-              'set them once in Property layout above.' })
-    );
+        text: 'Height and access come from the property’s elevation settings, not from each ' +
+              'measurement — set them once above.' })
+    ].filter(Boolean));
   }
 
   return { root, render };
