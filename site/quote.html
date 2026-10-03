@@ -55,23 +55,32 @@
   .state--warn { background: #fdf4e3; color: #8a6414; }
   .center { text-align: center; padding: 80px 20px; color: #6c7772; }
   @media print {
-    @page { margin: 14mm; }
-    body { background: #fff; }
+    @page { size: A4 portrait; margin: 12mm 15mm 12mm 15mm; }
+    html, body { background: #fff; }
+    body { color: #16211f; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     /* .doc's screen margins/width exist to center the card on a browser tab;
        on paper the @page margin already does that job, and leaving them in
        adds blank vertical space that can push the sheet onto a lonely extra
        page for a short quote. */
     .doc { width: auto; margin: 0; }
     .sheet { box-shadow: none; border: 0; padding: 0; }
+    /* UI stripping: nothing interactive -- nav, accept/decline, the
+       print-trigger button itself -- belongs on paper. */
     .actions, .no-print { display: none !important; }
     /* Keep each unit intact across a page boundary rather than splitting a
        line item, a heading from its value, or the final total from its
-       label -- the usual causes of a quote reading as "cut off". */
+       label -- the usual causes of a quote reading as "cut off". Covers the
+       header card, every line-item/adjustment/total row, and the notes and
+       terms blocks. */
     .sheet-head, .parties, .parties > div, .line, .notes, .state {
       break-inside: avoid; page-break-inside: avoid;
     }
     .parties h2, .notes h3 { break-after: avoid; page-break-after: avoid; }
-    .state { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    /* This document lists line items as rows, not a multi-column ledger, so
+       there is no per-column header to repeat across a page break -- each
+       row already carries its own description and amount. The rule is kept
+       for the day a literal <thead> is introduced here. */
+    thead { display: table-header-group; }
   }
 </style>
 

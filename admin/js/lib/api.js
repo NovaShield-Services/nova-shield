@@ -305,3 +305,9 @@ export async function updateQuote(id, patch) {
 export async function sendQuote(id) {
   return unwrap(await supabase.rpc('mark_quote_sent', { p_quote_id: id }));
 }
+
+/** Clones a quote's pricing (line items + adjustments, copied verbatim) into
+ *  a new draft version. Returns the new quote's id. */
+export async function duplicateQuote(id) {
+  return unwrap(await supabase.rpc('duplicate_quote', { p_quote_id: id }));
+}
