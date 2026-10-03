@@ -145,37 +145,70 @@ export function createQuotePanel({ job, onChange }) {
 
       editable ? addAdjustmentForm(quote) : null,
 
+      deliveryActions(quote, editable)
+    ]);
+  }
+
+  /** Email and PDF are two independent delivery channels for the same quote:
+   *  a quote with no customer email on file is just as "finished" as one
+   *  with an email, it is only delivered differently. Downloading a PDF
+   *  never touches quote.id's status -- only sendQuote() does that, and only
+   *  when it actually queues an email. */
+  function deliveryActions(quote, editable) {
+    const hasEmail = !!(job.customers && job.customers.email);
+    // ?print=1 tells the customer-quote page (the one document, no
+    // duplicate template) to trigger window.print() once it has rendered --
+    // the native browser Save-as-PDF flow, not a generated file.
+    const quoteUrl = `../site/quote.html?id=${quote.id}`;
+
+    const sendButton = el('button', {
+      class: 'btn btn--primary', text: 'Send quote',
+      disabled: editable && !hasEmail ? true : undefined,
+      onClick: async () => {
+        if (!hasEmail) {
+          // No RPC round-trip: there is nothing a backend error would add
+          // here, and this is not a failure of the send -- it is a channel
+          // that simply is not available for this customer.
+          toast('No customer email is on file. Save/download the PDF and send it ' +
+                'manually, or add an email address.', 'error');
+          return;
+        }
+        if (!confirmAction(
+          `Send this quote for ${money(quote.total)}? It is locked once sent — ` +
+          'changes after this need a new version.')) return;
+        try {
+          await api.sendQuote(quote.id);
+          // The send itself is synchronous (status + queue row), but
+          // delivery through Resend happens on the next worker pass,
+          // so "sent" here means queued, not "landed in their inbox".
+          toast('Quote sent — the customer email is queued for delivery');
+          onChange();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      }
+    });
+
+    return el('div', {}, [
       el('div', { class: 'btn-row', style: 'margin-top:14px' }, [
-        editable
-          ? el('button', {
-              class: 'btn btn--primary', text: 'Send quote',
-              onClick: async () => {
-                if (!confirmAction(
-                  `Send this quote for ${money(quote.total)}? It is locked once sent — ` +
-                  'changes after this need a new version.')) return;
-                try {
-                  await api.sendQuote(quote.id);
-                  // The send itself is synchronous (status + queue row), but
-                  // delivery through Resend happens on the next worker pass,
-                  // so "sent" here means queued, not "landed in their inbox".
-                  toast('Quote sent — the customer email is queued for delivery');
-                  onChange();
-                } catch (err) {
-                  toast(err.message, 'error');
-                }
-              }
-            })
-          : null,
         el('a', {
-          // the customer-facing document lives on the public site, not in here
-          class: 'btn', href: `../site/quote.html?id=${quote.id}`,
-          target: '_blank', rel: 'noopener',
-          text: quote.status === 'draft' ? 'Preview customer view' : 'Customer view'
-        })
+          // the customer-facing document lives on the public site, not in
+          // here -- an authenticated admin can open any status, a customer
+          // only ever sees one that has actually been sent
+          class: 'btn', href: quoteUrl, target: '_blank', rel: 'noopener',
+          text: quote.status === 'draft' ? 'Preview quote' : 'Open quote'
+        }),
+        el('a', {
+          class: 'btn', href: `${quoteUrl}&print=1`, target: '_blank', rel: 'noopener',
+          text: 'Download PDF'
+        }),
+        editable ? sendButton : null
       ]),
       editable
-        ? el('p', { class: 'hint', style: 'margin-top:8px',
-            text: 'Nothing is sent to the customer automatically — you review the number first.' })
+        ? el('p', { class: 'hint', style: 'margin-top:8px', text: hasEmail
+            ? 'Nothing is sent to the customer automatically — you review the number first.'
+            : 'No customer email is on file. Send quote is unavailable — download the ' +
+              'PDF instead and deliver it by text or another method.' })
         : null
     ]);
   }

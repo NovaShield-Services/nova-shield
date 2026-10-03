@@ -55,9 +55,23 @@
   .state--warn { background: #fdf4e3; color: #8a6414; }
   .center { text-align: center; padding: 80px 20px; color: #6c7772; }
   @media print {
+    @page { margin: 14mm; }
     body { background: #fff; }
+    /* .doc's screen margins/width exist to center the card on a browser tab;
+       on paper the @page margin already does that job, and leaving them in
+       adds blank vertical space that can push the sheet onto a lonely extra
+       page for a short quote. */
+    .doc { width: auto; margin: 0; }
     .sheet { box-shadow: none; border: 0; padding: 0; }
     .actions, .no-print { display: none !important; }
+    /* Keep each unit intact across a page boundary rather than splitting a
+       line item, a heading from its value, or the final total from its
+       label -- the usual causes of a quote reading as "cut off". */
+    .sheet-head, .parties, .parties > div, .line, .notes, .state {
+      break-inside: avoid; page-break-inside: avoid;
+    }
+    .parties h2, .notes h3 { break-after: avoid; page-break-after: avoid; }
+    .state { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
 </style>
 

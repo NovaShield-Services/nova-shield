@@ -131,8 +131,23 @@ function render(q) {
   );
 }
 
+/** The admin "Download PDF" action opens this same page with ?print=1 rather
+ *  than carrying its own copy of the quote document. Printing is deferred
+ *  until fonts and layout have actually settled, so the first page of a
+ *  freshly-opened tab doesn't get clipped mid-reflow. */
+function printWhenReady() {
+  const go = () => requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+  if (document.fonts && document.fonts.status !== 'loaded') {
+    document.fonts.ready.then(go).catch(go);
+  } else {
+    go();
+  }
+}
+
 async function load() {
-  const id = new URLSearchParams(window.location.search).get('id');
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get('id');
+  const autoprint = params.get('print') === '1';
   if (!id) return message('Quote not found', 'This link is missing its quote reference.');
 
   const { data, error } = await supabase.rpc('get_customer_quote', { p_quote_id: id });
@@ -145,6 +160,7 @@ async function load() {
 
   data.__id = id;
   render(data);
+  if (autoprint) printWhenReady();
 }
 
 load();
