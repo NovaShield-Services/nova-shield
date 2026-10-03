@@ -647,8 +647,18 @@ footer.site { padding: 56px 0 38px; }
   margin-bottom:14px; }
 .footer-brand .brand-name { margin-bottom:2px; }
 .footer-brand .brand-sub { color:var(--gold); margin-bottom:16px; }
-.hero-lockup { width:min(360px,74vw); margin-bottom:26px;
-  filter:drop-shadow(0 18px 40px rgba(7,12,14,.6)); }
+/* Hero lockup: the canonical shield stacked over a typeset wordmark. It was a
+   crop of the banner, which put a rectangle of painted sky on top of the real
+   one. Typesetting the words rather than cropping them also keeps them sharp
+   at any size, which a 2172px-wide JPEG scaled to 360 never was. */
+.hero-lockup { display:flex; flex-direction:column; align-items:flex-start;
+  margin-bottom:26px; }
+.hero-lockup-mark { height:56px; width:auto; display:block; margin-bottom:12px;
+  filter:drop-shadow(0 10px 26px rgba(7,12,14,.55)); }
+.hero-lockup-name { font-weight:800; letter-spacing:.14em; font-size:1.26rem;
+  line-height:1; color:var(--cream); }
+.hero-lockup-sub { font-size:.58rem; letter-spacing:.3em; color:var(--gold);
+  line-height:1; margin-top:7px; }
 .plate--art { padding:0; border:0; background:none; }
 .plate--art .brandart--full { width:100%; border-radius:var(--radius);
   border:1px solid var(--line); }
@@ -656,7 +666,10 @@ footer.site { padding: 56px 0 38px; }
 @media (max-width:760px){
   .brand .brand-mark { height:38px; }
   .footer-brand .brand-lockup-mark { height:56px; }
-  .hero-lockup { width:min(280px,66vw); margin-bottom:20px; }
+  .hero-lockup { margin-bottom:20px; }
+  .hero-lockup-mark { height:46px; margin-bottom:10px; }
+  .hero-lockup-name { font-size:1.12rem; letter-spacing:.12em; }
+  .hero-lockup-sub { font-size:.54rem; letter-spacing:.26em; }
 }
 
 /* Lighting service accents. Warm, not coloured -- the lighting pages are about
@@ -868,19 +881,10 @@ footer.site { padding: 56px 0 38px; }
 .hero--xmas  .hero-bg--atmos::before { width: min(66vh, 720px); right: -12%; top: 58%; opacity: .2; }
 .hero--cat   .hero-bg--atmos::before { width: min(50vh, 520px); right: -4%;  opacity: .13; }
 
-/* --- The hero lockup read as a pasted rectangle because its own aurora sky
-   met the ground at a hard edge. Feathering the edges lets it sit in the
-   scene instead of on top of it. ------------------------------------------- */
-.hero-lockup {
-  -webkit-mask: linear-gradient(90deg, #000 72%, transparent 100%),
-                linear-gradient(180deg, transparent 0%, #000 12%, #000 86%, transparent 100%);
-  -webkit-mask-composite: source-in;
-  mask: linear-gradient(90deg, #000 72%, transparent 100%),
-        linear-gradient(180deg, transparent 0%, #000 12%, #000 86%, transparent 100%);
-  mask-composite: intersect;
-  filter: drop-shadow(0 14px 34px rgba(7,12,14,.75));
-  opacity: .96;
-}
+/* The lockup used to need its edges feathered, because it was a crop of the
+   banner and its painted sky met the real one at a hard line. The mark is
+   vector now and has no edges to hide, so the mask is gone -- left in place it
+   would have faded the right of the wordmark away. */
 
 /* --- 7. Hero rhythm: tighten the stack above the headline so the h1 lands
    sooner and reads as the entry point, and give the lede room. ------------- */
