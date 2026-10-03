@@ -81,12 +81,10 @@ export const MOOD_GROUPS = [
     title: 'Colour',
     note: 'For holidays, birthdays and the evenings that are not ordinary.',
     shots: [PHOTOS.colour_teal, PHOTOS.colour_violet, PHOTOS.colour_multi]
-  },
-  {
-    title: 'Soffit & detail',
-    note: 'Low-profile channel, colour-matched so the hardware is not the feature.',
-    shots: [PHOTOS.channel_colours]
   }
+  /* The channel itself is shown beside the permanent lighting section on the
+     homepage, where it explains the install. As a third gallery group it was
+     a product shot sitting among photographs of finished houses. */
 ];
 
 /* Modes for the lighting demonstration. "Off" is deliberately absent: it needs

@@ -6,42 +6,12 @@ import { mountReveals } from '../lib/reveal.js';
 import { createLightingDemo } from '../components/lighting-demo.js';
 import { createMoodGallery } from '../components/mood-gallery.js';
 import { MOOD_GROUPS, DEMO_MODES } from '../lib/lighting-assets.js';
-import { rowsForCategory, categoryUrl, preselectFromLocation } from '../lib/routes.js';
+import { preselectFromLocation } from '../lib/routes.js';
 
-/* The capability matrix replaces the nine identical cards. Grouping is derived
-   from the services table -- it is not a second catalogue. Only the group
-   headings and their order live here, because that is presentation. */
-const GROUPS = [
-  { label: '01 / Lighting',          cat: 'lighting' },
-  { label: '02 / Exterior Cleaning', cat: 'cleaning' },
-  { label: '03 / Winter Care',       cat: 'winter'   }
-];
-
-async function renderMatrix() {
-  const host = document.getElementById('servicesGrid');
-  if (!host) return;
-  const services = await listPublicServices();
-
-  if (!services.length) {
-    clear(host).append(el('p', { class: 'form-note',
-      text: 'Service list is being updated — please call or text 437-436-3360.' }));
-    return;
-  }
-
-  const groups = GROUPS
-    .map(g => ({ ...g, rows: rowsForCategory(g.cat, services) }))
-    .filter(g => g.rows.length);
-
-  clear(host).append(...groups.map(g =>
-    el('div', { class: 'matrix-group' }, [
-      el('a', { class: 'matrix-label', href: categoryUrl(g.cat), text: g.label }),
-      el('div', { class: 'matrix-items' }, g.rows.map(r =>
-        el('a', { class: 'mitem', 'data-service': r.key, href: r.href }, [
-          el('span', { class: 'mitem-name', text: r.name }),
-          el('span', { class: 'mitem-blurb', text: r.blurb })
-        ])))
-    ])));
-}
+/* The homepage introduces the three families and nothing below them. The
+   individual services are listed on each hub, where a customer has already
+   said which kind of work they are here for. The family panel is static
+   markup so it survives a failed or slow module load. */
 
 function renderMoods() {
   const host = document.getElementById('moodGallery');
@@ -82,8 +52,7 @@ async function init() {
   renderMoods();
   renderStage();
 
-  // independent so one slow or failed section cannot blank the page
-  await Promise.allSettled([renderMatrix(), renderContact()]);
+  await renderContact().catch(() => {});
 
   mountReveals();
 

@@ -12,7 +12,7 @@
 
 export const CATEGORIES = {
   lighting: { slug: 'lighting',          label: 'Lighting',          nav: 'lighting' },
-  cleaning: { slug: 'exterior-cleaning', label: 'Exterior Cleaning', nav: 'cleaning' },
+  cleaning: { slug: 'exterior-cleaning', label: 'Exterior Care'   , nav: 'cleaning' },
   winter:   { slug: 'winter-care',       label: 'Winter Care',       nav: 'winter'   }
 };
 
@@ -84,12 +84,16 @@ export function rowsForCategory(cat, services) {
     const service = byKey.get(page.key);
     if (!service || service.quotable === false) return null;
     const variant = (service.detail?.variants || {})[page.variant] || {};
+    const { name, blurb, ...variantContent } = variant;
     return {
       key: page.key,
       slug: page.slug,
       href: pageUrl(page),
-      name: variant.name || page.name || service.name,
-      blurb: variant.blurb || service.blurb || ''
+      name: name || page.name || service.name,
+      blurb: blurb || service.blurb || '',
+      /* The variant overlays the shared detail exactly as the service page
+         does, so a hub row and the page it opens can never disagree. */
+      detail: { ...service.detail, ...variantContent, variants: undefined }
     };
   }).filter(Boolean);
 }

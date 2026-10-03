@@ -5,6 +5,7 @@ import { mountReveals } from '../lib/reveal.js';
 import { createMoodGallery } from '../components/mood-gallery.js';
 import { MOOD_GROUPS } from '../lib/lighting-assets.js';
 import { createQuoteForm } from '../components/quote-form.js';
+import { createServiceGrid } from '../components/service-grid.js';
 import { rowsForCategory, preselectFromLocation } from '../lib/routes.js';
 
 /* One hub template for all three categories. The services themselves come from
@@ -13,7 +14,7 @@ import { rowsForCategory, preselectFromLocation } from '../lib/routes.js';
 const CATEGORIES = {
   lighting: {
     nav: 'lighting',
-    eyebrow: 'Nova — the light',
+    eyebrow: 'Lighting',
     title: 'Light changes how\na home feels.',
     lede: 'Architectural lighting that makes a property glow after dark, and a seasonal display '
         + 'that arrives and leaves without you touching a ladder.',
@@ -24,7 +25,7 @@ const CATEGORIES = {
   },
   cleaning: {
     nav: 'cleaning',
-    eyebrow: 'Shield — the protection',
+    eyebrow: 'Exterior care',
     title: 'Care for the details\naround your home.',
     lede: 'Not a giant menu of unrelated jobs. A focused set of services built around appearance, '
         + 'comfort and seasonal readiness — each priced on what it actually involves.',
@@ -34,7 +35,7 @@ const CATEGORIES = {
   },
   winter: {
     nav: 'winter',
-    eyebrow: 'Shield — through the winter',
+    eyebrow: 'Winter care',
     title: 'The part of winter\nequipment cannot reach.',
     lede: 'The plow takes the driveway. Everything else — the steps, the side walkway, the deck, '
         + 'the path to the door — is hand work, and it is the part that decides whether your '
@@ -155,17 +156,8 @@ async function init() {
         ]),
         el('p', { text: cfg.listNote })
       ]),
-      rows.length
-        ? el('div', { class: 'svc-index' }, rows.map((r, i) =>
-            el('a', { class: 'svc-row', 'data-service': r.key, href: r.href }, [
-              el('span', { class: 'svc-n', text: String(i + 1).padStart(2, '0') }),
-              el('span', { class: 'svc-body' }, [
-                el('span', { class: 'svc-name', text: r.name }),
-                el('span', { class: 'svc-blurb', text: r.blurb })
-              ]),
-              el('span', { class: 'svc-go', text: '→' })
-            ])))
-        : el('p', { class: 'form-note', text: 'Service list is being updated — please call or text 437-436-3360.' })
+      createServiceGrid(rows)
+        || el('p', { class: 'form-note', text: 'Service list is being updated — please call or text 437-436-3360.' })
     ])
   ]);
 

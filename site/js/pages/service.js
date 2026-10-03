@@ -20,7 +20,7 @@ function notFound(services) {
   clear(main).append(
     el('section', { style: 'padding-top:160px' }, [
       el('div', { class: 'container' }, [
-        el('div', { class: 'chip', text: 'Exterior cleaning' }),
+        el('div', { class: 'chip', text: 'Exterior care' }),
         el('h1', { text: 'Pick a service' }),
         el('p', { class: 'prose', style: 'margin:20px 0 34px',
                   text: 'That page does not exist. Here is everything we do.' }),

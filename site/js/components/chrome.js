@@ -1,7 +1,6 @@
 import { el, clear } from '../../../shared/dom.js';
 import { businessSchema } from '../lib/schema.js';
 import { getPublicSettings, listPublicServices } from '../lib/site-api.js';
-import { applyTheme, decorateLinks, THEMES, resolveTheme } from '../lib/theme.js';
 import { rowsForCategory, categoryUrl } from '../lib/routes.js';
 
 /* Header and footer live here so four pages share one nav instead of three
@@ -21,7 +20,7 @@ const brandLockup = () => el('span', { class: 'brandart brandart--lockup brand-l
    to thirteen items. */
 const NAV = [
   { href: categoryUrl('lighting'), label: 'Lighting',          key: 'lighting' },
-  { href: categoryUrl('cleaning'), label: 'Exterior Cleaning', key: 'cleaning' },
+  { href: categoryUrl('cleaning'), label: 'Exterior Care', key: 'cleaning' },
   { href: categoryUrl('winter'),   label: 'Winter Care',       key: 'winter'   },
   { href: '/#about',               label: 'About',             key: 'about'    }
 ];
@@ -101,7 +100,7 @@ export async function renderFooter() {
             ...lighting.map(r => el('a', { href: r.href, text: r.name }))
           ]),
           el('div', {}, [
-            el('a', { class: 'foot-hub', href: categoryUrl('cleaning'), text: 'Exterior Cleaning' }),
+            el('a', { class: 'foot-hub', href: categoryUrl('cleaning'), text: 'Exterior Care' }),
             ...cleaning.slice(0, 5).map(r => el('a', { href: r.href, text: r.name })),
             cleaning.length > 5
               ? el('a', { href: categoryUrl('cleaning'),
@@ -126,13 +125,8 @@ export async function renderFooter() {
   ]);
 }
 
-/* Review aid: lets you flip between the three presentations without editing
-   anything. Delete this function and its call when a skin is chosen. */
 /** Mounts chrome around whatever the page rendered into #main. */
 export async function mountChrome(activeKey) {
-  applyTheme();
   document.body.prepend(renderHeader(activeKey));
   document.body.append(await renderFooter());
-  // keep the chosen skin when moving between pages
-  decorateLinks(document);
 }

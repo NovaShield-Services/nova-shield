@@ -4,23 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Nova Shield | Permanent Lighting &amp; Exterior Care — Sault Ste. Marie</title>
-<meta name="description" content="Nova Shield installs permanent architectural lighting, seasonal Christmas lighting, and handles exterior cleaning and winter care for homes in Sault Ste. Marie.">
+<meta name="description" content="Nova Shield installs permanent architectural lighting, seasonal Christmas lighting, and handles exterior care and winter care for homes in Sault Ste. Marie.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 128'%3E%3Cpath d='M50 4L94 22V64Q94 96 50 124Q6 96 6 64V22Z' fill='%23071a2b' stroke='%23c9d3d8' stroke-width='7'/%3E%3Cpath d='M30 34h9v60h-9zM61 34h9v60h-9zM30 34h11l29 60H59z' fill='%23c9a45c'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,340;9..144,480;9..144,560&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/site.css">
-<script>
-  // resolve the presentation before first paint (avoids a flash of the default skin)
-  (function () {
-    var THEMES = { refined: 'css/theme-refined.css', editorial: 'css/theme-editorial.css', signal: 'css/theme-signal.css' };
-    var t = new URLSearchParams(location.search).get('theme');
-    try { if (!THEMES[t]) t = localStorage.getItem('novaShieldTheme'); } catch (e) {}
-    if (!THEMES[t]) t = 'refined';
-    document.documentElement.dataset.theme = t;
-    document.write('<link id="themeCss" rel="stylesheet" href="' + THEMES[t] + '">');
-  })();
-</script>
 
 
 <link rel="canonical" href="https://novashieldmaintenance.com/">
@@ -29,13 +18,13 @@
 <meta property="og:locale" content="en_CA">
 <meta property="og:url" content="https://novashieldmaintenance.com/">
 <meta property="og:title" content="Nova Shield | Permanent Lighting &amp; Exterior Care — Sault Ste. Marie">
-<meta property="og:description" content="Nova Shield installs permanent architectural lighting, seasonal Christmas lighting, and handles exterior cleaning and winter care for homes in Sault Ste. Marie.">
+<meta property="og:description" content="Nova Shield installs permanent architectural lighting, seasonal Christmas lighting, and handles exterior care and winter care for homes in Sault Ste. Marie.">
 <meta property="og:image" content="https://novashieldmaintenance.com/assets/brand/logo-hi.jpeg">
 <meta property="og:image:width" content="2172">
 <meta property="og:image:height" content="724">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Nova Shield | Permanent Lighting &amp; Exterior Care — Sault Ste. Marie">
-<meta name="twitter:description" content="Nova Shield installs permanent architectural lighting, seasonal Christmas lighting, and handles exterior cleaning and winter care for homes in Sault Ste. Marie.">
+<meta name="twitter:description" content="Nova Shield installs permanent architectural lighting, seasonal Christmas lighting, and handles exterior care and winter care for homes in Sault Ste. Marie.">
 <meta name="twitter:image" content="https://novashieldmaintenance.com/assets/brand/logo-hi.jpeg">
 </head>
 <body>
@@ -45,9 +34,11 @@
 
   <!-- 1. DISCOVER -------------------------------------------------------- -->
   <section class="hero hero--home" id="home">
-    <div class="hero-bg" style="background-image:url('assets/gallery/photo-03.jpg')"></div>
-    <div class="hero-scrim"></div>
-    <div class="ridge" aria-hidden="true"></div>
+    <div class="hero-bg hero-bg--night"></div>
+    <svg class="hero-land" viewBox="0 0 1440 300" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M0 300V190l120-50 90 40 150-90 130 70 110-40 150-90 170 110 120-60 140 80 150-60 110 50V300z" fill="#0c1a19"/>
+      <path d="M0 300V235l40-40 30 40 40-60 40 60 30-30 40 40 50-70 40 70 50-50 40 50H520l40-50 40 60 40-70 40 70 60-60 40 60h280l40-60 40 70 40-80 40 80 40-40 40 50 40-70 50 80 40-50 40 60V300z" fill="#060d0c"/>
+    </svg>
     <div class="container hero-content">
       <span class="brandart brandart--lockup hero-lockup" role="img"
             aria-label="Nova Shield Maintenance Services"></span>
@@ -60,31 +51,49 @@
         <a class="button button--gold" href="#quote">Request a Quote</a>
         <a class="button button--ghost" href="/services/lighting/permanent-outdoor-lighting/">Explore permanent lighting</a>
       </div>
-      <p class="hero-note">Permanent lighting · Christmas lighting · Exterior cleaning · Winter care</p>
+      <p class="hero-note">Permanent lighting · Christmas lighting · Exterior care · Winter care</p>
     </div>
   </section>
 
-  <!-- 2. DISCOVER — the two halves of the name ---------------------------- -->
-  <section class="band-soft">
-    <div class="container split split--offset">
-      <div>
-        <div class="chip">The two halves of the name</div>
-        <h2>Beautiful at night.<br>Cared for all year.</h2>
+  <!-- 2. THE THREE FAMILIES ----------------------------------------------- -->
+  <section class="band-soft" id="services">
+    <div class="container">
+      <div class="section-head">
+        <div>
+          <div class="chip">What we do</div>
+          <h2>Three kinds of work,<br>one crew.</h2>
+        </div>
+        <p>Pick the one you came for. Each opens onto the individual services inside it,
+          and anything you tick ends up on the same quote.</p>
       </div>
-      <div>
-        <p class="lede">Nova is the light — everything that makes a property glow after dark.
-          Shield is the protection — everything that keeps it in good condition. Neither one
-          is the side job.</p>
-        <ul class="feature-list">
-          <li><span class="fdot fdot--gold"></span><div>
-            <strong>Nova — the light</strong>
-            Architectural lighting that changes with the season, and a Christmas display that
-            arrives and leaves without you touching a ladder.</div></li>
-          <li><span class="fdot"></span><div>
-            <strong>Shield — the protection</strong>
-            Soft washing, pressure washing, glass and winter care that keeps siding, roofs and
-            concrete in the condition they were meant to be in.</div></li>
-        </ul>
+
+      <div class="families">
+        <a class="family" href="/services/lighting/">
+          <span class="family-num">01</span>
+          <h3>Lighting</h3>
+          <p>Permanent architectural lighting that runs every night of the year, and a
+            Christmas display that arrives and leaves without you touching a ladder.</p>
+          <span class="family-list">Permanent outdoor lighting · Christmas lighting</span>
+          <span class="family-go">See lighting <i>&rarr;</i></span>
+        </a>
+
+        <a class="family" href="/services/exterior-cleaning/">
+          <span class="family-num">02</span>
+          <h3>Exterior Care</h3>
+          <p>Siding, roofs, glass, concrete and wood — each surface cleaned by the method it
+            actually wants, rather than the one that happens to be fastest.</p>
+          <span class="family-list">Nine services, from soft washing to graffiti removal</span>
+          <span class="family-go">See exterior care <i>&rarr;</i></span>
+        </a>
+
+        <a class="family" href="/services/winter-care/">
+          <span class="family-num">03</span>
+          <h3>Winter Care</h3>
+          <p>Heating wire fitted before the freeze, and hand-clearing for the walkways, steps
+            and decks that a plow is never going to reach.</p>
+          <span class="family-list">Heating wire · Walkway, step &amp; deck clearing</span>
+          <span class="family-go">See winter care <i>&rarr;</i></span>
+        </a>
       </div>
     </div>
   </section>
@@ -105,8 +114,19 @@
           <li><span class="fdot"></span><div><strong>Colour when the moment calls for it</strong>
             Holidays, birthdays, a team playing — set a scene from your phone, change it back the next morning.</div></li>
           <li><span class="fdot"></span><div><strong>Designed to disappear in daylight</strong>
-            Channel colours are matched to common soffit tones so the hardware is not the feature.</div></li>
+            The channel is colour-matched to the soffit it sits in, so the hardware is not the feature.</div></li>
         </ul>
+
+        <figure class="track-card">
+          <img src="assets/gallery/photo-01.jpg" width="640" height="427" loading="lazy" decoding="async"
+               alt="Low-profile aluminium lighting channel fitted with LED modules">
+          <figcaption>
+            <strong>The channel we install</strong>
+            <span>A low-profile aluminium track fitted into the soffit and matched to its colour.
+              By day you see a trim line; after dark it is the only thing holding the light.</span>
+          </figcaption>
+        </figure>
+
         <a class="arrow-link" href="/services/lighting/permanent-outdoor-lighting/">Explore permanent lighting <span>&rarr;</span></a>
       </div>
     </div>
@@ -121,7 +141,7 @@
         <p>Permanent lighting stays understated in warm white, then shifts to any colour the
           moment calls for it. The same installation, three different nights.</p>
       </div>
-      <div class="moodset" id="moodGallery"></div>
+      <div id="moodGallery"></div>
     </div>
   </section>
 
@@ -151,20 +171,7 @@
     </div>
   </section>
 
-  <!-- 6. EXPLORE — exterior care, as a matrix not a card grid -------------- -->
-  <section id="services">
-    <div class="container">
-      <div class="section-head">
-        <div><div class="chip">Shield — exterior care</div>
-          <h2>Care for the details<br>around your home.</h2></div>
-        <p>Not a giant menu of unrelated jobs. A focused set of services built around appearance,
-          comfort and seasonal readiness — each one priced on what it actually involves.</p>
-      </div>
-      <div class="matrix" id="servicesGrid"></div>
-    </div>
-  </section>
-
-  <!-- 7. UNDERSTAND — how it works ----------------------------------------- -->
+  <!-- 6. UNDERSTAND — how it works ----------------------------------------- -->
   <section class="band-soft">
     <div class="container">
       <div class="section-head">
