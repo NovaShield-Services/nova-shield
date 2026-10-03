@@ -3,6 +3,7 @@ import { el, clear, toast } from '../../shared/dom.js';
 import { renderLogin } from './views/login.js';
 import { renderSchedule } from './views/field-schedule.js';
 import { renderVisit } from './views/field-workspace.js';
+import * as offlineQueue from './lib/offline-queue.js';
 
 /* A small, separate router rather than a mode bolted onto main.js's: the
    field console is a dedicated page by design (different layout, different
@@ -75,6 +76,41 @@ document.getElementById('signOut')?.addEventListener('click', async () => {
   toast('Signed out');
   navigate('/');
   router();
+});
+
+/* Online [green] / Offline Queue: N actions [yellow] -- offline-queue.js
+   owns the actual outbox; this just reflects its count plus the browser's
+   own online/offline signal. Sync Now re-runs the same flush() 'online'
+   already triggers automatically -- it exists for "I know I have signal
+   now, don't wait for the browser to notice." */
+const syncBadge = document.getElementById('syncBadge');
+const syncNowBtn = document.getElementById('syncNow');
+
+function paintBadge(queuedCount) {
+  if (queuedCount > 0) {
+    syncBadge.textContent = `Offline Queue: ${queuedCount} action${queuedCount === 1 ? '' : 's'}`;
+    syncBadge.className = 'sync-badge sync-badge--queued';
+    syncNowBtn.hidden = false;
+  } else {
+    syncBadge.textContent = navigator.onLine ? 'Online' : 'Offline';
+    syncBadge.className = navigator.onLine ? 'sync-badge sync-badge--ok' : 'sync-badge sync-badge--queued';
+    syncNowBtn.hidden = true;
+  }
+}
+
+offlineQueue.subscribe(paintBadge);
+window.addEventListener('online', () => paintBadge(0));
+window.addEventListener('offline', () => offlineQueue.count().then(paintBadge));
+
+syncNowBtn.addEventListener('click', async () => {
+  syncNowBtn.disabled = true;
+  syncNowBtn.textContent = 'Syncing…';
+  const { flushed, remaining, error } = await offlineQueue.flush();
+  syncNowBtn.disabled = false;
+  syncNowBtn.textContent = 'Sync Now';
+  if (flushed.length) toast(`Synced ${flushed.length} queued action${flushed.length === 1 ? '' : 's'}`);
+  if (remaining > 0) toast(error ? `Sync stopped: ${error}` : `${remaining} action(s) still queued`, 'error');
+  if (!flushed.length && !remaining) toast('Nothing to sync');
 });
 
 window.addEventListener('hashchange', router);

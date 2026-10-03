@@ -2,6 +2,14 @@ import { supabase } from '../../../shared/supabase.js';
 import { el, clear } from '../../../shared/dom.js';
 import { money, date } from '../../../shared/format.js';
 
+/* job-photos is a private bucket; getPublicUrl() only actually resolves for
+   the one prefix (signatures/) a storage policy opens to anon readers --
+   see the "public reads quote signatures" policy and signature_url's own
+   comment on ns_quotes. Every other path in that bucket stays admin-only. */
+function signatureUrl(path) {
+  return supabase.storage.from('job-photos').getPublicUrl(path).data.publicUrl;
+}
+
 /* Customer-facing quote. Reads through get_customer_quote(), which returns a
    curated payload — internal notes, inspection findings, modifier factors and
    unit rates are never sent to this page, so they cannot leak from it. */
@@ -116,6 +124,21 @@ function render(q) {
         ])
       ]),
 
+      (q.change_orders || []).length
+        ? el('div', { class: 'notes' }, [
+            el('h3', { text: 'Approved changes since this quote' }),
+            el('div', { class: 'lines' }, [
+              ...q.change_orders.map(co => el('div', { class: 'line' }, [
+                el('span', { text: co.description }), el('span', { text: money(co.amount) })
+              ])),
+              el('div', { class: 'line line--total', style: 'font-size:1rem' }, [
+                el('span', { text: 'Quote + approved changes' }),
+                el('span', { text: money(Number(q.total) + q.change_orders.reduce((s, c) => s + Number(c.amount), 0)) })
+              ])
+            ])
+          ])
+        : null,
+
       statusBanner,
       actions,
 
@@ -126,6 +149,19 @@ function render(q) {
       q.terms
         ? el('div', { class: 'notes' }, [
             el('h3', { text: 'Terms' }), el('p', { text: q.terms })])
+        : null,
+
+      q.signature_path
+        ? el('div', { class: 'notes' }, [
+            el('h3', { text: 'Signature' }),
+            el('img', {
+              src: signatureUrl(q.signature_path), alt: `Signature of ${q.signed_by_name || 'the customer'}`,
+              style: 'max-width:260px;width:100%;display:block;margin:4px 0 8px;' +
+                     'border:1px solid #e6e1d6;border-radius:8px;background:#fff'
+            }),
+            el('p', { style: 'margin:0',
+              text: `Signed by ${q.signed_by_name || 'the customer'} · ${date(q.signed_at)}` })
+          ])
         : null
     ])
   );

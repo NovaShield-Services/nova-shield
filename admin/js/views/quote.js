@@ -1,6 +1,8 @@
 import * as api from '../lib/api.js';
 import { el, clear, toast, select, numberInput, confirmAction } from '../../../shared/dom.js';
 import { money, num, date, humanise, unitLabel, qty } from '../../../shared/format.js';
+import { createSignaturePad } from '../components/signature-pad.js';
+import { createChangeOrdersPanel } from '../components/change-orders.js';
 
 const ADJUSTMENT_KINDS = [
   { value: 'discount_pct',   label: 'Discount %' },
@@ -37,8 +39,16 @@ async function copyToClipboard(text) {
   }
 }
 
-export function createQuotePanel({ job, onChange }) {
+export function createQuotePanel({ job, onChange, saveSignatureFn }) {
   const root = el('div', {});
+  // Desktop saves a signature directly (always online). The field console
+  // passes a wrapped version that goes through its offline outbox instead.
+  const saveSignature = saveSignatureFn ||
+    (async (jobId, quoteId, pngBlob, signerName) => {
+      const path = await api.uploadSignature(jobId, pngBlob);
+      await api.saveQuoteSignature(quoteId, path, signerName);
+      return { queued: false };
+    });
 
   // Fetched once per panel for the absolute, customer-facing link that Copy
   // Link / Copy SMS Text need (unlike the admin's own "Preview quote" tab,
@@ -185,8 +195,62 @@ export function createQuotePanel({ job, onChange }) {
       !editable && isLatest ? revisionPrompt(quote) : null,
 
       deliveryActions(quote, editable),
+      signatureSection(quote),
+      !editable ? changeOrdersSection(quote) : null,
       internalNotesBox(quote)
     ]);
+  }
+
+  /** draft/sent -> a pad to capture an on-site approval right now, instead
+   *  of (or ahead of) emailing. accepted-with-a-signature -> what was
+   *  captured, read back. Nothing is shown for declined/expired/superseded
+   *  -- there is nothing left to sign. */
+  function signatureSection(quote) {
+    if (quote.signature_url) {
+      const img = el('img', {
+        alt: `Signature of ${quote.signed_by_name}`,
+        style: 'max-width:280px;width:100%;display:block;margin-top:10px;' +
+               'border:1px solid var(--line);border-radius:8px;background:#fff'
+      });
+      api.signedPhotoUrl(quote.signature_url, 900, 'job-photos')
+        .then((url) => { img.src = url; }).catch(() => {});
+
+      return el('div', { class: 'card' }, [
+        el('div', { class: 'card__head' }, [
+          el('div', {}, [
+            el('h2', { text: 'Customer signature' }),
+            el('p', { text: `Signed by ${quote.signed_by_name} · ${date(quote.signed_at)}` })
+          ])
+        ]),
+        img
+      ]);
+    }
+
+    if (quote.status !== 'draft' && quote.status !== 'sent') return null;
+
+    const pad = createSignaturePad({
+      onSave: async (pngBlob, signerName) => {
+        const { queued } = await saveSignature(job.id, quote.id, pngBlob, signerName);
+        toast(queued
+          ? 'Offline — signature queued, will save automatically once back online'
+          : 'Signature saved — quote marked accepted');
+        onChange();
+      }
+    });
+
+    return el('div', { class: 'card' }, [
+      el('div', { class: 'card__head' }, [
+        el('div', {}, [
+          el('h2', { text: 'Customer signature' }),
+          el('p', { text: 'For an on-site approval, instead of emailing the quote.' })
+        ])
+      ]),
+      pad.root
+    ]);
+  }
+
+  function changeOrdersSection(quote) {
+    return createChangeOrdersPanel({ quote, onChange }).root;
   }
 
   /** A sent/accepted/declined/expired/superseded quote is never edited in

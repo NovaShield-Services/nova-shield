@@ -299,10 +299,11 @@ export async function calculatePricing(jobId) {
 /* ---------------------------------------------------------------- quotes -- */
 
 export async function listQuotes(jobId) {
-  // line items and adjustments must come with the quote -- the builder renders
-  // them, and selecting '*' alone silently produced an empty-looking quote
+  // line items, adjustments and change orders must come with the quote --
+  // the builder renders them, and selecting '*' alone silently produced an
+  // empty-looking quote
   return unwrap(await supabase.from('ns_quotes')
-    .select('*, quote_line_items(*), quote_adjustments(*)')
+    .select('*, quote_line_items(*), quote_adjustments(*), ns_change_orders(*)')
     .eq('job_id', jobId)
     .order('version', { ascending: false }));
 }
@@ -360,4 +361,114 @@ export async function sendQuote(id) {
  *  a new draft version. Returns the new quote's id. */
 export async function duplicateQuote(id) {
   return unwrap(await supabase.rpc('duplicate_quote', { p_quote_id: id }));
+}
+
+/* ------------------------------------------------------------ signatures -- */
+
+/** Uploads the signature PNG under job-photos/<job>/signatures/... -- a
+ *  distinct prefix, not a job_attachments row, because a signature isn't a
+ *  tagged site photo, it's a field on the quote. That prefix is the one
+ *  thing in this private bucket an anonymous quote.html reader can fetch
+ *  (see the "public reads quote signatures" storage policy). Returns the
+ *  storage path, not a URL -- see ns_quotes.signature_url's comment. */
+export async function uploadSignature(jobId, pngBlob) {
+  const path = `${jobId}/signatures/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
+  const { error } = await supabase.storage
+    .from('job-photos').upload(path, pngBlob, { contentType: 'image/png' });
+  if (error) throw new Error(error.message);
+  return path;
+}
+
+/** Records the signature and moves the quote to 'accepted' -- works whether
+ *  the quote was ever emailed or not (signed live, same visit, is a
+ *  complete path of its own). See save_quote_signature() for the exact
+ *  state transition. */
+export async function saveQuoteSignature(quoteId, signaturePath, signedByName) {
+  return unwrap(await supabase.rpc('save_quote_signature', {
+    p_quote_id: quoteId, p_signature_path: signaturePath, p_signed_by_name: signedByName
+  }));
+}
+
+/* --------------------------------------------------------- change orders -- */
+
+export async function listChangeOrders(quoteId) {
+  return unwrap(await supabase.from('ns_change_orders')
+    .select('*').eq('quote_id', quoteId).order('created_at'));
+}
+
+export async function addChangeOrder(quoteId, { description, amount }) {
+  return unwrap(await supabase.from('ns_change_orders')
+    .insert({ quote_id: quoteId, description, amount }).select().single());
+}
+
+/** approved | declined. Approving does NOT touch ns_quotes.total -- see the
+ *  ns_change_orders migration note. The caller sums approved amounts
+ *  wherever a combined "quote + approved changes" figure is needed. */
+export async function setChangeOrderStatus(id, status) {
+  const patch = { status };
+  if (status === 'approved') patch.approved_at = new Date().toISOString();
+  return unwrap(await supabase.from('ns_change_orders')
+    .update(patch).eq('id', id).select().single());
+}
+
+export async function deleteChangeOrder(id) {
+  return unwrap(await supabase.from('ns_change_orders').delete().eq('id', id));
+}
+
+/* -------------------------------------------------------------- seasonal -- */
+
+/** A customer's past quote for a seasonal (lighting) service, one per
+ *  customer+service, so the renewals screen can offer "last winter you did
+ *  X for them, want to re-quote it for this season" without re-deriving
+ *  that from raw quote history inline. category is the services.category
+ *  this counts as seasonal -- currently just 'lighting' (Christmas +
+ *  permanent outdoor), since winter_property_care is an ongoing-season
+ *  service that renews on a schedule, not a once-a-year re-quote. */
+export async function listSeasonalQuoteHistory() {
+  return unwrap(await supabase.from('ns_quotes')
+    .select('id,version,status,total,created_at,sent_at,' +
+            'ns_jobs(id,customer_id,property_id,customers(name,phone,email),properties(address_line1,city)),' +
+            'quote_line_items(service_id,description,services(key,name,category))')
+    .in('status', ['sent', 'accepted', 'declined', 'expired', 'superseded'])
+    .order('created_at', { ascending: false })
+    .limit(500));
+}
+
+/* -------------------------------------------------------- snow / winter --- */
+
+export async function listSnowEvents() {
+  return unwrap(await supabase.from('ns_snow_events').select('*').order('event_date', { ascending: false }));
+}
+
+export async function addSnowEvent({ eventDate, accumulationCm, notes }) {
+  return unwrap(await supabase.from('ns_snow_events')
+    .insert({ event_date: eventDate, accumulation_cm: accumulationCm ?? null, notes: notes || null })
+    .select().single());
+}
+
+export async function deleteSnowEvent(id) {
+  return unwrap(await supabase.from('ns_snow_events').delete().eq('id', id));
+}
+
+export async function listPropertyClears(eventId) {
+  let q = supabase.from('ns_property_clears')
+    .select('*, properties(address_line1,city)').order('cleared_at', { ascending: false });
+  if (eventId) q = q.eq('event_id', eventId);
+  return unwrap(await q);
+}
+
+export async function logPropertyClear({ propertyId, eventId, saltAppliedKg, notes }) {
+  return unwrap(await supabase.from('ns_property_clears').insert({
+    property_id: propertyId, event_id: eventId || null,
+    salt_applied_kg: saltAppliedKg ?? null, notes: notes || null
+  }).select().single());
+}
+
+/** Properties, for the "log a clear" picker -- deliberately simple (every
+ *  property, not just ones with a past winter job) so a brand-new winter
+ *  client can still be logged on their first clear. */
+export async function listWinterProperties() {
+  return unwrap(await supabase.from('properties')
+    .select('id,address_line1,city,customers(name)')
+    .order('address_line1').limit(500));
 }

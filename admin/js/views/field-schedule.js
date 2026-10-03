@@ -1,6 +1,7 @@
 import * as api from '../lib/api.js';
 import { el, clear, toast } from '../../../shared/dom.js';
 import { money, humanise } from '../../../shared/format.js';
+import { onMyWayLink } from '../lib/messaging.js';
 
 function timeOnly(value) {
   if (!value) return null;
@@ -44,7 +45,11 @@ export async function renderSchedule({ mount, navigate }) {
       phone ? el('a', { class: 'btn btn--sm', href: `tel:${phone}`,
         onClick: (e) => e.stopPropagation(), text: 'Call' }) : null,
       phone ? el('a', { class: 'btn btn--sm', href: `sms:${phone}`,
-        onClick: (e) => e.stopPropagation(), text: 'Text' }) : null
+        onClick: (e) => e.stopPropagation(), text: 'Text' }) : null,
+      phone ? el('a', {
+        class: 'btn btn--sm', onClick: (e) => e.stopPropagation(),
+        href: onMyWayLink(phone, job.customers?.name, address), text: 'On My Way'
+      }) : null
     ]);
   }
 
@@ -74,7 +79,8 @@ export async function renderSchedule({ mount, navigate }) {
       el('h1', { text: "Today's schedule" }),
       el('p', { text: visits.length
         ? `${visits.length} visit${visits.length === 1 ? '' : 's'} booked for today`
-        : 'Nothing booked for today' })
+        : 'Nothing booked for today' }),
+      el('a', { href: 'index.html#/winter', class: 'hint', text: 'Winter & seasonal operations →' })
     ]),
     visits.length
       ? el('div', {}, visits.map(visitCard))

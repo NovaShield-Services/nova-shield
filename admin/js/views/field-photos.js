@@ -15,8 +15,16 @@ const TAGS = [
  *  reach a customer until that is deliberately built) -- a photo can be
  *  marked for inclusion in a customer report, but that is a flag on the
  *  record, not a delivery mechanism yet. */
-export function createPhotosPanel({ jobId }) {
+export function createPhotosPanel({ jobId, uploadFn }) {
   const root = el('div', { class: 'card' });
+  // Desktop uploads directly (always online). The field console passes a
+  // wrapped version that goes through its offline outbox instead -- it
+  // returns true when the upload was queued rather than completed, so the
+  // list below is skipped (there is nothing new to show yet) instead of
+  // silently re-rendering as if nothing happened.
+  const upload = uploadFn || (async (jid, file, opts) => {
+    await api.uploadJobPhoto(jid, file, opts); toast('Photo added'); return false;
+  });
 
   let pendingTag = 'site_photo';
   let pendingElevation = '';
@@ -30,11 +38,10 @@ export function createPhotosPanel({ jobId }) {
     fileInput.value = '';
     if (!file) return;
     try {
-      await api.uploadJobPhoto(jobId, file, {
+      const queued = await upload(jobId, file, {
         kind: pendingTag, elevationTag: pendingElevation.trim() || undefined
       });
-      toast('Photo added');
-      await render();
+      if (!queued) await render();
     } catch (err) {
       toast(err.message, 'error');
     }

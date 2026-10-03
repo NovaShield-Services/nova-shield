@@ -4,6 +4,16 @@ import { humanise } from '../../../shared/format.js';
 import { createMeasurementsPanel } from './measurements.js';
 import { createQuotePanel } from './quote.js';
 import { createPhotosPanel } from './field-photos.js';
+import * as offlineQueue from '../lib/offline-queue.js';
+import { reviewRequestLink } from '../lib/messaging.js';
+
+/* The four action types this console queues offline, per the task:
+   Passport/checklist writes, adding a measurement, uploading a photo, and
+   capturing a signature. Everything else here still calls api.js directly
+   and needs a live connection, same as before. */
+function queueToast(queued, okMessage) {
+  toast(queued ? 'Offline — saved locally, will sync automatically' : okMessage);
+}
 
 const JOB_STATUSES = ['new', 'reviewing', 'estimate_drafted', 'site_visit_scheduled', 'assessed',
   'quote_sent', 'accepted', 'declined', 'scheduled', 'in_progress', 'completed', 'invoiced', 'paid',
@@ -103,9 +113,10 @@ function passportPanel(property, onSaved) {
             preferences: preferencesInput.value.trim()
           };
           try {
-            await api.updateProperty(property.id, { passport });
+            const { queued } = await offlineQueue.callOrQueue(
+              'updateProperty', { id: property.id, patch: { passport } }, 'Save Property Passport');
             property.passport = passport;
-            toast('Property Passport saved');
+            queueToast(queued, 'Property Passport saved');
             onSaved?.(passport);
           } catch (err) {
             toast(err.message, 'error');
@@ -137,7 +148,10 @@ function checklistPanel(property) {
       const latest = property.passport && typeof property.passport === 'object' ? property.passport : {};
       try {
         const passport = { ...latest, checklist };
-        await api.updateProperty(property.id, { passport });
+        // No toast here (unlike the Passport form's Save) -- "taps save
+        // instantly" means instantly, not an interruption every tap; the
+        // topbar's Offline Queue badge is the signal when one goes offline.
+        await offlineQueue.callOrQueue('updateProperty', { id: property.id, patch: { passport } }, 'Checklist update');
         property.passport = passport;
       } catch (err) {
         box.checked = !box.checked;
@@ -229,15 +243,35 @@ function sectionsPanel(job, refs, onChange) {
 }
 
 export async function renderVisit({ mount, navigate }, jobId) {
-  const [job, services, modifiers, siteFactors, flags, flagMap] = await Promise.all([
+  const [job, services, modifiers, siteFactors, flags, flagMap, settings] = await Promise.all([
     api.getJob(jobId), api.listServices(), api.listModifiers(), api.listSiteFactors(),
-    api.listInspectionFlags(), api.listServiceFlagMap()
+    api.listInspectionFlags(), api.listServiceFlagMap(), api.getSettings()
   ]);
+  const reviewUrl = settings.company?.google_review_url || null;
 
   const refs = { services, modifiers, siteFactors, flags, flagMap, sections: [] };
-  const measurementsPanel = createMeasurementsPanel({ job, refs, onChange: reload });
-  const quotePanel = createQuotePanel({ job, onChange: reload });
-  const photosPanel = createPhotosPanel({ jobId: job.id });
+  const measurementsPanel = createMeasurementsPanel({
+    job, refs, onChange: reload,
+    createMeasurementFn: async (jobId, measurement) => {
+      const { queued, result } = await offlineQueue.callOrQueue(
+        'createMeasurement', { jobId, measurement }, 'Add measurement');
+      queueToast(queued, 'Measurement added');
+      return queued ? null : result;
+    }
+  });
+  const quotePanel = createQuotePanel({
+    job, onChange: reload,
+    saveSignatureFn: async (jobId, quoteId, pngBlob, signerName) =>
+      offlineQueue.callOrQueue('saveSignature', { jobId, quoteId, pngBlob, signerName }, 'Customer signature')
+  });
+  const photosPanel = createPhotosPanel({
+    jobId: job.id,
+    uploadFn: async (jobId, file, opts) => {
+      const { queued } = await offlineQueue.callOrQueue('uploadJobPhoto', { jobId, file, opts }, 'Photo upload');
+      queueToast(queued, 'Photo added');
+      return queued;
+    }
+  });
 
   const sectionsHost = el('div', {});
   const passportHost = el('div', {});
@@ -285,8 +319,19 @@ export async function renderVisit({ mount, navigate }, jobId) {
         address ? el('a', { class: 'btn', target: '_blank', rel: 'noopener',
           href: `https://maps.google.com/?q=${encodeURIComponent(address)}`, text: 'Navigate' }) : null,
         phone ? el('a', { class: 'btn', href: `tel:${phone}`, text: 'Call' }) : null,
-        phone ? el('a', { class: 'btn', href: `sms:${phone}`, text: 'Text' }) : null
-      ])
+        phone ? el('a', { class: 'btn', href: `sms:${phone}`, text: 'Text' }) : null,
+        phone ? el('a', {
+          class: 'btn btn--sm', href: reviewRequestLink(phone, job.customers?.name, reviewUrl),
+          text: 'Request Review'
+        }) : null,
+        el('a', {
+          class: 'btn btn--sm', target: '_blank', rel: 'noopener',
+          href: `completion-report.html?job_id=${job.id}`, text: 'Generate Completion Report'
+        })
+      ]),
+      !reviewUrl ? el('p', { class: 'hint', style: 'margin-top:6px',
+        text: 'No Google review link on file yet — add one under app_settings.company.google_review_url ' +
+              'to include it automatically.' }) : null
     ]),
     passportHost,
     checklistHost,

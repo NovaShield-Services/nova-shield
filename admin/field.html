@@ -39,13 +39,24 @@
     position: absolute; left: 4px; bottom: 4px; font-size: .68rem; font-weight: 700;
     padding: 2px 6px; border-radius: 999px; background: rgba(0,0,0,.65); color: #fff;
   }
+  /* Online [green] / Offline Queue: N actions [yellow] -- see offline-queue.js. */
+  .sync-badge {
+    font-size: .74rem; font-weight: 700; padding: 5px 10px; border-radius: 999px;
+    white-space: nowrap;
+  }
+  .sync-badge--ok     { background: var(--ok-soft); color: var(--ok); }
+  .sync-badge--queued { background: var(--gold-soft); color: var(--gold); }
 </style>
 </head>
 <body>
 
 <header class="field-topbar">
   <a class="field-topbar__brand" href="#/">Nova&nbsp;Shield <em>Field</em></a>
-  <button class="btn btn--sm" id="signOut">Sign out</button>
+  <div style="display:flex;align-items:center;gap:8px">
+    <button class="btn btn--sm" id="syncNow" hidden>Sync Now</button>
+    <span class="sync-badge sync-badge--ok" id="syncBadge">Online</span>
+    <button class="btn btn--sm" id="signOut">Sign out</button>
+  </div>
 </header>
 
 <main id="view" class="field-view" aria-live="polite">

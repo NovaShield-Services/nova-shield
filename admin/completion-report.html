@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Completion Report | Nova Shield</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="stylesheet" href="css/admin.css">
+<style>
+  /* Same recipe as site/quote.html's print engine: a document, not an app
+     screen -- light, printable, one column. Kept as its own inline style
+     block rather than added to admin.css for the same reason quote.html's
+     is separate: this is page-specific presentation, not a shared component. */
+  body { background: #f4f2ec; color: #16211f; }
+  .doc { width: min(820px, calc(100% - 32px)); margin: 40px auto 80px; }
+  .sheet { background: #fff; border: 1px solid #ddd8cc; border-radius: 14px;
+           padding: clamp(24px, 5vw, 52px); box-shadow: 0 20px 60px rgba(0,0,0,.07); }
+  .rep-head { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap;
+              align-items: flex-start; border-bottom: 1px solid #e6e1d6; padding-bottom: 24px; }
+  .rep-head .meta { text-align: right; font-size: .84rem; color: #6c7772; }
+  .rep-head .meta strong { display: block; color: #16211f; font-size: 1.1rem; }
+  .rep-section { margin-top: 28px; padding-top: 22px; border-top: 1px solid #e6e1d6; }
+  .rep-section h2 { font-size: .74rem; letter-spacing: .1em; text-transform: uppercase;
+                     color: #8a948f; margin: 0 0 12px; }
+  .service-check { display: flex; align-items: center; gap: 10px; padding: 8px 0;
+                    border-bottom: 1px solid #f1ede3; font-size: .95rem; }
+  .service-check::before { content: '\2713'; display: inline-flex; align-items: center;
+    justify-content: center; width: 20px; height: 20px; border-radius: 999px;
+    background: #e9f5ee; color: #1f6b46; font-size: .72rem; font-weight: 700; flex: none; }
+  .photo-pairs { display: grid; gap: 16px; }
+  .photo-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .photo-pair figure { margin: 0; }
+  .photo-pair img { width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: 8px;
+                     border: 1px solid #e6e1d6; display: block; background: #f4f2ec; }
+  .photo-pair figcaption { font-size: .72rem; color: #8a948f; margin-top: 4px; text-transform: uppercase;
+                            letter-spacing: .06em; }
+  .signoff-line { margin-top: 18px; display: flex; gap: 24px; flex-wrap: wrap; }
+  .signoff-line .field { margin: 0; min-width: 220px; flex: 1; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 46px;
+         padding: 12px 22px; border-radius: 999px; font-weight: 700; border: 1px solid #c9c3b4;
+         background: #fff; color: #16211f; cursor: pointer; font: inherit; }
+  @media print {
+    @page { size: A4 portrait; margin: 12mm 15mm 12mm 15mm; }
+    html, body { background: #fff; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .doc { width: auto; margin: 0; }
+    .sheet { box-shadow: none; border: 0; padding: 0; }
+    .no-print { display: none !important; }
+    .rep-head, .rep-section, .service-check, .photo-pair {
+      break-inside: avoid; page-break-inside: avoid;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="doc" id="doc">
+  <div class="loading" style="text-align:center;padding:60px;color:#6c7772">Loading…</div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<script type="module" src="js/completion-report.js"></script>
+</body>
+</html>

@@ -7,8 +7,12 @@ import { unitLabel, money, num } from '../../../shared/format.js';
    old calculator risk charging twice for the same condition. */
 const SECTION_DRIVEN_GROUPS = new Set(['height', 'access']);
 
-export function createMeasurementsPanel({ job, refs, onChange }) {
+export function createMeasurementsPanel({ job, refs, onChange, createMeasurementFn }) {
   const root = el('div', {});
+  // Desktop calls api.createMeasurement directly (always online). The field
+  // console passes a wrapped version that goes through its offline outbox
+  // instead -- this component stays unaware of that distinction either way.
+  const createMeasurement = createMeasurementFn || api.createMeasurement;
 
   function serviceModifierGroups(serviceId) {
     const groups = new Map();
@@ -147,7 +151,7 @@ export function createMeasurementsPanel({ job, refs, onChange }) {
         el('button', {
           class: 'btn btn--sm', text: '+ Add area',
           onClick: async () => {
-            await api.createMeasurement(job.id, {
+            await createMeasurement(job.id, {
               service_id: service.id,
               section_id: refs.sections[0]?.id || null,
               unit: service.unit,
@@ -183,17 +187,24 @@ export function createMeasurementsPanel({ job, refs, onChange }) {
               async e => {
                 if (!e.target.value) return;
                 const service = refs.services.find(s => s.id === e.target.value);
-                const created = await api.createMeasurement(job.id, {
+                const created = await createMeasurement(job.id, {
                   service_id: service.id,
                   section_id: refs.sections[0]?.id || null,
                   unit: service.unit,
                   quantity: 0,
                   sort_order: 1
                 });
-                // apply each group's default so the tech starts from a sane state
-                for (const group of serviceModifierGroups(service.id)) {
-                  const def = group.options.find(o => o.is_default);
-                  if (def) await api.setMeasurementModifier(created.id, [], def.id);
+                // created is null when the field console queued this offline
+                // instead of creating it -- there is no row id yet to attach
+                // defaults to, so that step is skipped until it actually
+                // syncs (nothing is lost; the measurement itself still has
+                // the service's own default pricing, just without these
+                // extra modifier selections pre-applied).
+                if (created) {
+                  for (const group of serviceModifierGroups(service.id)) {
+                    const def = group.options.find(o => o.is_default);
+                    if (def) await api.setMeasurementModifier(created.id, [], def.id);
+                  }
                 }
                 onChange();
               }

@@ -5,6 +5,7 @@ import { renderDashboard } from './views/dashboard.js';
 import { renderRequests } from './views/requests.js';
 import { renderJobs, renderJob } from './views/job.js';
 import { renderSettings } from './views/settings.js';
+import { renderWinter } from './views/winter.js';
 
 const viewEl = document.getElementById('view');
 const navEl = document.getElementById('nav');
@@ -15,6 +16,7 @@ const routes = [
   { pattern: /^\/requests$/,         nav: 'requests',  render: renderRequests },
   { pattern: /^\/jobs$/,             nav: 'jobs',      render: renderJobs },
   { pattern: /^\/jobs\/([0-9a-f-]+)$/, nav: 'jobs',    render: (ctx, id) => renderJob(ctx, id) },
+  { pattern: /^\/winter$/,           nav: 'winter',    render: renderWinter },
   { pattern: /^\/settings$/,         nav: 'settings',  render: renderSettings }
 ];
 
