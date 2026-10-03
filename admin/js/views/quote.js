@@ -153,9 +153,16 @@ export function createQuotePanel({ job, onChange }) {
                 if (!confirmAction(
                   `Send this quote for ${money(quote.total)}? It is locked once sent — ` +
                   'changes after this need a new version.')) return;
-                await api.sendQuote(quote.id);
-                toast('Quote sent');
-                onChange();
+                try {
+                  await api.sendQuote(quote.id);
+                  // The send itself is synchronous (status + queue row), but
+                  // delivery through Resend happens on the next worker pass,
+                  // so "sent" here means queued, not "landed in their inbox".
+                  toast('Quote sent — the customer email is queued for delivery');
+                  onChange();
+                } catch (err) {
+                  toast(err.message, 'error');
+                }
               }
             })
           : null,
