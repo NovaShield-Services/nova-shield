@@ -4,6 +4,9 @@ import { renderLogin } from './views/login.js';
 import { renderSchedule } from './views/field-schedule.js';
 import { renderVisit } from './views/field-workspace.js';
 import * as offlineQueue from './lib/offline-queue.js';
+import { setStatusBarTheme } from './lib/native.js';
+
+setStatusBarTheme();
 
 /* A small, separate router rather than a mode bolted onto main.js's: the
    field console is a dedicated page by design (different layout, different

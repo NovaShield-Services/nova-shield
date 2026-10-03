@@ -27,3 +27,21 @@ build/
 # Local scratch
 *.log
 tmp/
+
+# Capacitor: mobile/www is a generated staging copy of admin/ + shared/
+# (see scripts/sync-mobile.js) -- admin/ and shared/ stay the one source of
+# truth, this directory is rebuilt before every `cap sync`, never hand-edited.
+mobile/www/
+
+# Capacitor native projects ARE committed (the Xcode/Gradle project shells
+# themselves), but their own build output and dependency caches are not --
+# standard Capacitor project .gitignore entries.
+android/app/build/
+android/.gradle/
+android/local.properties
+android/capacitor-cordova-android-plugins/
+ios/App/Pods/
+ios/App/build/
+ios/App/output/
+ios/.xcode.env.local
+ios/DerivedData/

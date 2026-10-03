@@ -1,8 +1,9 @@
 import { getSession, supabase } from '../../shared/supabase.js';
-import { el, clear } from '../../shared/dom.js';
+import { el, clear, toast } from '../../shared/dom.js';
 import { date, humanise } from '../../shared/format.js';
 import { renderLogin } from './views/login.js';
 import * as api from './lib/api.js';
+import { isNative, shareCurrentPage } from './lib/native.js';
 
 /* Staff-facing, not a public link like quote.html -- job_attachments and
    job_notes carry internal content that was never meant to be anonymously
@@ -58,7 +59,17 @@ async function render(job, services, measurements, attachments, notes) {
     })();
   }
 
-  const printBtn = el('button', { class: 'btn no-print', text: 'Print / Save as PDF', onClick: () => window.print() });
+  // Native has no OS print sheet to hand this document to -- share it
+  // instead, as a snapshot of the page exactly as rendered right now (real
+  // data, since this button only exists once render() has already run).
+  const printBtn = el('button', {
+    class: 'btn no-print', text: isNative() ? 'Share Report' : 'Print / Save as PDF',
+    onClick: async () => {
+      if (!isNative()) return window.print();
+      const ok = await shareCurrentPage({ fileName: `completion-report-${job.id}.html`, title: 'Nova Shield Completion Report' });
+      if (!ok) { toast('Could not open the share sheet — printing instead', 'error'); window.print(); }
+    }
+  });
 
   clear(doc).append(
     el('div', { class: 'sheet' }, [

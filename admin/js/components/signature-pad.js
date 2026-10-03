@@ -1,4 +1,5 @@
 import { el, toast, confirmAction } from '../../../shared/dom.js';
+import { hapticLight } from '../lib/native.js';
 
 /** A touch-friendly signature canvas plus the "Signer full name" + "Approve
  *  & Save Signature" workflow around it. Used from both the admin quote
@@ -96,6 +97,7 @@ export function createSignaturePad({ onSave }) {
         const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
         if (!blob) throw new Error('Could not capture the signature image.');
         await onSave(blob, name);
+        hapticLight();
       } catch (err) {
         toast(err.message, 'error');
       } finally {

@@ -1,5 +1,7 @@
 import * as api from '../lib/api.js';
 import { el, clear, toast, select, confirmAction } from '../../../shared/dom.js';
+import { isNative, takeNativePhoto, persistPhotoLocally } from '../lib/native.js';
+import { openPhotoMarkup } from '../components/photo-markup.js';
 
 const TAGS = [
   { value: 'before',      label: 'Before' },
@@ -33,19 +35,39 @@ export function createPhotosPanel({ jobId, uploadFn }) {
     type: 'file', accept: 'image/*', capture: 'environment', style: 'display:none'
   });
 
-  fileInput.addEventListener('change', async () => {
-    const file = fileInput.files[0];
-    fileInput.value = '';
-    if (!file) return;
+  // Shared tail end of both capture paths (native camera and the web file
+  // input): offer the markup pass, then feed the result into the same
+  // upload/offline-queue call that was already here.
+  async function commitPhoto(file) {
+    const marked = await openPhotoMarkup(file);
     try {
-      const queued = await upload(jobId, file, {
+      const queued = await upload(jobId, marked, {
         kind: pendingTag, elevationTag: pendingElevation.trim() || undefined
       });
       if (!queued) await render();
     } catch (err) {
       toast(err.message, 'error');
     }
+  }
+
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0];
+    fileInput.value = '';
+    if (!file) return;
+    await commitPhoto(file);
   });
+
+  // Native: <input capture> opens a bare OS camera view with no way back
+  // into this component's own flow, so native bypasses the file input
+  // entirely and calls the Camera plugin directly, which hands back a real
+  // File the same as the input's change event would have.
+  async function addPhoto() {
+    if (!isNative()) { fileInput.click(); return; }
+    const file = await takeNativePhoto();
+    if (!file) return; // cancelled from the native camera UI
+    await persistPhotoLocally(file); // best-effort local durability, never blocks the upload
+    await commitPhoto(file);
+  }
 
   function tagLabel(kind) {
     return TAGS.find(t => t.value === kind)?.label || kind;
@@ -111,7 +133,7 @@ export function createPhotosPanel({ jobId, uploadFn }) {
         el('label', { class: 'field', style: 'margin:0' }, [el('span', { text: 'Elevation' }), elevationInput])
       ]),
       el('div', { class: 'btn-row', style: 'margin-top:10px' }, [
-        el('button', { class: 'btn btn--primary', text: '+ Add photo', onClick: () => fileInput.click() }),
+        el('button', { class: 'btn btn--primary', text: '+ Add photo', onClick: addPhoto }),
         fileInput
       ]),
       staffPhotos.length

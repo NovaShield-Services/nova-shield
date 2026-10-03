@@ -6,6 +6,7 @@ import { createQuotePanel } from './quote.js';
 import { createPhotosPanel } from './field-photos.js';
 import * as offlineQueue from '../lib/offline-queue.js';
 import { reviewRequestLink } from '../lib/messaging.js';
+import { isNative, hapticLight, getDevicePosition } from '../lib/native.js';
 
 /* The four action types this console queues offline, per the task:
    Passport/checklist writes, adding a measurement, uploading a photo, and
@@ -140,6 +141,7 @@ function checklistPanel(property) {
     const box = el('input', { type: 'checkbox', checked: on });
     const label = el('label', { class: `check ${on ? 'is-on' : ''}` }, [box, el('span', { text: item.label })]);
     box.addEventListener('change', async () => {
+      hapticLight(); // fire-and-forget -- a missed buzz must never block the save
       checklist[item.key] = box.checked;
       label.className = `check ${box.checked ? 'is-on' : ''}`;
       // Same reasoning as the Passport form's Save handler, in reverse: read
@@ -304,6 +306,38 @@ export async function renderVisit({ mount, navigate }, jobId) {
   const address = [job.properties?.address_line1, job.properties?.city, job.properties?.postal_code]
     .filter(Boolean).join(', ');
 
+  // Today's Schedule geofence banner needs properties.latitude/longitude to
+  // compare against -- almost never set today (nothing has ever written
+  // it), so without this the feature stays permanently inert. One tap,
+  // standing at the property right now, fixes that going forward; no
+  // separate "edit coordinates" form, since a GPS fix taken on-site is more
+  // trustworthy than anything a form could ask someone to type in.
+  const hasPin = job.properties?.latitude != null && job.properties?.longitude != null;
+  const pinBtn = el('button', {
+    class: 'btn btn--sm', type: 'button', text: hasPin ? '📍 Update Location Pin' : '📍 Save Location Pin',
+    onClick: async () => {
+      let nextText = pinBtn.textContent;
+      pinBtn.disabled = true;
+      pinBtn.textContent = 'Locating…';
+      try {
+        const pos = await getDevicePosition();
+        if (!pos) { toast('Could not get the device location', 'error'); return; }
+        const { queued } = await offlineQueue.callOrQueue('updateProperty',
+          { id: job.properties.id, patch: { latitude: pos.latitude, longitude: pos.longitude } },
+          'Save property location');
+        job.properties.latitude = pos.latitude;
+        job.properties.longitude = pos.longitude;
+        nextText = '📍 Update Location Pin';
+        queueToast(queued, 'Location pin saved — today’s schedule can now detect arrival here');
+      } catch (err) {
+        toast(err.message, 'error');
+      } finally {
+        pinBtn.disabled = false;
+        pinBtn.textContent = nextText;
+      }
+    }
+  });
+
   clear(mount).append(
     el('div', { class: 'page-head', style: 'padding:0 0 10px' }, [
       el('a', { href: '#/', text: '← Today’s schedule', class: 'hint' }),
@@ -318,6 +352,7 @@ export async function renderVisit({ mount, navigate }, jobId) {
       el('div', { class: 'btn-row', style: 'margin-top:10px' }, [
         address ? el('a', { class: 'btn', target: '_blank', rel: 'noopener',
           href: `https://maps.google.com/?q=${encodeURIComponent(address)}`, text: 'Navigate' }) : null,
+        pinBtn,
         phone ? el('a', { class: 'btn', href: `tel:${phone}`, text: 'Call' }) : null,
         phone ? el('a', { class: 'btn', href: `sms:${phone}`, text: 'Text' }) : null,
         phone ? el('a', {
@@ -325,7 +360,12 @@ export async function renderVisit({ mount, navigate }, jobId) {
           text: 'Request Review'
         }) : null,
         el('a', {
-          class: 'btn btn--sm', target: '_blank', rel: 'noopener',
+          class: 'btn btn--sm',
+          // target=_blank's new-tab behaviour has nothing to land in inside
+          // a native WebView (no tab strip) -- native navigates the same
+          // window instead; the page itself has its own native-aware Share
+          // Report button once it loads (completion-report.js).
+          ...(isNative() ? {} : { target: '_blank', rel: 'noopener' }),
           href: `completion-report.html?job_id=${job.id}`, text: 'Generate Completion Report'
         })
       ]),

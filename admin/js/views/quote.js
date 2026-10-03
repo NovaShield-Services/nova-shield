@@ -3,6 +3,7 @@ import { el, clear, toast, select, numberInput, confirmAction } from '../../../s
 import { money, num, date, humanise, unitLabel, qty } from '../../../shared/format.js';
 import { createSignaturePad } from '../components/signature-pad.js';
 import { createChangeOrdersPanel } from '../components/change-orders.js';
+import { isNative, shareOrFallback, hapticLight } from '../lib/native.js';
 
 const ADJUSTMENT_KINDS = [
   { value: 'discount_pct',   label: 'Discount %' },
@@ -138,6 +139,7 @@ export function createQuotePanel({ job, onChange, saveSignatureFn }) {
               || ADJUSTMENT_KINDS.find(k => k.value === kind)?.label || 'Adjustment';
             if (value <= 0) return toast('Enter an amount greater than zero', 'error');
             await api.addAdjustment(quote.id, { kind, label, value });
+            hapticLight();
             toast('Adjustment added');
             onChange();
           }
@@ -303,6 +305,14 @@ export function createQuotePanel({ job, onChange, saveSignatureFn }) {
     // the native browser Save-as-PDF flow, not a generated file.
     const quoteUrl = `../site/quote.html?id=${quote.id}`;
     const publicUrl = `${canonicalBase()}/quote.html?id=${quote.id}`;
+    // quoteUrl is relative to this admin page (../site/...) -- correct for
+    // the web admin, which is served from the same site root as site/, but
+    // the native wrapper only bundles admin/ + shared/ (see
+    // scripts/sync-mobile.js), so that path doesn't exist inside it. Native
+    // uses the absolute publicUrl instead, same URL Copy Link already hands
+    // out, which resolves over the real network like any other link.
+    const previewUrl = isNative() ? publicUrl : quoteUrl;
+    const printUrl = `${previewUrl}&print=1`;
 
     const sendButton = editable ? el('button', {
       class: 'btn btn--primary', text: 'Send Email',
@@ -355,9 +365,19 @@ export function createQuotePanel({ job, onChange, saveSignatureFn }) {
     });
 
     const copySmsButton = el('button', {
-      class: 'btn btn--sm', text: 'Copy SMS Text',
+      class: 'btn btn--sm', text: isNative() ? 'Text Quote' : 'Copy SMS Text',
       onClick: async () => {
-        const ok = await copyToClipboard(smsText(quote, publicUrl));
+        const text = smsText(quote, publicUrl);
+        // Native: skip the copy-then-paste round trip and open the SMS
+        // composer directly, body prefilled -- same sms: scheme the
+        // existing "Text"/"Call" buttons elsewhere already rely on to
+        // reach the OS, just with a body param added.
+        if (isNative()) {
+          const phone = job.customers?.phone || '';
+          window.location.href = `sms:${phone}?body=${encodeURIComponent(text)}`;
+          return;
+        }
+        const ok = await copyToClipboard(text);
         toast(ok ? 'SMS text copied to clipboard' : 'Could not copy the SMS text', ok ? 'info' : 'error');
       }
     });
@@ -372,11 +392,27 @@ export function createQuotePanel({ job, onChange, saveSignatureFn }) {
           // the customer-facing document lives on the public site, not in
           // here -- an authenticated admin can open any status, a customer
           // only ever sees one that has actually been sent
-          class: 'btn', href: quoteUrl, target: '_blank', rel: 'noopener', text: 'Preview Quote'
+          class: 'btn', href: previewUrl,
+          ...(isNative() ? {} : { target: '_blank', rel: 'noopener' }),
+          text: 'Preview Quote'
         }),
         el('a', {
-          class: 'btn', href: `${quoteUrl}&print=1`, target: '_blank', rel: 'noopener',
-          text: 'Download PDF'
+          class: 'btn', href: printUrl,
+          ...(isNative() ? {} : { target: '_blank', rel: 'noopener' }),
+          text: isNative() ? 'Share / Print' : 'Download PDF',
+          onClick: (e) => {
+            // Web keeps the plain navigation that already works (new tab,
+            // ?print=1 autoprints). Native has no tab to open and no OS
+            // print sheet, so this hands the link to the share sheet
+            // instead -- whatever the tech picks (Mail, Messages, the
+            // system browser) lands on the same autoprinting page.
+            if (!isNative()) return;
+            e.preventDefault();
+            shareOrFallback(
+              { title: 'Nova Shield Quote', url: printUrl },
+              async () => { window.open(printUrl, '_blank', 'noopener'); }
+            );
+          }
         }),
         copyLinkButton,
         copySmsButton,
@@ -427,6 +463,7 @@ export function createQuotePanel({ job, onChange, saveSignatureFn }) {
           onClick: async () => {
             try {
               await api.updateQuote(quote.id, { internal_notes: textarea.value.trim() || null });
+              hapticLight();
               toast('Note saved');
             } catch (err) {
               toast(err.message, 'error');
@@ -464,6 +501,7 @@ export function createQuotePanel({ job, onChange, saveSignatureFn }) {
     async function build(kind) {
       try {
         await api.createQuoteFromCalculation(job.id, kind);
+        hapticLight();
         toast(kind === 'final' ? 'Draft quote built' : 'Preliminary estimate built');
         onChange();
       } catch (err) {

@@ -1,0 +1,18 @@
+{
+  "appId": "com.novashield.admin",
+  "appName": "Nova Shield",
+  "webDir": "mobile/www",
+  "backgroundColor": "#0f172a",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "backgroundColor": "#0f172a"
+    },
+    "StatusBar": {
+      "backgroundColor": "#0f172a",
+      "style": "DARK"
+    }
+  }
+}

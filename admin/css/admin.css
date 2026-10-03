@@ -47,8 +47,15 @@ body {
   color: var(--text);
   font: 16px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   -webkit-text-size-adjust: 100%;
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
+  /* max(…) rather than the bare env() value: on a device with no notch/
+     gesture bar (most Android phones, older iPhones) env() resolves to 0,
+     so the bare form gave those devices no breathing room at all. This
+     guarantees at least 16px everywhere and the real inset wherever one
+     exists. Requires viewport-fit=cover on the page's own <meta viewport>
+     (already set on both admin/index.html and admin/field.html) -- without
+     it, env() always resolves to 0 regardless of the device. */
+  padding-top: max(16px, env(safe-area-inset-top));
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
 }
 
 button, input, select, textarea { font: inherit; color: inherit; }
@@ -60,6 +67,12 @@ a { color: var(--accent); }
   position: sticky; top: 0; z-index: 30;
   display: flex; align-items: center; gap: 10px;
   padding: 8px 12px;
+  /* body's own safe-area padding only protects content before the page
+     scrolls -- a sticky element sticks to the viewport edge regardless, so
+     once scrolled it needs the inset on itself or it slides back under a
+     notch/camera cutout. max() keeps the usual 8px rhythm on a device with
+     no inset at all. */
+  padding-top: max(8px, env(safe-area-inset-top));
   background: var(--surface); border-bottom: 1px solid var(--line);
 }
 .topbar__menu, .topbar__signout {

@@ -118,7 +118,7 @@ export async function listTodaysVisits() {
   const start = new Date(); start.setHours(0, 0, 0, 0);
   const end = new Date(start); end.setDate(end.getDate() + 1);
   return unwrap(await supabase.from('ns_jobs')
-    .select('*, customers(name,phone,email), properties(address_line1,city,postal_code), ' +
+    .select('*, customers(name,phone,email), properties(address_line1,city,postal_code,latitude,longitude), ' +
             'ns_quotes(id,version,total,status)')
     .gte('scheduled_for', start.toISOString()).lt('scheduled_for', end.toISOString())
     .order('scheduled_for'));

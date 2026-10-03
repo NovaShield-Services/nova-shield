@@ -2,6 +2,8 @@ import * as api from '../lib/api.js';
 import { el, clear, toast } from '../../../shared/dom.js';
 import { money, humanise } from '../../../shared/format.js';
 import { onMyWayLink } from '../lib/messaging.js';
+import { getDevicePosition } from '../lib/native.js';
+import { hasArrived } from '../lib/geofence.js';
 
 function timeOnly(value) {
   if (!value) return null;
@@ -20,6 +22,14 @@ function latestQuoteTotal(job) {
  *  one-tap action bar. This is the field console's home screen. */
 export async function renderSchedule({ mount, navigate }) {
   const visits = await api.listTodaysVisits();
+  const cardByJobId = new Map();
+
+  async function startVisit(job) {
+    try {
+      if (job.status !== 'in_progress') await api.updateJob(job.id, { status: 'in_progress' });
+    } catch (err) { /* non-fatal -- still open the workspace */ }
+    navigate(`/visit/${job.id}`);
+  }
 
   function actionBar(job) {
     const phone = job.customers?.phone;
@@ -29,13 +39,7 @@ export async function renderSchedule({ mount, navigate }) {
     return el('div', { class: 'btn-row', style: 'margin-top:10px' }, [
       el('button', {
         class: 'btn btn--primary', text: 'Start Site Visit',
-        onClick: async (e) => {
-          e.preventDefault();
-          try {
-            if (job.status !== 'in_progress') await api.updateJob(job.id, { status: 'in_progress' });
-          } catch (err) { /* non-fatal -- still open the workspace */ }
-          navigate(`/visit/${job.id}`);
-        }
+        onClick: (e) => { e.preventDefault(); startVisit(job); }
       }),
       address ? el('a', {
         class: 'btn btn--sm', target: '_blank', rel: 'noopener',
@@ -53,12 +57,28 @@ export async function renderSchedule({ mount, navigate }) {
     ]);
   }
 
+  /** Prepended into a visit's card once the device's position confirms it
+   *  is within ARRIVAL_RADIUS_METERS -- see checkArrival() below. The
+   *  banner itself is the fast path to the same action the card's own
+   *  "Start Site Visit" button already offers, just a bigger, unmissable
+   *  target for the moment it's actually relevant (one-handed, stepping
+   *  out of the truck). */
+  function arrivalBanner(job) {
+    return el('button', {
+      type: 'button', class: 'warn arrival-banner', style: 'display:block;width:100%;text-align:left;' +
+        'margin-bottom:10px;border:0;cursor:pointer;font:inherit',
+      onClick: () => startVisit(job)
+    }, [
+      el('strong', { text: '📍 Arrived at Site — Start Visit' })
+    ]);
+  }
+
   function visitCard(job) {
     const time = timeOnly(job.scheduled_for);
     const address = [job.properties?.address_line1, job.properties?.city].filter(Boolean).join(', ');
     const total = latestQuoteTotal(job);
 
-    return el('div', { class: 'card' }, [
+    const card = el('div', { class: 'card' }, [
       el('div', { class: 'card__head' }, [
         el('div', {}, [
           el('h2', { text: job.customers?.name || 'Unnamed customer' }),
@@ -72,6 +92,25 @@ export async function renderSchedule({ mount, navigate }) {
       ]),
       actionBar(job)
     ]);
+    cardByJobId.set(job.id, card);
+    return card;
+  }
+
+  /** One device-position fix, reused against every visit (rather than one
+   *  GPS read per job) -- checked once per page load/refresh rather than
+   *  continuously, since this is "did I just pull up to this property",
+   *  not a live-tracking feature. Silently does nothing if the device
+   *  never resolves a position (no permission, no signal, plain web) --
+   *  the card's ordinary "Start Site Visit" button is always still there. */
+  async function checkArrival() {
+    const here = await getDevicePosition();
+    if (!here) return;
+    for (const job of visits) {
+      if (job.status === 'in_progress' || job.status === 'completed') continue;
+      if (!hasArrived(here, job.properties)) continue;
+      const card = cardByJobId.get(job.id);
+      if (card && !card.querySelector('.arrival-banner')) card.prepend(arrivalBanner(job));
+    }
   }
 
   clear(mount).append(
@@ -86,4 +125,6 @@ export async function renderSchedule({ mount, navigate }) {
       ? el('div', {}, visits.map(visitCard))
       : el('div', { class: 'empty', text: 'No visits scheduled for today. Set a job’s "Scheduled for" date in the desktop field tool to see it here.' })
   );
+
+  if (visits.length) checkArrival();
 }
