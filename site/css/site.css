@@ -606,23 +606,26 @@ footer.site { padding: 56px 0 38px; }
 }
 
 /* ============================================================================
-   BRAND — the Aurora Nova Shield Maintenance Banner is the canonical artwork.
-   Every presentation is a WINDOW onto the same master file. Nothing is
-   redrawn, recoloured or stretched: each box carries the aspect-ratio of its
-   crop window, so the artwork can only ever be scaled proportionally.
+   BRAND.
 
-   Master: assets/brand/logo-hi.jpeg  (2172x724, opaque)
-   The 2048x682 PNG is NOT the master -- its alpha channel collapses to ~10
-   over the bottom 15%, losing the snow and mist. See ASSET_SPEC.md.
+   The LOGO is the original V4/V5 shield, an inline SVG carried over byte for
+   byte and mounted by chrome.js. It is what the header and footer use.
+
+   The Aurora banner below is PHOTOGRAPHY, not the logo: a rectangular painting
+   that happens to contain the mark. Every box here carries the aspect-ratio of
+   its crop window, so it can only ever be scaled proportionally -- but there is
+   no cut-out anywhere in it, so a window onto it always brings a rectangle of
+   sky along. That is why the small square "mark" window is gone: at 38px in the
+   nav the rectangle was the thing you saw.
+
+   Master: assets/brand/logo-hi.jpeg  (2172x724, opaque, no alpha)
+   The 2048x682 PNG is NOT a transparent master -- every pixel carries partial
+   alpha and none is cut out. See ASSET_SPEC.md.
    ========================================================================== */
 :root { --brand-art: url('../assets/brand/logo-hi.jpeg'); }
 
 .brandart { background-image:var(--brand-art); background-repeat:no-repeat;
   display:block; border-radius:4px; }
-
-/* shield mark only — square window, x12% y17% w18% h54% */
-.brandart--mark { aspect-ratio:1/1; background-size:555.56% 185.19%;
-  background-position:14.63% 36.96%; }
 
 /* shield + wordmark — x12% y15% w78% h46% */
 .brandart--lockup { aspect-ratio:1694/333; background-size:128.21% 217.39%;
@@ -632,11 +635,18 @@ footer.site { padding: 56px 0 38px; }
 .brandart--full { aspect-ratio:2172/724; background-size:cover;
   background-position:center; }
 
-/* --- brand placements ---------------------------------------------------- */
-.brand .brand-mark { width:38px; height:38px; flex:none; align-self:center; }
-.brand-lockup { width:100%; max-width:300px; }
-/* below ~300px the artwork's own "MAINTENANCE SERVICES" stops being legible,
-   so the header pairs the canonical MARK with a typeset wordmark instead */
+/* --- brand placements ----------------------------------------------------
+   The header and footer marks are the original V4/V5 shield SVG, not a crop
+   of the banner. The artwork is 100x128, so only HEIGHT is set: pinning both
+   axes would squash it, and a vector needs no aspect-ratio box to stay true.
+   The banner artwork is still the right thing for the hero lockup and the
+   about plate, where a rectangle is the intended shape. */
+.brand .brand-mark { height:44px; width:auto; flex:none; align-self:center;
+  display:block; }
+.footer-brand .brand-lockup-mark { height:64px; width:auto; display:block;
+  margin-bottom:14px; }
+.footer-brand .brand-name { margin-bottom:2px; }
+.footer-brand .brand-sub { color:var(--gold); margin-bottom:16px; }
 .hero-lockup { width:min(360px,74vw); margin-bottom:26px;
   filter:drop-shadow(0 18px 40px rgba(7,12,14,.6)); }
 .plate--art { padding:0; border:0; background:none; }
@@ -644,7 +654,8 @@ footer.site { padding: 56px 0 38px; }
   border:1px solid var(--line); }
 
 @media (max-width:760px){
-  .brand .brand-mark { width:34px; height:34px; }
+  .brand .brand-mark { height:38px; }
+  .footer-brand .brand-lockup-mark { height:56px; }
   .hero-lockup { width:min(280px,66vw); margin-bottom:20px; }
 }
 
