@@ -2,6 +2,7 @@ import * as api from '../lib/api.js';
 import { el, clear, toast, select, numberInput, confirmAction } from '../../../shared/dom.js';
 import { unitLabel, money, num } from '../../../shared/format.js';
 import { reviewFlag } from '../components/review-flag.js';
+import { createHeatingWireCalculator } from '../components/heating-wire-calculator.js';
 
 /* Height and access are deliberately NOT editable here: they are recorded once
    on the property section. Duplicating them per measurement is what made the
@@ -15,14 +16,20 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
   // instead -- this component stays unaware of that distinction either way.
   const createMeasurement = createMeasurementFn || api.createMeasurement;
 
-  /** The active pricing_rules row's approval_status per service, derived
-   *  from refs.pricingRules (listPricingRules()) rather than a second
-   *  fetch -- callers that don't load pricing rules simply show nothing
-   *  provisional, same as "no data" anywhere else in this file. */
-  function isApproved(serviceId) {
+  /** 'approved' | 'provisional' | 'unpriced' for a service's currently
+   *  active rate, derived from refs.pricingRules (listPricingRules())
+   *  rather than a second fetch. 'unpriced' (no pricing_rules row at all --
+   *  the state a brand-new child-service component like a heat-cable
+   *  valley starts in) is distinct from 'provisional' (a real rate exists,
+   *  just not commercially approved yet) -- both need a visible flag, but
+   *  they mean different things to whoever is looking at the badge. */
+  function approvalState(serviceId) {
     const rule = (refs.pricingRules || []).find(r => r.service_id === serviceId);
-    return !rule || rule.approval_status === 'approved';
+    return rule ? rule.approval_status : 'unpriced';
   }
+  const isApproved = (serviceId) => approvalState(serviceId) === 'approved';
+
+  function resolveService(id) { return (refs.services || []).find(s => s.id === id); }
 
   function serviceModifierGroups(serviceId) {
     const groups = new Map();
@@ -153,53 +160,130 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
     onChange();
   }
 
-  function renderServiceBlock(service, measurements, priced) {
-    const approved = isApproved(service.id);
+  /** Service-specific calculators swap in here, keyed by the PARENT
+   *  service's key -- the card header/badge/total above stays the one
+   *  shared shell every service gets; only the body differs. Registered
+   *  below the panel's own exports, once createHeatingWireCalculator is
+   *  imported. */
+  const SPECIALIZED_CALCULATORS = {
+    winter_deicing_cables: createHeatingWireCalculator
+  };
+
+  function renderServiceBlock(service, measurements, pricedRows) {
+    // pricedRows covers the parent AND any of its child components that
+    // actually have measurements on this job (e.g. heat-cable's valley/
+    // corner counts) -- summed here for the one number that matters at a
+    // glance, "what does this service cost in total", without this view
+    // ever re-deriving a dollar amount itself (every figure already came
+    // out of calculate_job_pricing).
+    const total = pricedRows.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const ownPriced = pricedRows.find(p => p.service_id === service.id);
+    const worstState = pricedRows
+      .map(p => approvalState(p.service_id))
+      .reduce((worst, s) => (s === 'unpriced' || worst === 'unpriced') ? 'unpriced'
+        : (s === 'provisional' || worst === 'provisional') ? 'provisional' : 'approved', 'approved');
+
+    const badge = worstState === 'unpriced'
+      ? el('span', { class: 'badge badge--warn', style: 'margin-left:8px', text: 'Not priced yet' })
+      : worstState === 'provisional'
+        ? el('span', { class: 'badge badge--warn', style: 'margin-left:8px', text: 'Pricing not yet approved' })
+        : null;
+
+    const hint = worstState === 'unpriced'
+      ? 'At least one component here (e.g. a valley or corner count) has no approved rate configured ' +
+        'yet. It’s flagged for review rather than priced at $0 -- measure it, the price comes later.'
+      : worstState === 'provisional'
+        ? 'This service’s pricing is configured but not yet commercially approved. ' +
+          'Measure and prepare freely -- just don’t send this to the customer as a final number yet.'
+        : null;
+
+    const specialized = SPECIALIZED_CALCULATORS[service.key];
+
     return el('div', { class: 'card' }, [
       el('div', { class: 'card__head' }, [
         el('div', {}, [
-          el('h2', {}, [
-            service.name,
-            !approved ? el('span', { class: 'badge badge--warn', style: 'margin-left:8px',
-              text: 'Pricing not yet approved' }) : null
-          ].filter(Boolean)),
-          el('p', { text: `${money(priced?.unit_rate || 0)} per ${unitLabel(service.unit)}` +
-                          (priced?.minimum_applied ? ' · minimum applied' : '') })
+          el('h2', {}, [service.name, badge].filter(Boolean)),
+          el('p', { text: `${money(ownPriced?.unit_rate || 0)} per ${unitLabel(service.unit)}` +
+                          (ownPriced?.minimum_applied ? ' · minimum applied' : '') })
         ]),
-        el('strong', { class: 'money', text: money(priced?.amount || 0) })
+        el('strong', { class: 'money', text: money(total) })
       ]),
-      !approved ? el('p', { class: 'hint', style: 'margin:-4px 0 10px',
-        text: 'This service’s pricing is configured but not yet commercially approved. ' +
-              'Measure and prepare freely -- just don’t send this to the customer as a final number yet.' }) : null,
-      ...measurements.map(m => renderMeasurement(m, service)),
-      el('div', { class: 'btn-row' }, [
-        el('button', {
-          class: 'btn btn--sm', text: '+ Add area',
-          onClick: async () => {
-            await createMeasurement(job.id, {
-              service_id: service.id,
-              section_id: refs.sections[0]?.id || null,
-              unit: service.unit,
-              quantity: 0,
-              sort_order: measurements.length + 1
-            });
-            onChange();
-          }
-        })
-      ])
+      hint ? el('p', { class: 'hint', style: 'margin:-4px 0 10px', text: hint }) : null,
+
+      specialized
+        ? specialized({ job, service, refs, measurements, pricedRows, onChange, createMeasurement })
+        : el('div', {}, [
+            ...measurements.map(m => renderMeasurement(m, resolveService(m.service_id) || service)),
+            el('div', { class: 'btn-row' }, [
+              el('button', {
+                class: 'btn btn--sm', text: '+ Add area',
+                onClick: async () => {
+                  await createMeasurement(job.id, {
+                    service_id: service.id,
+                    section_id: refs.sections[0]?.id || null,
+                    unit: service.unit,
+                    quantity: 0,
+                    sort_order: measurements.length + 1
+                  });
+                  onChange();
+                }
+              })
+            ])
+          ])
     ]);
   }
 
+  /** A child service's own measurements group under its PARENT's card
+   *  (services.parent_key), not as a second, unrelated-looking service --
+   *  this is what actually makes "jump wire stays part of the lighting
+   *  card" / "valleys stay part of the heating-wire card" true in the
+   *  editor, rather than just true by convention. Falls back to the
+   *  measurement's own service if its parent_key doesn't resolve to a
+   *  known service (data integrity issue, not something to crash over). */
+  function groupServiceFor(service) {
+    if (!service?.parent_key) return service;
+    return refs.services.find(s => s.key === service.parent_key) || service;
+  }
+
   function render({ measurements, pricing }) {
-    const byService = new Map();
+    const byGroup = new Map();
     for (const m of measurements) {
-      if (!byService.has(m.service_id)) byService.set(m.service_id, []);
-      byService.get(m.service_id).push(m);
+      const svc = resolveService(m.service_id);
+      if (!svc) continue;
+      const group = groupServiceFor(svc);
+      if (!byGroup.has(group.id)) byGroup.set(group.id, []);
+      byGroup.get(group.id).push(m);
     }
 
-    const pricedByService = new Map(pricing.map(p => [p.service_id, p]));
-    const usedIds = new Set(byService.keys());
-    const available = refs.services.filter(s => s.quotable && !usedIds.has(s.id));
+    const pricedRowsByGroup = new Map();
+    for (const p of pricing) {
+      const svc = resolveService(p.service_id);
+      if (!svc) continue;
+      const group = groupServiceFor(svc);
+      if (!pricedRowsByGroup.has(group.id)) pricedRowsByGroup.set(group.id, []);
+      pricedRowsByGroup.get(group.id).push(p);
+    }
+    // A component can be on the job (a measurement exists) before the
+    // first calculate_job_pricing pass has anything to report for it --
+    // make sure its own zeroed row is still present so the group's total/
+    // badge accounts for it instead of silently omitting it.
+    for (const [groupId, ms] of byGroup) {
+      const rows = pricedRowsByGroup.get(groupId) || [];
+      const covered = new Set(rows.map(r => r.service_id));
+      for (const m of ms) {
+        if (!covered.has(m.service_id)) {
+          covered.add(m.service_id);
+          rows.push({ service_id: m.service_id, amount: 0, unit_rate: 0, minimum_applied: false });
+        }
+      }
+      pricedRowsByGroup.set(groupId, rows);
+    }
+
+    // Child services (jump-wire, a heat-cable valley/corner) are never
+    // independently addable -- they only ever appear through their
+    // parent's own calculator, generic or specialized.
+    const usedIds = new Set(byGroup.keys());
+    const available = refs.services.filter(s => s.quotable && !s.parent_key && !usedIds.has(s.id));
 
     const addServiceControl = available.length
       ? el('div', { class: 'card' }, [
@@ -238,10 +322,10 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
         ])
       : null;
 
-    const blocks = [...byService.entries()].map(([serviceId, ms]) => {
-      const service = refs.services.find(s => s.id === serviceId);
+    const blocks = [...byGroup.entries()].map(([groupId, ms]) => {
+      const service = refs.services.find(s => s.id === groupId);
       if (!service) return null;
-      return renderServiceBlock(service, ms, pricedByService.get(serviceId));
+      return renderServiceBlock(service, ms, pricedRowsByGroup.get(groupId) || []);
     }).filter(Boolean);
 
     // Element.append() stringifies any non-Node argument (including null),
