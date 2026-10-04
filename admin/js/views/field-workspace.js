@@ -284,22 +284,57 @@ export async function renderVisit({ mount, navigate }, jobId) {
     async (e) => { await api.updateJob(job.id, { status: e.target.value }); toast('Status updated'); }
   );
 
-  async function reload() {
-    const [fresh, sections, measurements, jobFlags, pricing, quotes] = await Promise.all([
-      api.getJob(job.id), api.listSections(job.id), api.listMeasurements(job.id),
-      api.listJobFlags(job.id), api.calculatePricing(job.id), api.listQuotes(job.id)
-    ]);
-    job.status = fresh.status;
-    job.properties = fresh.properties;
-    if (statusSelect.value !== fresh.status) statusSelect.value = fresh.status;
+  // Every offline-queued save below (passport, a measurement, a signature)
+  // calls this afterward via onChange/onSaved WITHOUT awaiting it -- so
+  // until this fix, a live refresh failing offline became an invisible
+  // unhandled promise rejection: the save itself queued correctly, but
+  // reload() silently never got to repaint anything. These hold the last
+  // successful fetch so an offline repaint has real data to show instead
+  // of nothing; measurementsPanel/quotePanel take their data as render()
+  // params rather than reading job/refs directly, so they need an explicit
+  // cache -- sectionsPanel/passportPanel/checklistPanel don't, since they
+  // read job/refs, which the caller already mutated locally before this runs.
+  let lastMeasurements = [];
+  let lastPricing = null;
+  let lastQuotes = [];
 
-    refs.sections = sections;
+  async function reload() {
+    let sections = refs.sections, measurements = lastMeasurements, pricing = lastPricing, quotes = lastQuotes;
+    try {
+      const [fresh, freshSections, freshMeasurements, jobFlags, freshPricing, freshQuotes] = await Promise.all([
+        api.getJob(job.id), api.listSections(job.id), api.listMeasurements(job.id),
+        api.listJobFlags(job.id), api.calculatePricing(job.id), api.listQuotes(job.id)
+      ]);
+      job.status = fresh.status;
+      job.properties = fresh.properties;
+      if (statusSelect.value !== fresh.status) statusSelect.value = fresh.status;
+      sections = freshSections; measurements = freshMeasurements; pricing = freshPricing; quotes = freshQuotes;
+      refs.sections = sections;
+      lastMeasurements = measurements; lastPricing = pricing; lastQuotes = quotes;
+    } catch (err) {
+      // A queued offline save already landed locally -- job/refs were
+      // mutated by the caller before reload() ran, so there is nothing
+      // fresher to fetch until this actually syncs. Repaint with what's
+      // already in memory rather than letting this bubble up: a real error
+      // (bad input, RLS denial) still isn't swallowed, only a looks-offline
+      // failure takes this path.
+      if (!offlineQueue.looksOffline(err)) throw err;
+    }
+
     clear(sectionsHost).append(sectionsPanel(job, refs, reload));
     clear(passportHost).append(passportPanel(job.properties, reload));
     clear(checklistHost).append(checklistPanel(job.properties));
     measurementsPanel.render({ measurements, pricing });
     quotePanel.render({ quotes });
-    photosPanel.render();
+    try {
+      // photosPanel.render() does its own live fetch (listAttachments) --
+      // field-photos.js already skips calling it after ITS OWN queued
+      // upload, but reload() can also be triggered by a different panel's
+      // offline save (e.g. the passport), so the same guard is needed here.
+      await photosPanel.render();
+    } catch (err) {
+      if (!offlineQueue.looksOffline(err)) throw err;
+    }
   }
 
   const phone = job.customers?.phone;

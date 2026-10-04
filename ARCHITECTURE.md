@@ -235,3 +235,72 @@ Cosmetic; left alone to avoid changing a working contract.
 rejected at the data layer), but the login page itself is Internet-facing.
 **Recommended:** a Cloudflare Access policy on the `admin` path, which adds an
 identity check without needing a second domain. Steps in `deploy/README.md`.
+
+### 17. The Field Console's offline mode is a write-outbox, not full offline operation
+The native wrapper (Capacitor) does not change this: it is a thin layer over
+the same `admin/` + `shared/` code, same backend, same outbox. "Offline" here
+has only ever meant **four** specific writes queue safely with no connection
+— `admin/js/lib/offline-queue.js`'s `HANDLERS` map is the complete list:
+`updateProperty` (Property Passport + checklist), `createMeasurement`,
+`uploadJobPhoto`, `saveSignature`. Everything else that looks like part of
+"the app" still needs a live connection, exactly as it did before this task.
+**This finding should not be read as "full offline operation is verified" —
+it isn't, and shouldn't be claimed as such until it's actually run through
+on a physical Android/iOS device.** Everything below comes from reading the
+actual code paths plus browser-level simulation (Playwright, which can
+genuinely flip `navigator.onLine` and fire real `online`/`offline` events);
+neither substitutes for a real device, which also has the only real
+Filesystem, Camera, Share, Geolocation, Haptics and StatusBar bridges —
+Capacitor's web fallbacks cover everything in this repo's own test runs, but
+none of that is the native implementation itself.
+
+**Works with no connection**, queuing in IndexedDB for sync on reconnect:
+checklist taps and Property Passport edits; capturing a signature; taking,
+annotating and uploading a photo (capture → markup → queue never touches the
+network). Adding a measurement queues the same way, but — as
+`measurements.js` already notes inline — it won't appear in the on-screen
+list until it actually syncs, since there's no row id to render until then.
+
+**Needs a connection, by design** (`offline-queue.js`'s own comment already
+said as much for the first two): building a quote or a new revision
+(`createQuoteFromCalculation`, `duplicateQuote`), adding or removing a quote
+line/adjustment, saving a quote's internal notes, and Send Email. None of
+these are wired into the outbox; they call `api.js` directly and will fail
+immediately if offline, same as on the desktop admin today.
+
+**The gap worth knowing about:** opening a job that isn't already rendered
+in the current page view needs a connection too — `getJob` and five sibling
+queries in `field-workspace.js` run live on every navigation into
+`#/visit/<id>`, with no local read cache. A tech who goes offline, then
+backs out of a job or kills the app, cannot reopen that job to review what
+they entered until signal returns. The queued writes themselves are
+unaffected (they're sitting in IndexedDB regardless of whether the job
+screen can render), but there is currently no way to *see* that from a cold
+screen while offline. Sharing a quote/report PDF has the same shape: the OS
+share sheet opens offline, but the link it hands off only resolves once
+someone has signal — except `completion-report.js`'s own Share button,
+which shares the page it has *already* rendered and needs no further
+network at all.
+
+**Fixed in this pass:** `reload()` in `field-workspace.js` is called
+un-awaited after every queued write (passport save, a new measurement, a
+signature) — before this fix, a live refresh failing offline became an
+invisible unhandled promise rejection: the write itself queued correctly,
+but nothing told you the screen hadn't refreshed, and the failure was
+silent rather than either repainting or surfacing. It now catches exactly
+the network-failure case `offline-queue.js` already classifies
+(`looksOffline`, newly exported so both sides of the outbox agree on the
+test) and repaints every panel from whatever is already in memory instead
+of throwing; a genuine error — bad input, an RLS denial — still isn't
+swallowed. Verified: triggering a Property Passport save with
+`navigator.onLine` forced false now produces zero page errors, the correct
+"Offline — saved locally" toast, and no real `updateProperty` network call;
+a simulated permission error from a sibling query still propagates
+normally.
+
+**Recommended before calling any of this "offline-ready" for real:** run
+the full pass on an actual phone — open a synced job online, go to airplane
+mode, work through a measurement/checklist/photo/signature/note cycle, kill
+the app, reopen it still offline, confirm the outbox survived and nothing
+duplicates on reconnect. This repo's own tests cannot do that; they can only
+get the code ready for someone who can.

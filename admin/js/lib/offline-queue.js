@@ -99,8 +99,10 @@ async function enqueue(type, args, label) {
 /** True if this looks like "the network isn't there" rather than a real
  *  application error (validation failure, 4xx, RLS denial) -- only the
  *  former is worth queuing. A real error should still surface immediately,
- *  offline or not. */
-function looksOffline(err) {
+ *  offline or not. Exported so field-workspace.js's reload() can apply the
+ *  exact same test to its own read-refresh after a queued write, rather
+ *  than inventing a second classifier that could disagree with this one. */
+export function looksOffline(err) {
   if (!navigator.onLine) return true;
   const msg = String(err?.message || err || '').toLowerCase();
   return msg.includes('failed to fetch') || msg.includes('networkerror') ||
