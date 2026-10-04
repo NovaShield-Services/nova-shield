@@ -39,8 +39,8 @@ export function businessSchema(company = {}, services = []) {
     name: company.legal_name || 'Nova Shield Maintenance Services',
     alternateName: company.display_name || 'Nova Shield',
     url: SITE,
-    logo: `${SITE}/assets/brand/logo-hi.jpeg`,
-    image: `${SITE}/assets/brand/logo-hi.jpeg`,
+    logo: `${SITE}/assets/brand/nova-shield-logo.png`,
+    image: `${SITE}/assets/brand/nova-shield-logo.png`,
     telephone: company.phone || undefined,
     email: company.email || undefined,
     address: {
@@ -132,7 +132,7 @@ export function setServiceMeta(service) {
   set('meta[property="og:url"]', 'content', url);
   set('meta[property="og:title"]', 'content', title);
   set('meta[property="og:description"]', 'content', desc);
-  set('meta[property="og:image"]', 'content', `${SITE}/assets/brand/logo-hi.jpeg`);
+  set('meta[property="og:image"]', 'content', `${SITE}/assets/brand/nova-shield-logo.png`);
   set('meta[name="twitter:card"]', 'content', 'summary_large_image');
   set('meta[name="twitter:title"]', 'content', title);
   set('meta[name="twitter:description"]', 'content', desc);

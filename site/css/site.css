@@ -611,28 +611,27 @@ footer.site { padding: 56px 0 38px; }
    The LOGO is the original V4/V5 shield, an inline SVG carried over byte for
    byte and mounted by chrome.js. It is what the header and footer use.
 
-   The Aurora banner below is PHOTOGRAPHY, not the logo: a rectangular painting
-   that happens to contain the mark. Every box here carries the aspect-ratio of
-   its crop window, so it can only ever be scaled proportionally -- but there is
-   no cut-out anywhere in it, so a window onto it always brings a rectangle of
-   sky along. That is why the small square "mark" window is gone: at 38px in the
-   nav the rectangle was the thing you saw.
+   --brand-art is a SEPARATE, full lockup (shield + wordmark together) used
+   anywhere a rectangle is the intended shape -- currently just the about
+   plate. Unlike the old banner this replaced, the master PNG has a real
+   cut-out (true alpha), so background-size:contain shows the mark on
+   whatever sits behind .brandart--full rather than bringing a background
+   rectangle along with it.
 
-   Master: assets/brand/logo-hi.jpeg  (2172x724, opaque, no alpha)
-   The 2048x682 PNG is NOT a transparent master -- every pixel carries partial
-   alpha and none is cut out. See ASSET_SPEC.md.
+   Master: assets/brand/nova-shield-logo.png (2000x667, transparent)
    ========================================================================== */
-:root { --brand-art: url('../assets/brand/logo-hi.jpeg'); }
+:root { --brand-art: url('../assets/brand/nova-shield-logo.png'); }
 
 .brandart { background-image:var(--brand-art); background-repeat:no-repeat;
   display:block; border-radius:4px; }
 
-/* shield + wordmark — x12% y15% w78% h46% */
-.brandart--lockup { aspect-ratio:1694/333; background-size:128.21% 217.39%;
-  background-position:54.55% 27.78%; }
+/* shield + wordmark, same master as --full -- no crop needed now that the
+   master is already just the lockup with nothing to crop away. */
+.brandart--lockup { aspect-ratio:2000/667; background-size:contain;
+  background-position:center; }
 
-/* the whole banner, for brand moments */
-.brandart--full { aspect-ratio:2172/724; background-size:cover;
+/* the whole lockup, for brand moments */
+.brandart--full { aspect-ratio:2000/667; background-size:contain;
   background-position:center; }
 
 /* --- brand placements ----------------------------------------------------
