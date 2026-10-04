@@ -15,6 +15,7 @@ import { createMossRemovalCalculator } from '../components/moss-removal-calculat
 import { createGraffitiRemovalCalculator } from '../components/graffiti-removal-calculator.js';
 import { createPermanentLightingCalculator } from '../components/permanent-lighting-calculator.js';
 import { createChristmasLightingCalculator } from '../components/christmas-lighting-calculator.js';
+import { createWinterPropertyCareCalculator } from '../components/winter-property-care-calculator.js';
 
 export function createMeasurementsPanel({ job, refs, onChange, createMeasurementFn }) {
   const root = el('div', {});
@@ -170,7 +171,8 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
     moss: createMossRemovalCalculator,
     graffiti: createGraffitiRemovalCalculator,
     permanent_lighting: createPermanentLightingCalculator,
-    christmas_lighting: createChristmasLightingCalculator
+    christmas_lighting: createChristmasLightingCalculator,
+    winter_property_care: createWinterPropertyCareCalculator
   };
 
   function renderServiceBlock(service, measurements, pricedRows) {
