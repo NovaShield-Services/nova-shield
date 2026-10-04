@@ -11,49 +11,49 @@ import { modifierGroupsFor } from './modifier-groups.js';
  *  sides, 1.8x -- a genuine job-wide decision, same reasoning as Gutter
  *  Brightening's and Window Cleaning's job-wide Scope: there's no
  *  coherent price for cleaning one side of the front run and both sides
- *  of the rear run in the same visit) and "Material" (Vinyl / Metal /
- *  Wood / Older-delicate wood, per-row). There is no Access group for
- *  this service at all.
+ *  of the rear run in the same visit), "Material" (Vinyl / Metal /
+ *  Wood / Older-delicate wood, per-row) and "Fence height" (Standard /
+ *  Tall / Very tall, per-row -- the fence panel's own height, not the
+ *  building's storey count). There is no Access group for this service
+ *  at all.
  *
- *  IMPORTANT ARCHITECTURAL FINDING -- fence also has a group literally
- *  named "Height" (Standard / Tall / Very tall), but its option keys
- *  don't match job_sections.storeys (every other service's real height
- *  group uses storey-based keys; this one uses standard/tall/very_tall,
- *  because it means the FENCE's own panel height, not the building's
- *  storey count). modifierGroupsFor and calculate_job_pricing both
- *  hardcode "height"/"access" as always section-driven and always
- *  excluded from row-level multiplier aggregation -- so this group is
- *  currently inert no matter how it's attached: confirmed empirically
- *  (via a rolled-back probe against the real database) that attaching
- *  the real "Tall" modifier directly to a measurement still yields a
- *  factor of 1, and section_service_mult never matches
- *  option_key='tall'/'very_tall' against any real sec.storeys value
- *  either. This is a genuine data-model limitation, not a UI problem --
- *  fixing it means either changing real configured pricing data (the
- *  group_key) or modifying calculate_job_pricing's hardcoded exclusion,
- *  neither of which this component does unilaterally. Showing a Height
- *  control that cannot affect price would be actively misleading, so it
- *  is deliberately omitted; the hint below tells the field user to use
- *  notes/review for significant height differences instead. See the
- *  Phase 10 report for remediation options.
+ *  PHASE 10.5 FIX -- fence's height group used to share the generic
+ *  group_key 'height' with every other service's real building-storey
+ *  group. modifierGroupsFor and calculate_job_pricing both hardcode
+ *  'height'/'access' as always section-driven and exclude them from
+ *  row-level multiplier aggregation, so fence's panel-height modifier
+ *  was silently inert no matter how it was attached (confirmed
+ *  empirically in Phase 10; see that phase's report). Phase 10.5 re-keyed
+ *  fence's 3 height rows from group_key='height' to group_key=
+ *  'fence_height' -- ids, option_keys, labels and values all preserved --
+ *  so it no longer string-matches the section-driven exclusion and now
+ *  flows through the ordinary per-row path exactly like Condition and
+ *  Material. It is a per-row choice like those two, never a job-wide one
+ *  like Sides, and it must never be folded into job_sections.storeys --
+ *  that column still means building storeys for every other service.
+ *  The migration deliberately left the stored group_label as "Height"
+ *  (relabeling wasn't part of the fix, and every other service still
+ *  reads that shared label data), so this component alone renders it as
+ *  "Fence height" -- see rowGroupLabel() below.
  *
  *  Gates have no modifier, addon, or child-service representation
- *  anywhere in the real configuration -- not a Height-style naming
- *  collision, simply not priced at all -- so no gate control exists
- *  here either; same treatment as deck's stairs in Phase 9.
+ *  anywhere in the real configuration -- simply not priced at all -- so
+ *  no gate control exists here either; same treatment as deck's stairs
+ *  in Phase 9.
  *
- *  The section picker still matters here even though fence has no
- *  functioning service-specific section modifier: calculate_job_pricing
- *  applies property-wide site_factors (ground/ladder/distance) to ANY
- *  measurement with a section_id, regardless of service, so assigning a
- *  fence run to a section can still affect its price through those.
+ *  The section picker also matters for a reason unrelated to fence
+ *  height: calculate_job_pricing applies property-wide site_factors
+ *  (ground/ladder/distance) to ANY measurement with a section_id,
+ *  regardless of service, so assigning a fence run to a section affects
+ *  its price through those too, on top of its own per-row Fence
+ *  height/Condition/Material.
  *
  *  Duplicate is implemented: a fence run's footage is a real starting
  *  estimate worth copying to a similar adjacent run, the same reasoning
  *  already established for Siding, Gutter Brightening, Concrete, Roof
  *  Cleaning and Deck Cleaning -- copies section, footage, and modifier
- *  selections (Condition/Material/Sides); never review_required/
- *  review_reason/notes. */
+ *  selections (Condition/Material/Sides/Fence height); never
+ *  review_required/review_reason/notes. */
 
 export function createFenceCleaningCalculator({ job, service, refs, measurements, onChange, createMeasurement }) {
   const rows = measurements.filter((m) => m.service_id === service.id);
@@ -61,6 +61,14 @@ export function createFenceCleaningCalculator({ job, service, refs, measurements
   const allGroups = modifierGroupsFor(refs.modifiers, service.id);
   const scopeGroup = allGroups.find((g) => g.key === 'scope') || null;
   const rowGroups = allGroups.filter((g) => g.key !== 'scope');
+
+  // The DB's group_label for this group is still "Height" (shared data every
+  // other service also reads -- Phase 10.5 renamed only the group_key, not
+  // the label). This component alone needs the fence-specific term, so the
+  // override lives here rather than in the stored data.
+  function rowGroupLabel(group) {
+    return group.key === 'fence_height' ? 'Fence height' : group.label;
+  }
 
   function currentScopeModifierId() {
     if (!scopeGroup) return null;
@@ -141,7 +149,7 @@ export function createFenceCleaningCalculator({ job, service, refs, measurements
       const current = group.options.find((o) => selectedIds.has(o.id));
       const defaultOpt = group.options.find((o) => o.is_default);
       return el('label', { class: 'field', style: 'margin:0' }, [
-        el('span', { text: group.label }),
+        el('span', { text: rowGroupLabel(group) }),
         select(
           group.options.map((o) => ({ value: o.id, label: o.label })),
           current?.id || defaultOpt?.id || '',
@@ -178,14 +186,13 @@ export function createFenceCleaningCalculator({ job, service, refs, measurements
         el('label', { class: 'field', style: 'margin:0' }, [el('span', { text: 'Linear feet' }), qtyInput]),
         el('label', { class: 'field', style: 'margin:0' }, [el('span', { text: 'Fence section' }), sectionSelectFor(measurement)])
       ]),
-      // Deliberately not "Height/access come from..." -- fence has no
-      // access group, and its own Height group can't affect price (see
-      // the file header). Site conditions (ground/ladder/distance) are
-      // the one real thing a section assignment still does for this
-      // service.
+      // Deliberately not "Fence height comes from..." -- fence height is
+      // its own per-row control below (like Condition/Material), not
+      // derived from the section. Site conditions (ground/ladder/distance)
+      // are the one thing a section assignment still does for this service.
       section ? el('p', { class: 'hint', style: 'margin:4px 0 0',
         text: `Site conditions (ground, ladder reach, distance) come from "${section.name}" -- edit those in Property Layout, not here.` }) : null,
-      modifierControls.length ? el('div', { class: 'grid grid--2', style: 'margin-top:10px' }, modifierControls) : null,
+      modifierControls.length ? el('div', { class: 'grid grid--3', style: 'margin-top:10px' }, modifierControls) : null,
       el('label', { class: 'field', style: 'margin-top:10px' }, [el('span', { text: 'Notes' }), notesInput]),
       reviewFlag({
         required: measurement.review_required, reason: measurement.review_reason,
@@ -248,6 +255,6 @@ export function createFenceCleaningCalculator({ job, service, refs, measurements
       el('button', { class: 'btn btn--sm', text: '+ Add fence section', onClick: addFenceSection })
     ]),
     el('p', { class: 'hint', style: 'margin-top:10px',
-      text: 'Fence height and gates are not yet part of this calculation -- note significant height differences or gates above, or flag a run for review, rather than assuming the total accounts for them.' })
+      text: 'Gates are not part of this calculation -- note gates in a run\'s notes above, or flag a run for review, rather than assuming the total accounts for them.' })
   ].filter(Boolean));
 }

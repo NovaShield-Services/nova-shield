@@ -7,17 +7,21 @@
  *  section-driven" has exactly one answer.
  *
  *  This exclusion is purely a name match on group_key, not a check that the
- *  group's option_keys actually line up with job_sections.storeys/access --
- *  'fence' (Phase 10) has a real group literally named 'height' whose
- *  options (standard/tall/very_tall) are the fence's own panel height, not
- *  a storey count, so it gets excluded here same as every genuine
+ *  group's option_keys actually line up with job_sections.storeys/access.
+ *  'fence' (Phase 10) originally had a group literally named 'height' whose
+ *  options (standard/tall/very_tall) were the fence's own panel height, not
+ *  a storey count -- it got excluded here same as every genuine
  *  section-driven group, but calculate_job_pricing's own hardcoded
- *  `group_key not in ('height','access')` also means that group can never
- *  affect price via the row path either -- confirmed empirically, not
- *  rendered anywhere. See fence-cleaning-calculator.js's file header for
- *  the full finding. Exclusion-by-name happens to produce the safe UI
- *  outcome here (no broken control shown) for a different reason than why
- *  it's safe for every other service. */
+ *  `group_key not in ('height','access')` also meant that group could never
+ *  affect price via the row path either, so it was silently inert
+ *  (confirmed empirically, not rendered anywhere). Phase 10.5 fixed this at
+ *  the data layer by re-keying fence's rows to group_key='fence_height',
+ *  which doesn't match this set, so fence's height now groups and prices
+ *  normally like any other row-level modifier. This set itself stays
+ *  exactly ['height', 'access'] -- unchanged and still global across every
+ *  service -- because the fix was to stop fence's group from colliding
+ *  with the name, not to change what the name excludes. See
+ *  fence-cleaning-calculator.js's file header for the full history. */
 const SECTION_DRIVEN_GROUPS = new Set(['height', 'access']);
 
 export function modifierGroupsFor(modifiers, serviceId) {
