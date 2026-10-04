@@ -6,6 +6,7 @@ import { modifierGroupsFor } from '../components/modifier-groups.js';
 import { createHeatingWireCalculator } from '../components/heating-wire-calculator.js';
 import { createSidingCalculator } from '../components/siding-calculator.js';
 import { createGutterBrighteningCalculator } from '../components/gutter-brightening-calculator.js';
+import { createWindowCleaningCalculator } from '../components/window-cleaning-calculator.js';
 
 export function createMeasurementsPanel({ job, refs, onChange, createMeasurementFn }) {
   const root = el('div', {});
@@ -152,7 +153,8 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
   const SPECIALIZED_CALCULATORS = {
     winter_deicing_cables: createHeatingWireCalculator,
     siding: createSidingCalculator,
-    gutter_brightening: createGutterBrighteningCalculator
+    gutter_brightening: createGutterBrighteningCalculator,
+    windows: createWindowCleaningCalculator
   };
 
   function renderServiceBlock(service, measurements, pricedRows) {
