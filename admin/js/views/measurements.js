@@ -2,12 +2,9 @@ import * as api from '../lib/api.js';
 import { el, clear, toast, select, numberInput, confirmAction } from '../../../shared/dom.js';
 import { unitLabel, money, num } from '../../../shared/format.js';
 import { reviewFlag } from '../components/review-flag.js';
+import { modifierGroupsFor } from '../components/modifier-groups.js';
 import { createHeatingWireCalculator } from '../components/heating-wire-calculator.js';
-
-/* Height and access are deliberately NOT editable here: they are recorded once
-   on the property section. Duplicating them per measurement is what made the
-   old calculator risk charging twice for the same condition. */
-const SECTION_DRIVEN_GROUPS = new Set(['height', 'access']);
+import { createSidingCalculator } from '../components/siding-calculator.js';
 
 export function createMeasurementsPanel({ job, refs, onChange, createMeasurementFn }) {
   const root = el('div', {});
@@ -31,19 +28,6 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
 
   function resolveService(id) { return (refs.services || []).find(s => s.id === id); }
 
-  function serviceModifierGroups(serviceId) {
-    const groups = new Map();
-    for (const m of refs.modifiers) {
-      if (m.service_id !== serviceId) continue;
-      if (SECTION_DRIVEN_GROUPS.has(m.group_key)) continue;
-      if (!groups.has(m.group_key)) {
-        groups.set(m.group_key, { key: m.group_key, label: m.group_label, options: [] });
-      }
-      groups.get(m.group_key).options.push(m);
-    }
-    return [...groups.values()];
-  }
-
   function renderMeasurement(measurement, service) {
     const selectedIds = new Set((measurement.measurement_modifiers || []).map(r => r.modifier_id));
 
@@ -62,7 +46,7 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
       }
     );
 
-    const modifierControls = serviceModifierGroups(service.id).map(group => {
+    const modifierControls = modifierGroupsFor(refs.modifiers, service.id).map(group => {
       const groupIds = group.options.map(o => o.id);
       const current = group.options.find(o => selectedIds.has(o.id));
       const defaultOpt = group.options.find(o => o.is_default);
@@ -162,11 +146,11 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
 
   /** Service-specific calculators swap in here, keyed by the PARENT
    *  service's key -- the card header/badge/total above stays the one
-   *  shared shell every service gets; only the body differs. Registered
-   *  below the panel's own exports, once createHeatingWireCalculator is
-   *  imported. */
+   *  shared shell every service gets; only the body differs. A service
+   *  with no entry here just gets the generic measurement list below. */
   const SPECIALIZED_CALCULATORS = {
-    winter_deicing_cables: createHeatingWireCalculator
+    winter_deicing_cables: createHeatingWireCalculator,
+    siding: createSidingCalculator
   };
 
   function renderServiceBlock(service, measurements, pricedRows) {
@@ -310,7 +294,7 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
                 // the service's own default pricing, just without these
                 // extra modifier selections pre-applied).
                 if (created) {
-                  for (const group of serviceModifierGroups(service.id)) {
+                  for (const group of modifierGroupsFor(refs.modifiers, service.id)) {
                     const def = group.options.find(o => o.is_default);
                     if (def) await api.setMeasurementModifier(created.id, [], def.id);
                   }

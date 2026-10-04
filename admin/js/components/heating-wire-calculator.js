@@ -2,6 +2,7 @@ import * as api from '../lib/api.js';
 import { el, select, numberInput, confirmAction, toast } from '../../../shared/dom.js';
 import { money } from '../../../shared/format.js';
 import { reviewFlag } from './review-flag.js';
+import { modifierGroupsFor } from './modifier-groups.js';
 
 /** Heating Wire Installation's own calculator -- the first service-
  *  specific editor in this system, built to prove the shared quote
@@ -28,17 +29,6 @@ const CHILD_KEYS = {
   corner1st: 'winter_deicing_cables_corner_1st',
   corner2nd: 'winter_deicing_cables_corner_2nd'
 };
-
-function modifierGroupsFor(refs, serviceId) {
-  const groups = new Map();
-  for (const m of refs.modifiers) {
-    if (m.service_id !== serviceId) continue;
-    if (m.group_key === 'height' || m.group_key === 'access') continue; // section-driven, same rule as measurements.js
-    if (!groups.has(m.group_key)) groups.set(m.group_key, { key: m.group_key, label: m.group_label, options: [] });
-    groups.get(m.group_key).options.push(m);
-  }
-  return [...groups.values()];
-}
 
 export function createHeatingWireCalculator({ job, service, refs, measurements, pricedRows, onChange, createMeasurement }) {
   const pricedByService = new Map(pricedRows.map(p => [p.service_id, p]));
@@ -92,7 +82,7 @@ export function createHeatingWireCalculator({ job, service, refs, measurements, 
     }, { step: '1', 'aria-label': 'Feet' });
 
     const selectedIds = new Set((measurement.measurement_modifiers || []).map(r => r.modifier_id));
-    const modifierControls = modifierGroupsFor(refs, service.id).map((group) => {
+    const modifierControls = modifierGroupsFor(refs.modifiers, service.id).map((group) => {
       const groupIds = group.options.map((o) => o.id);
       const current = group.options.find((o) => selectedIds.has(o.id));
       const defaultOpt = group.options.find((o) => o.is_default);
@@ -159,7 +149,7 @@ export function createHeatingWireCalculator({ job, service, refs, measurements, 
       sort_order: measurements.length + 1
     });
     if (created) {
-      for (const group of modifierGroupsFor(refs, service.id)) {
+      for (const group of modifierGroupsFor(refs.modifiers, service.id)) {
         const def = group.options.find((o) => o.is_default);
         if (def) await api.setMeasurementModifier(created.id, [], def.id);
       }
