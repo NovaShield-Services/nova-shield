@@ -29,6 +29,10 @@ function message(title, body) {
 function render(q) {
   const company = q.company || {};
   const isOpen = q.status === 'sent';
+  // respond_to_quote() blocks accepting this too (public RPC, so the real
+  // enforcement has to live there) -- this just avoids a round-trip for the
+  // case we can already see from the lines we rendered.
+  const hasUnapprovedPricing = (q.lines || []).some((l) => l.pricing_approved === false);
 
   const statusBanner =
     q.status === 'accepted' ? el('div', { class: 'state state--ok',
@@ -64,7 +68,15 @@ function render(q) {
 
     accept.addEventListener('click', () => respond('accepted', accept));
     decline.addEventListener('click', () => respond('declined', decline));
-    actions.append(accept, decline);
+    // Declining a provisional price is always fine; only accepting it is
+    // the risk, so only the accept button is held back.
+    if (hasUnapprovedPricing) {
+      actions.append(el('p', { class: 'state state--warn', style: 'margin:0 0 10px',
+        text: 'Final pricing is still pending confirmation. We will confirm your pricing before accepting this quote.' }));
+    } else {
+      actions.append(accept);
+    }
+    actions.append(decline);
   }
   actions.append(el('button', { class: 'btn no-print', text: 'Print / save as PDF',
                                 onClick: () => window.print() }));

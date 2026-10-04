@@ -209,7 +209,7 @@ export function createQuotePanel({ job, onChange, saveSignatureFn }) {
       !editable && isLatest ? revisionPrompt(quote) : null,
 
       deliveryActions(quote, editable, unapprovedServices),
-      signatureSection(quote),
+      signatureSection(quote, unapprovedServices),
       !editable ? changeOrdersSection(quote) : null,
       internalNotesBox(quote)
     ]);
@@ -219,7 +219,7 @@ export function createQuotePanel({ job, onChange, saveSignatureFn }) {
    *  of (or ahead of) emailing. accepted-with-a-signature -> what was
    *  captured, read back. Nothing is shown for declined/expired/superseded
    *  -- there is nothing left to sign. */
-  function signatureSection(quote) {
+  function signatureSection(quote, unapprovedServices = []) {
     if (quote.signature_url) {
       const img = el('img', {
         alt: `Signature of ${quote.signed_by_name}`,
@@ -243,6 +243,7 @@ export function createQuotePanel({ job, onChange, saveSignatureFn }) {
     if (quote.status !== 'draft' && quote.status !== 'sent') return null;
 
     const pad = createSignaturePad({
+      unapprovedServices,
       onSave: async (pngBlob, signerName) => {
         const { queued } = await saveSignature(job.id, quote.id, pngBlob, signerName);
         toast(queued

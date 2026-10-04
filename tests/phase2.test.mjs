@@ -192,6 +192,54 @@ async function main() {
     assert.ok(confirmMessages.some(m => m.includes('hasn’t commercially approved')), `expected a strengthened confirm message, got: ${JSON.stringify(confirmMessages)}`);
   });
 
+  // These two signature-pad tests must run here -- still on admin/field.html,
+  // before the first page.goto() to the customer site below. A navigation
+  // loads a fresh document with a fresh window.confirm, silently discarding
+  // the page.evaluate override installed near the top of this file (a real,
+  // unpatched confirm() dialog still gets auto-accepted by the page-level
+  // page.on('dialog', ...) handler, which is why onSave still fires -- it's
+  // only confirmMessages, captured solely through the override, that goes
+  // missing if these run after a navigation).
+  await record('signature-pad.js: unapproved-pricing override strengthens the admin accept confirm', async () => {
+    const info = await page.evaluate(async () => {
+      const mod = await import('/admin/js/components/signature-pad.js');
+      let saved = null;
+      const pad = mod.createSignaturePad({
+        onSave: async (blob, name) => { saved = name; },
+        unapprovedServices: ['Permanent Outdoor Lighting']
+      });
+      document.body.appendChild(pad.root);
+      pad.root.querySelector('canvas').dispatchEvent(new PointerEvent('pointerdown', { clientX: 10, clientY: 10, bubbles: true }));
+      pad.root.querySelector('input').value = 'Jane Doe';
+      const saveBtn = [...pad.root.querySelectorAll('button')].find((b) => b.textContent.includes('Approve'));
+      saveBtn.click();
+      await new Promise((r) => setTimeout(r, 60));
+      pad.root.remove();
+      return { saved };
+    });
+    assert.equal(info.saved, 'Jane Doe');
+    assert.ok(confirmMessages.some((m) => m.includes('hasn’t commercially approved yet') && m.includes('Permanent Outdoor Lighting')),
+      `expected the signature confirm to mention unapproved pricing, got: ${JSON.stringify(confirmMessages)}`);
+  });
+
+  await record('signature-pad.js: no override clause when every service is approved (default)', async () => {
+    confirmMessages.length = 0;
+    await page.evaluate(async () => {
+      const mod = await import('/admin/js/components/signature-pad.js');
+      const pad = mod.createSignaturePad({ onSave: async () => {} });
+      document.body.appendChild(pad.root);
+      pad.root.querySelector('canvas').dispatchEvent(new PointerEvent('pointerdown', { clientX: 10, clientY: 10, bubbles: true }));
+      pad.root.querySelector('input').value = 'Jane Doe';
+      const saveBtn = [...pad.root.querySelectorAll('button')].find((b) => b.textContent.includes('Approve'));
+      saveBtn.click();
+      await new Promise((r) => setTimeout(r, 60));
+      pad.root.remove();
+    });
+    assert.ok(confirmMessages.length > 0);
+    assert.ok(!confirmMessages.some((m) => m.includes('commercially approved')),
+      `expected no unapproved-pricing clause, got: ${JSON.stringify(confirmMessages)}`);
+  });
+
   await record('site/js/pages/quote.js: unapproved line shows the customer-facing estimate note', async () => {
     await mock(`${BASE}/shared/supabase.js`, `
       export const supabase = {
@@ -216,6 +264,63 @@ async function main() {
       return p ? p.textContent : null;
     });
     assert.equal(note, 'Estimate — final pricing pending confirmation');
+  });
+
+  await record('site/js/pages/quote.js: Accept is withheld (not just a failed click) when any line is unapproved; Decline still works', async () => {
+    await mock(`${BASE}/shared/supabase.js`, `
+      export const supabase = {
+        storage: { from: () => ({ getPublicUrl: () => ({ data: { publicUrl: '' } }) }) },
+        rpc: async (name) => {
+          if (name !== 'get_customer_quote') return { data: null, error: { message: 'unexpected rpc' } };
+          return { data: {
+            reference: 'NS-2', version: 1, status: 'sent', issued_on: new Date().toISOString(),
+            valid_until: null, currency: 'CAD', customer_name: 'Jane Doe', property: '1 Test St',
+            customer_notes: null, terms: null, subtotal: 55, tax_total: 0, total: 55,
+            company: { phone: '', email: '' },
+            lines: [{ description: 'Permanent Outdoor Lighting', amount: 55, pricing_approved: false }],
+            adjustments: [], change_orders: []
+          }, error: null };
+        }
+      };
+    `);
+    await page.goto(`${BASE}/site/quote.html?id=test-quote-unapproved`);
+    await page.waitForTimeout(150);
+    const info = await page.evaluate(() => {
+      const buttons = [...document.querySelectorAll('button')].map((b) => b.textContent);
+      // Distinct from the existing per-line "Estimate — final pricing
+      // pending confirmation" note, which also renders on this same page
+      // for this same provisional line -- matched on text unique to the
+      // new per-quote action-area message instead of the shared phrase.
+      const pending = [...document.querySelectorAll('p')].find((p) => p.textContent.includes('We will confirm your pricing'));
+      return { buttons, pendingText: pending?.textContent || null };
+    });
+    assert.ok(!info.buttons.includes('Accept this quote'), `Accept should not render; got buttons: ${JSON.stringify(info.buttons)}`);
+    assert.ok(info.buttons.includes('Decline'), 'Decline must still be offered on a provisional quote');
+    assert.equal(info.pendingText, 'Final pricing is still pending confirmation. We will confirm your pricing before accepting this quote.');
+  });
+
+  await record('site/js/pages/quote.js: Accept renders normally once every line is approved', async () => {
+    await mock(`${BASE}/shared/supabase.js`, `
+      export const supabase = {
+        storage: { from: () => ({ getPublicUrl: () => ({ data: { publicUrl: '' } }) }) },
+        rpc: async (name) => {
+          if (name !== 'get_customer_quote') return { data: null, error: { message: 'unexpected rpc' } };
+          return { data: {
+            reference: 'NS-3', version: 1, status: 'sent', issued_on: new Date().toISOString(),
+            valid_until: null, currency: 'CAD', customer_name: 'Jane Doe', property: '1 Test St',
+            customer_notes: null, terms: null, subtotal: 55, tax_total: 0, total: 55,
+            company: { phone: '', email: '' },
+            lines: [{ description: 'Permanent Outdoor Lighting', amount: 55, pricing_approved: true }],
+            adjustments: [], change_orders: []
+          }, error: null };
+        }
+      };
+    `);
+    await page.goto(`${BASE}/site/quote.html?id=test-quote-approved`);
+    await page.waitForTimeout(150);
+    const buttons = await page.evaluate(() => [...document.querySelectorAll('button')].map((b) => b.textContent));
+    assert.ok(buttons.includes('Accept this quote'));
+    assert.ok(buttons.includes('Decline'));
   });
 
   await browser.close();

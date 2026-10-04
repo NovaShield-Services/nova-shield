@@ -8,8 +8,13 @@ import { hapticLight } from '../lib/native.js';
  *  identical data.
  *
  *  onSave(pngBlob, signerName) does the actual upload + RPC call; this
- *  component only owns drawing and the two inputs. */
-export function createSignaturePad({ onSave }) {
+ *  component only owns drawing and the two inputs.
+ *
+ *  unapprovedServices (service names with pricing_approved=false on this
+ *  quote) makes the confirm an explicit override, not a silent accept --
+ *  the RPC itself still allows it (an authenticated admin's call), same
+ *  as the send-confirmation's warning clause for the same condition. */
+export function createSignaturePad({ onSave, unapprovedServices = [] }) {
   const canvas = el('canvas', {
     style: 'width:100%;height:220px;touch-action:none;display:block;' +
            'border:1px solid var(--line);border-radius:10px;background:#fff;cursor:crosshair'
@@ -88,7 +93,11 @@ export function createSignaturePad({ onSave }) {
       if (!hasStrokes) return toast('Draw a signature first', 'error');
       const name = nameInput.value.trim();
       if (!name) return toast('Enter the signer’s full name', 'error');
-      if (!confirmAction(`Record ${name}'s signature and mark this quote accepted?`)) return;
+      const warning = unapprovedServices.length
+        ? `\n\nHeads up: ${unapprovedServices.join(', ')} ${unapprovedServices.length === 1 ? 'is' : 'are'} priced ` +
+          'from a rate the owner hasn’t commercially approved yet. Recording this signature tells the customer this is a real, final number.'
+        : '';
+      if (!confirmAction(`Record ${name}'s signature and mark this quote accepted?${warning}`)) return;
 
       saveBtn.disabled = true;
       const prevText = saveBtn.textContent;
