@@ -8,6 +8,7 @@ import { createSidingCalculator } from '../components/siding-calculator.js';
 import { createGutterBrighteningCalculator } from '../components/gutter-brightening-calculator.js';
 import { createWindowCleaningCalculator } from '../components/window-cleaning-calculator.js';
 import { createConcreteCleaningCalculator } from '../components/concrete-cleaning-calculator.js';
+import { createRoofCleaningCalculator } from '../components/roof-cleaning-calculator.js';
 
 export function createMeasurementsPanel({ job, refs, onChange, createMeasurementFn }) {
   const root = el('div', {});
@@ -156,7 +157,8 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
     siding: createSidingCalculator,
     gutter_brightening: createGutterBrighteningCalculator,
     windows: createWindowCleaningCalculator,
-    concrete: createConcreteCleaningCalculator
+    concrete: createConcreteCleaningCalculator,
+    roof_soft_wash: createRoofCleaningCalculator
   };
 
   function renderServiceBlock(service, measurements, pricedRows) {
