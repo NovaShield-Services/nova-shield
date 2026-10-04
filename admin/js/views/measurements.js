@@ -9,6 +9,7 @@ import { createGutterBrighteningCalculator } from '../components/gutter-brighten
 import { createWindowCleaningCalculator } from '../components/window-cleaning-calculator.js';
 import { createConcreteCleaningCalculator } from '../components/concrete-cleaning-calculator.js';
 import { createRoofCleaningCalculator } from '../components/roof-cleaning-calculator.js';
+import { createDeckCleaningCalculator } from '../components/deck-cleaning-calculator.js';
 
 export function createMeasurementsPanel({ job, refs, onChange, createMeasurementFn }) {
   const root = el('div', {});
@@ -158,7 +159,8 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
     gutter_brightening: createGutterBrighteningCalculator,
     windows: createWindowCleaningCalculator,
     concrete: createConcreteCleaningCalculator,
-    roof_soft_wash: createRoofCleaningCalculator
+    roof_soft_wash: createRoofCleaningCalculator,
+    deck: createDeckCleaningCalculator
   };
 
   function renderServiceBlock(service, measurements, pricedRows) {
