@@ -5,6 +5,7 @@ import { reviewFlag } from '../components/review-flag.js';
 import { modifierGroupsFor } from '../components/modifier-groups.js';
 import { createHeatingWireCalculator } from '../components/heating-wire-calculator.js';
 import { createSidingCalculator } from '../components/siding-calculator.js';
+import { createGutterBrighteningCalculator } from '../components/gutter-brightening-calculator.js';
 
 export function createMeasurementsPanel({ job, refs, onChange, createMeasurementFn }) {
   const root = el('div', {});
@@ -150,7 +151,8 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
    *  with no entry here just gets the generic measurement list below. */
   const SPECIALIZED_CALCULATORS = {
     winter_deicing_cables: createHeatingWireCalculator,
-    siding: createSidingCalculator
+    siding: createSidingCalculator,
+    gutter_brightening: createGutterBrighteningCalculator
   };
 
   function renderServiceBlock(service, measurements, pricedRows) {
