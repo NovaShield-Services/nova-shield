@@ -88,6 +88,9 @@ export function createQuotePanel({ job, onChange, saveSignatureFn }) {
     return el('div', { class: 'qline' }, [
       el('span', {}, [
         line.description,
+        line.pricing_approved === false
+          ? el('span', { class: 'badge badge--warn', style: 'margin-left:6px', text: 'Not yet approved' })
+          : null,
         el('span', { class: 'qline__sub',
           text: `${qty(line.quantity)} ${unitLabel(line.unit)} @ ${money(line.unit_rate)}` +
                 (Number(line.modifier_factor) !== 1 ? ` × ${Number(line.modifier_factor).toFixed(2)}` : '') +
@@ -154,6 +157,9 @@ export function createQuotePanel({ job, onChange, saveSignatureFn }) {
     const editable = quote.status === 'draft';
     const lines = (quote.quote_line_items || []).sort((a, b) => a.sort_order - b.sort_order);
     const adjustments = (quote.quote_adjustments || []).sort((a, b) => a.sort_order - b.sort_order);
+    const unapprovedServices = [...new Set(
+      lines.filter(l => l.pricing_approved === false).map(l => l.description)
+    )];
 
     return el('div', { class: 'card' }, [
       el('div', { class: 'card__head' }, [
@@ -168,6 +174,12 @@ export function createQuotePanel({ job, onChange, saveSignatureFn }) {
           text: humanise(quote.status)
         })
       ]),
+
+      unapprovedServices.length ? el('div', { class: 'warn', style: 'margin-bottom:10px' }, [
+        el('strong', { style: 'display:block;margin-bottom:4px', text: 'Includes pricing that is not yet commercially approved' }),
+        el('span', { text: `${unapprovedServices.join(', ')} — configured in the price book, but the owner hasn’t ` +
+              'signed off on these rates yet. Fine to prepare internally; think twice before sending as-is.' })
+      ]) : null,
 
       lines.length
         ? el('div', {}, lines.map(l => lineRow(l, quote, editable)))
@@ -196,7 +208,7 @@ export function createQuotePanel({ job, onChange, saveSignatureFn }) {
 
       !editable && isLatest ? revisionPrompt(quote) : null,
 
-      deliveryActions(quote, editable),
+      deliveryActions(quote, editable, unapprovedServices),
       signatureSection(quote),
       !editable ? changeOrdersSection(quote) : null,
       internalNotesBox(quote)
@@ -298,7 +310,7 @@ export function createQuotePanel({ job, onChange, saveSignatureFn }) {
    *  with an email, it is only delivered differently. Only Send Email
    *  changes quote.status -- Download PDF, Copy Link, Copy SMS Text and
    *  Duplicate Quote never do, regardless of whether an email exists. */
-  function deliveryActions(quote, editable) {
+  function deliveryActions(quote, editable, unapprovedServices = []) {
     const hasEmail = !!(job.customers && job.customers.email);
     // ?print=1 tells the customer-quote page (the one document, no
     // duplicate template) to trigger window.print() once it has rendered --
@@ -326,9 +338,13 @@ export function createQuotePanel({ job, onChange, saveSignatureFn }) {
                 'the PDF to deliver manually.', 'error');
           return;
         }
+        const warning = unapprovedServices.length
+          ? `\n\nHeads up: ${unapprovedServices.join(', ')} ${unapprovedServices.length === 1 ? 'is' : 'are'} priced ` +
+            'from a rate the owner hasn’t commercially approved yet. Sending anyway tells the customer this is a real number.'
+          : '';
         if (!confirmAction(
           `Send this quote for ${money(quote.total)}? It is locked once sent — ` +
-          'changes after this need a new version.')) return;
+          `changes after this need a new version.${warning}`)) return;
         try {
           await api.sendQuote(quote.id);
           // The send itself is synchronous (status + queue row), but

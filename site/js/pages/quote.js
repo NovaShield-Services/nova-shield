@@ -95,10 +95,19 @@ function render(q) {
       ]),
 
       el('div', { class: 'lines' }, [
-        ...(q.lines || []).map(l => el('div', { class: 'line' }, [
-          el('span', { text: l.description }),
-          el('span', { text: money(l.amount) })
-        ])),
+        ...(q.lines || []).flatMap(l => [
+          el('div', { class: 'line' }, [
+            el('span', { text: l.description }),
+            el('span', { text: money(l.amount) })
+          ]),
+          // pricing_approved is never silently dropped here -- a rate the
+          // owner hasn't signed off on yet never reads as an ordinary,
+          // finalized line on a document a customer can accept.
+          l.pricing_approved === false
+            ? el('p', { style: 'margin:-6px 0 10px;font-size:.78rem;color:#8a6414',
+                text: 'Estimate — final pricing pending confirmation' })
+            : null
+        ].filter(Boolean)),
 
         (q.adjustments || []).length
           ? el('div', { class: 'line' }, [

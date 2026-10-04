@@ -3,6 +3,7 @@ import { el, clear, toast, select, confirmAction } from '../../../shared/dom.js'
 import { money, date, humanise } from '../../../shared/format.js';
 import { createMeasurementsPanel } from './measurements.js';
 import { createQuotePanel } from './quote.js';
+import { reviewFlag } from '../components/review-flag.js';
 
 const JOB_STATUSES = ['new','reviewing','estimate_drafted','site_visit_scheduled','assessed',
   'quote_sent','accepted','declined','scheduled','in_progress','completed','invoiced','paid',
@@ -35,16 +36,17 @@ export async function renderJobs({ mount }) {
 /* ----------------------------------------------------------- job detail -- */
 
 export async function renderJob({ mount }, jobId) {
-  const [job, services, modifiers, siteFactors, flags, flagMap] = await Promise.all([
+  const [job, services, modifiers, siteFactors, flags, flagMap, pricingRules] = await Promise.all([
     api.getJob(jobId),
     api.listServices(),
     api.listModifiers(),
     api.listSiteFactors(),
     api.listInspectionFlags(),
-    api.listServiceFlagMap()
+    api.listServiceFlagMap(),
+    api.listPricingRules()
   ]);
 
-  const refs = { services, modifiers, siteFactors, flags, flagMap, sections: [] };
+  const refs = { services, modifiers, siteFactors, flags, flagMap, pricingRules, sections: [] };
 
   /* The section vocabulary is shared across services, so derive it from the
      price book rather than hardcoding it in the UI. */
@@ -75,6 +77,14 @@ export async function renderJob({ mount }, jobId) {
   const quotePanel = createQuotePanel({ job, onChange: reload });
 
   /* ------------------------------------------------------------ sections -- */
+
+  function sectionReviewToggle(section) {
+    return reviewFlag({
+      required: section.review_required, reason: section.review_reason,
+      label: 'Flag this elevation for review',
+      save: (patch) => api.updateSection(section.id, patch)
+    });
+  }
 
   function renderSections() {
     const rows = refs.sections.map(section => {
@@ -123,7 +133,8 @@ export async function renderJob({ mount }, jobId) {
           el('label', { class: 'field', style: 'margin:0' }, [
             el('span', { text: 'Distance' }), select(siteVocabulary('distance'), section.distance, patch('distance'))
           ])
-        ])
+        ]),
+        sectionReviewToggle(section)
       ]);
     });
 

@@ -7,6 +7,7 @@ import { createPhotosPanel } from './field-photos.js';
 import * as offlineQueue from '../lib/offline-queue.js';
 import { reviewRequestLink } from '../lib/messaging.js';
 import { isNative, hapticLight, getDevicePosition } from '../lib/native.js';
+import { reviewFlag } from '../components/review-flag.js';
 
 /* The four action types this console queues offline, per the task:
    Passport/checklist writes, adding a measurement, uploading a photo, and
@@ -218,7 +219,12 @@ function sectionsPanel(job, refs, onChange) {
         el('label', { class: 'field', style: 'margin:0' }, [el('span', { text: 'Ground' }), select(siteVocab('ground'), section.ground, patch('ground'))]),
         el('label', { class: 'field', style: 'margin:0' }, [el('span', { text: 'Ladder' }), select(siteVocab('ladder'), section.ladder, patch('ladder'))]),
         el('label', { class: 'field', style: 'margin:0' }, [el('span', { text: 'Distance' }), select(siteVocab('distance'), section.distance, patch('distance'))])
-      ])
+      ]),
+      reviewFlag({
+        required: section.review_required, reason: section.review_reason,
+        label: 'Flag this elevation for review',
+        save: (patch) => api.updateSection(section.id, patch)
+      })
     ]);
   }
 
@@ -245,13 +251,13 @@ function sectionsPanel(job, refs, onChange) {
 }
 
 export async function renderVisit({ mount, navigate }, jobId) {
-  const [job, services, modifiers, siteFactors, flags, flagMap, settings] = await Promise.all([
+  const [job, services, modifiers, siteFactors, flags, flagMap, settings, pricingRules] = await Promise.all([
     api.getJob(jobId), api.listServices(), api.listModifiers(), api.listSiteFactors(),
-    api.listInspectionFlags(), api.listServiceFlagMap(), api.getSettings()
+    api.listInspectionFlags(), api.listServiceFlagMap(), api.getSettings(), api.listPricingRules()
   ]);
   const reviewUrl = settings.company?.google_review_url || null;
 
-  const refs = { services, modifiers, siteFactors, flags, flagMap, sections: [] };
+  const refs = { services, modifiers, siteFactors, flags, flagMap, pricingRules, sections: [] };
   const measurementsPanel = createMeasurementsPanel({
     job, refs, onChange: reload,
     createMeasurementFn: async (jobId, measurement) => {

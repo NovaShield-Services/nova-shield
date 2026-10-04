@@ -1,6 +1,7 @@
 import * as api from '../lib/api.js';
 import { el, clear, toast, select, numberInput, confirmAction } from '../../../shared/dom.js';
 import { unitLabel, money, num } from '../../../shared/format.js';
+import { reviewFlag } from '../components/review-flag.js';
 
 /* Height and access are deliberately NOT editable here: they are recorded once
    on the property section. Duplicating them per measurement is what made the
@@ -13,6 +14,15 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
   // console passes a wrapped version that goes through its offline outbox
   // instead -- this component stays unaware of that distinction either way.
   const createMeasurement = createMeasurementFn || api.createMeasurement;
+
+  /** The active pricing_rules row's approval_status per service, derived
+   *  from refs.pricingRules (listPricingRules()) rather than a second
+   *  fetch -- callers that don't load pricing rules simply show nothing
+   *  provisional, same as "no data" anywhere else in this file. */
+  function isApproved(serviceId) {
+    const rule = (refs.pricingRules || []).find(r => r.service_id === serviceId);
+    return !rule || rule.approval_status === 'approved';
+  }
 
   function serviceModifierGroups(serviceId) {
     const groups = new Map();
@@ -68,6 +78,12 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
       ]);
     });
 
+    const reviewControl = reviewFlag({
+      required: measurement.review_required, reason: measurement.review_reason,
+      label: 'Flag this area for review',
+      save: (patch) => api.updateMeasurement(measurement.id, patch)
+    });
+
     const addons = (measurement.job_measurement_addons || []).map(a =>
       el('div', { class: 'row-item', style: 'margin:0 0 6px' }, [
         el('div', { class: 'row-item__main' }, [
@@ -112,6 +128,7 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
         ? el('div', { class: 'grid grid--2', style: 'margin-top:10px' }, modifierControls)
         : null,
       addons.length ? el('div', { style: 'margin-top:10px' }, addons) : null,
+      reviewControl,
       el('div', { class: 'btn-row', style: 'margin-top:10px' }, [
         el('button', {
           class: 'btn btn--sm', text: '+ Extra charge',
@@ -137,15 +154,23 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
   }
 
   function renderServiceBlock(service, measurements, priced) {
+    const approved = isApproved(service.id);
     return el('div', { class: 'card' }, [
       el('div', { class: 'card__head' }, [
         el('div', {}, [
-          el('h2', { text: service.name }),
+          el('h2', {}, [
+            service.name,
+            !approved ? el('span', { class: 'badge badge--warn', style: 'margin-left:8px',
+              text: 'Pricing not yet approved' }) : null
+          ].filter(Boolean)),
           el('p', { text: `${money(priced?.unit_rate || 0)} per ${unitLabel(service.unit)}` +
                           (priced?.minimum_applied ? ' · minimum applied' : '') })
         ]),
         el('strong', { class: 'money', text: money(priced?.amount || 0) })
       ]),
+      !approved ? el('p', { class: 'hint', style: 'margin:-4px 0 10px',
+        text: 'This service’s pricing is configured but not yet commercially approved. ' +
+              'Measure and prepare freely -- just don’t send this to the customer as a final number yet.' }) : null,
       ...measurements.map(m => renderMeasurement(m, service)),
       el('div', { class: 'btn-row' }, [
         el('button', {
