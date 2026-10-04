@@ -11,6 +11,7 @@ import { createConcreteCleaningCalculator } from '../components/concrete-cleanin
 import { createRoofCleaningCalculator } from '../components/roof-cleaning-calculator.js';
 import { createDeckCleaningCalculator } from '../components/deck-cleaning-calculator.js';
 import { createFenceCleaningCalculator } from '../components/fence-cleaning-calculator.js';
+import { createMossRemovalCalculator } from '../components/moss-removal-calculator.js';
 
 export function createMeasurementsPanel({ job, refs, onChange, createMeasurementFn }) {
   const root = el('div', {});
@@ -162,7 +163,8 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
     concrete: createConcreteCleaningCalculator,
     roof_soft_wash: createRoofCleaningCalculator,
     deck: createDeckCleaningCalculator,
-    fence: createFenceCleaningCalculator
+    fence: createFenceCleaningCalculator,
+    moss: createMossRemovalCalculator
   };
 
   function renderServiceBlock(service, measurements, pricedRows) {
