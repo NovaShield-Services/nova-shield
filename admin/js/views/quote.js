@@ -5,6 +5,24 @@ import { createSignaturePad } from '../components/signature-pad.js';
 import { createChangeOrdersPanel } from '../components/change-orders.js';
 import { isNative, shareOrFallback, hapticLight } from '../lib/native.js';
 
+/** Phase C: splits a job's full version history into the ordinary
+ *  (option_group_id null) lineage and one array per option group --
+ *  quotes is already ordered by version desc (see api.listQuotes), and
+ *  filtering preserves that relative order within each bucket. */
+function splitByOptionGroup(quotes) {
+  const ungrouped = [];
+  const groups = new Map();
+  for (const q of quotes) {
+    if (q.option_group_id) {
+      if (!groups.has(q.option_group_id)) groups.set(q.option_group_id, []);
+      groups.get(q.option_group_id).push(q);
+    } else {
+      ungrouped.push(q);
+    }
+  }
+  return { ungrouped, groups };
+}
+
 const ADJUSTMENT_KINDS = [
   { value: 'discount_pct',   label: 'Discount %' },
   { value: 'discount_flat',  label: 'Discount $' },
@@ -268,6 +286,113 @@ export function createQuotePanel({ job, onChange, saveSignatureFn }) {
     return createChangeOrdersPanel({ quote, onChange }).root;
   }
 
+  /** Phase C: one option group's wrapper -- every option's own version
+   *  history renders through the SAME renderQuote() used for an ordinary
+   *  quote (so line items, signing, internal notes etc. all keep working
+   *  identically); isLatest is computed per option slot (option_sort_order),
+   *  not across the whole job, so "Create New Revision" only ever appears
+   *  on the one truly-current version of each slot. */
+  function renderOptionGroup(groupId, groupQuotes) {
+    const slots = new Map();
+    for (const q of groupQuotes) {
+      if (!slots.has(q.option_sort_order)) slots.set(q.option_sort_order, []);
+      slots.get(q.option_sort_order).push(q);
+    }
+    const slotOrder = [...slots.keys()].sort((a, b) => a - b);
+    const allDraft = groupQuotes.every(q => q.status === 'draft');
+
+    return el('div', { class: 'section-box', style: 'margin-top:14px;border:1px solid var(--line)' }, [
+      el('div', { class: 'card__head' }, [
+        el('div', {}, [
+          el('h3', { text: `Option group · ${slotOrder.length} option${slotOrder.length === 1 ? '' : 's'}` }),
+          el('p', { text: allDraft ? 'Draft -- not yet sent to the customer' : 'Sent to the customer' })
+        ]),
+        allDraft ? el('button', {
+          class: 'btn btn--sm btn--primary', text: 'Send Option Group',
+          onClick: async () => {
+            if (!confirmAction(
+              `Send all ${slotOrder.length} options to the customer in one email? ` +
+              'Each option is locked once sent -- further changes need a new revision of that option.')) return;
+            try {
+              await api.sendOptionGroup(groupId);
+              toast('Option group sent — the customer email is queued for delivery');
+              onChange();
+            } catch (err) {
+              toast(err.message, 'error');
+            }
+          }
+        }) : null
+      ]),
+      ...slotOrder.map(key => {
+        const versions = slots.get(key).slice().sort((a, b) => b.version - a.version);
+        return el('div', {}, versions.map((q, i) => renderQuote(q, i === 0)));
+      })
+    ]);
+  }
+
+  /** Phase C: minimal, synthetic/manual option-group creation pathway --
+   *  no tier-pricing logic, just an explicit measurement checklist per
+   *  option so the architecture (shared measurements, independent
+   *  pricing, one group) can be proven and tested end to end. */
+  function optionGroupBuilder({ measurements, services }) {
+    if (!measurements || !measurements.length) return null;
+
+    const serviceName = (id) => services?.find(s => s.id === id)?.name || 'Unknown service';
+    const measurementLabel = (m) =>
+      `${serviceName(m.service_id)}${m.label ? ' — ' + m.label : ''} (${qty(m.quantity)} ${unitLabel(m.unit)})`;
+
+    const DEFAULTS = ['Essential', 'Complete', 'Full Home'];
+    const columns = DEFAULTS.map((defaultLabel) => {
+      const labelInput = el('input', { 'aria-label': 'Option label', maxlength: '60' });
+      labelInput.value = defaultLabel;
+      const checks = measurements.map((m) => ({
+        measurement: m,
+        checkbox: el('input', { type: 'checkbox' })
+      }));
+      return { labelInput, checks };
+    });
+
+    return el('div', { class: 'section-box', style: 'margin-top:14px' }, [
+      el('h3', { text: 'Create option group' }),
+      el('p', { class: 'hint', style: 'margin:0 0 10px',
+        text: 'Pick which of this job’s measurements belong to each option, then create all of ' +
+              'them at once. This is manual, synthetic composition — tier-pricing logic comes later.' }),
+      el('div', { class: 'grid grid--3' }, columns.map((col, i) => el('div', { class: 'field' }, [
+        el('span', { text: `Option ${i + 1} label` }),
+        col.labelInput,
+        el('div', { style: 'margin-top:8px;max-height:220px;overflow:auto' },
+          col.checks.map(({ measurement, checkbox }) => el('label', {
+            style: 'display:flex;align-items:flex-start;gap:6px;font-size:.85rem;padding:3px 0'
+          }, [checkbox, measurementLabel(measurement)]))
+        )
+      ]))),
+      el('div', { class: 'btn-row', style: 'margin-top:10px' }, [
+        el('button', {
+          class: 'btn btn--primary', text: 'Create Option Group',
+          onClick: async () => {
+            const groupId = crypto.randomUUID();
+            const picks = columns
+              .map((col, i) => ({
+                label: col.labelInput.value.trim() || DEFAULTS[i],
+                ids: col.checks.filter(c => c.checkbox.checked).map(c => c.measurement.id)
+              }))
+              .filter(p => p.ids.length > 0);
+            if (picks.length < 2) return toast('Select measurements for at least 2 options', 'error');
+            try {
+              for (let i = 0; i < picks.length; i++) {
+                await api.createOptionQuote(job.id, groupId, picks[i].label, i + 1, picks[i].ids);
+              }
+              toast(`Option group created with ${picks.length} options`);
+              onChange();
+            } catch (err) {
+              toast(err.message, 'error');
+            }
+          }
+        })
+      ])
+    ]);
+  }
+
   /** A sent/accepted/declined/expired/superseded quote is never edited in
    *  place -- the number a customer saw stays exactly what they saw, for
    *  dispute prevention. Changing anything means a new version, cloned from
@@ -327,7 +452,11 @@ export function createQuotePanel({ job, onChange, saveSignatureFn }) {
     const previewUrl = isNative() ? publicUrl : quoteUrl;
     const printUrl = `${previewUrl}&print=1`;
 
-    const sendButton = editable ? el('button', {
+    // An option-group member is sent as a whole group (one customer email,
+    // all siblings at once) via the "Send Option Group" button on its
+    // group wrapper -- mark_quote_sent itself now refuses to send one
+    // directly, so this button simply doesn't offer the wrong action.
+    const sendButton = editable && !quote.option_group_id ? el('button', {
       class: 'btn btn--primary', text: 'Send Email',
       disabled: !hasEmail ? true : undefined,
       onClick: async () => {
@@ -491,8 +620,9 @@ export function createQuotePanel({ job, onChange, saveSignatureFn }) {
     ]);
   }
 
-  function render({ quotes }) {
+  function render({ quotes, measurements, services }) {
     const current = quotes[0];
+    const { ungrouped, groups } = splitByOptionGroup(quotes);
 
     clear(root).append(
       el('div', { class: 'card__head' }, [
@@ -512,7 +642,13 @@ export function createQuotePanel({ job, onChange, saveSignatureFn }) {
           })
         ])
       ]),
-      ...quotes.map((q, i) => renderQuote(q, i === 0))
+      ...ungrouped.map((q, i) => renderQuote(q, i === 0)),
+      ...[...groups.entries()].map(([groupId, groupQuotes]) => renderOptionGroup(groupId, groupQuotes)),
+      // measurements/services are only passed from the desk admin view
+      // (job.js) -- the field console (field-workspace.js) doesn't pass
+      // them, so this simply doesn't render there. Measurement-subset
+      // selection is a desk task, not a field one.
+      measurements && services ? optionGroupBuilder({ measurements, services }) : null
     );
 
     async function build(kind) {

@@ -320,6 +320,22 @@ export async function createQuoteFromCalculation(jobId, kind = 'final') {
   }));
 }
 
+/** One sibling of an option group (Phase C) -- measurementIds is an
+ *  explicit subset of this job's job_measurements, never auto-derived. */
+export async function createOptionQuote(jobId, optionGroupId, optionLabel, optionSortOrder, measurementIds, kind = 'final') {
+  return unwrap(await supabase.rpc('create_option_quote', {
+    p_job_id: jobId, p_option_group_id: optionGroupId, p_option_label: optionLabel,
+    p_option_sort_order: optionSortOrder, p_measurement_ids: measurementIds, p_kind: kind
+  }));
+}
+
+/** Sends every sibling in the group at once, in a single customer email --
+ *  see mark_quote_sent's own guard for why sendQuote() refuses an
+ *  option-group member directly. */
+export async function sendOptionGroup(optionGroupId) {
+  return unwrap(await supabase.rpc('send_option_group', { p_option_group_id: optionGroupId }));
+}
+
 export async function addAdjustment(quoteId, adjustment) {
   const row = unwrap(await supabase.from('quote_adjustments')
     .insert({ quote_id: quoteId, ...adjustment }).select().single());

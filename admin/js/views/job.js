@@ -321,7 +321,7 @@ export async function renderJob({ mount }, jobId) {
     measurementsPanel.render({ measurements, pricing });
     renderInspection(measurements, new Set(jobFlags.map(f => f.flag_id)));
     renderPricing(pricing);
-    quotePanel.render({ quotes });
+    quotePanel.render({ quotes, measurements, services });
     renderPhotos(attachments);   // async, fills in as signed URLs resolve
   }
 

@@ -58,6 +58,15 @@ const FAKE_API = `
   export async function duplicateQuote() { return {}; }
   export async function uploadSignature() { return ''; }
   export async function saveQuoteSignature() { return {}; }
+  export async function createOptionQuote(jobId, groupId, label, sortOrder, measurementIds) {
+    globalThis.__createOptionQuoteCalls = globalThis.__createOptionQuoteCalls || [];
+    globalThis.__createOptionQuoteCalls.push({ jobId, groupId, label, sortOrder, measurementIds });
+    return 'new-option-id';
+  }
+  export async function sendOptionGroup(groupId) {
+    globalThis.__sendOptionGroupCalls = globalThis.__sendOptionGroupCalls || [];
+    globalThis.__sendOptionGroupCalls.push({ groupId });
+  }
 `;
 
 async function main() {
@@ -321,6 +330,271 @@ async function main() {
     const buttons = await page.evaluate(() => [...document.querySelectorAll('button')].map((b) => b.textContent));
     assert.ok(buttons.includes('Accept this quote'));
     assert.ok(buttons.includes('Decline'));
+  });
+
+  // -- Phase C: option-group architecture ------------------------------
+
+  const optionA = { id: 'opt-a', version: 1, kind: 'final', status: 'draft', total: 440, subtotal: 440, tax_total: 0,
+    valid_until: new Date().toISOString(), option_group_id: 'grp-1', option_label: 'Essential', option_sort_order: 1,
+    quote_line_items: [{ id: 'li-a', description: 'Permanent Outdoor Lighting', amount: 440, quantity: 1, unit: 'each', unit_rate: 440, modifier_factor: 1, addons_amount: 0, minimum_applied: false, source: 'calculated', sort_order: 1, pricing_approved: true }],
+    quote_adjustments: [] };
+  const optionB = { ...optionA, id: 'opt-b', version: 2, option_label: 'Complete', option_sort_order: 2, total: 770 };
+  const optionC = { ...optionA, id: 'opt-c', version: 3, option_label: 'Full Home', option_sort_order: 3, total: 330 };
+  const testJob = { id: 'job-1', customers: { name: 'Jane Doe', email: 'jane@example.com', phone: '+16045550123' }, properties: { address_line1: '1 Test St' } };
+
+  await record('admin quote.js: option-group siblings render grouped under one heading, with a Send Option Group button and no per-option Send Email button', async () => {
+    const info = await page.evaluate(async ({ optionA, optionB, optionC, job }) => {
+      const mod = await import('/admin/js/views/quote.js');
+      const panel = mod.createQuotePanel({ job, onChange: () => {} });
+      document.body.appendChild(panel.root);
+      // Deliberately passed in version-desc order (what listQuotes would
+      // give), not label order -- the grouping/sort-order logic must do
+      // its own re-ordering by option_sort_order regardless of input order.
+      panel.render({ quotes: [optionC, optionB, optionA] });
+      await new Promise((r) => setTimeout(r, 30));
+      const groupHeading = [...panel.root.querySelectorAll('h3')].find((h) => h.textContent.includes('Option group'))?.textContent;
+      const sendGroupBtn = [...panel.root.querySelectorAll('button')].find((b) => b.textContent === 'Send Option Group');
+      const sendEmailBtns = [...panel.root.querySelectorAll('button')].filter((b) => b.textContent === 'Send Email');
+      // renderQuote's own per-card heading is uniquely "<kind> · v<N>" --
+      // signatureSection/the page's own "Quotes" h2 don't match that shape.
+      const cardHeadings = [...panel.root.querySelectorAll('h2')].filter((h) => /· v\d+$/.test(h.textContent));
+      panel.root.remove();
+      return { groupHeading, hasSendGroupBtn: !!sendGroupBtn, sendEmailCount: sendEmailBtns.length, cardHeadingCount: cardHeadings.length };
+    }, { optionA, optionB, optionC, job: testJob });
+    assert.ok(info.groupHeading?.includes('3 options'), `expected a 3-option group heading, got ${JSON.stringify(info.groupHeading)}`);
+    assert.equal(info.hasSendGroupBtn, true);
+    assert.equal(info.sendEmailCount, 0, 'no option-group member should offer its own Send Email button');
+    assert.equal(info.cardHeadingCount, 3, 'all 3 option version-cards should still render (reusing renderQuote unchanged)');
+  });
+
+  await record('admin quote.js: an ordinary (non-grouped) job with no measurements/services passed renders exactly as before, with no option-group builder', async () => {
+    const info = await page.evaluate(async ({ job }) => {
+      const mod = await import('/admin/js/views/quote.js');
+      const ordinaryQuote = { id: 'q-ord', version: 1, kind: 'final', status: 'draft', total: 100, subtotal: 100, tax_total: 0,
+        valid_until: new Date().toISOString(), option_group_id: null, option_label: null, option_sort_order: null,
+        quote_line_items: [], quote_adjustments: [] };
+      const panel = mod.createQuotePanel({ job, onChange: () => {} });
+      document.body.appendChild(panel.root);
+      panel.render({ quotes: [ordinaryQuote] }); // field-workspace.js's exact call shape -- no measurements/services
+      await new Promise((r) => setTimeout(r, 30));
+      const hasBuilder = !!panel.root.querySelector('h3') && [...panel.root.querySelectorAll('h3')].some((h) => h.textContent.includes('Create option group'));
+      const hasGroupHeading = [...panel.root.querySelectorAll('h3')].some((h) => h.textContent.includes('Option group'));
+      panel.root.remove();
+      return { hasBuilder, hasGroupHeading };
+    }, { job: testJob });
+    assert.equal(info.hasBuilder, false, 'the creation builder must not render without measurements/services (e.g. the field console)');
+    assert.equal(info.hasGroupHeading, false, 'an ordinary quote must never render inside an option-group wrapper');
+  });
+
+  await record('admin quote.js: the option-group builder creates one create_option_quote call per checked column, skips empty columns', async () => {
+    const info = await page.evaluate(async ({ job }) => {
+      globalThis.__createOptionQuoteCalls = [];
+      const mod = await import('/admin/js/views/quote.js');
+      const services = [{ id: 'svc-perm', name: 'Permanent Outdoor Lighting' }, { id: 'svc-xmas', name: 'Seasonal Christmas Lighting' }];
+      const measurements = [
+        { id: 'm-1', service_id: 'svc-perm', label: 'Front', quantity: 80, unit: 'linear_ft' },
+        { id: 'm-2', service_id: 'svc-xmas', label: 'Front', quantity: 60, unit: 'linear_ft' }
+      ];
+      const panel = mod.createQuotePanel({ job, onChange: () => { globalThis.__onChangeFired = true; } });
+      document.body.appendChild(panel.root);
+      panel.render({ quotes: [], measurements, services });
+      await new Promise((r) => setTimeout(r, 30));
+      const checkboxes = [...panel.root.querySelectorAll('input[type=checkbox]')];
+      // 2 measurements x 3 columns = 6 checkboxes, in column-major DOM order.
+      checkboxes[0].click(); // column 1 ("Essential" by default) x measurement 1
+      checkboxes[3].click(); // column 2 ("Complete" by default) x measurement 2
+      const createBtn = [...panel.root.querySelectorAll('button')].find((b) => b.textContent === 'Create Option Group');
+      createBtn.click();
+      await new Promise((r) => setTimeout(r, 60));
+      panel.root.remove();
+      return { calls: globalThis.__createOptionQuoteCalls, onChangeFired: !!globalThis.__onChangeFired, checkboxCount: checkboxes.length };
+    }, { job: testJob });
+    assert.equal(info.checkboxCount, 6);
+    assert.equal(info.calls.length, 2, `expected exactly 2 create_option_quote calls (the untouched 3rd column skipped), got: ${JSON.stringify(info.calls)}`);
+    assert.equal(info.calls[0].label, 'Essential');
+    assert.deepEqual(info.calls[0].measurementIds, ['m-1']);
+    assert.equal(info.calls[1].label, 'Complete');
+    assert.deepEqual(info.calls[1].measurementIds, ['m-2']);
+    assert.equal(info.calls[0].groupId, info.calls[1].groupId, 'both options must share one client-generated group id');
+    assert.equal(info.onChangeFired, true);
+  });
+
+  await record('admin quote.js: the option-group builder refuses to create a group from only 1 checked column', async () => {
+    const info = await page.evaluate(async ({ job }) => {
+      globalThis.__createOptionQuoteCalls = [];
+      const mod = await import('/admin/js/views/quote.js');
+      const services = [{ id: 'svc-perm', name: 'Permanent Outdoor Lighting' }];
+      const measurements = [{ id: 'm-1', service_id: 'svc-perm', label: 'Front', quantity: 80, unit: 'linear_ft' }];
+      const panel = mod.createQuotePanel({ job, onChange: () => {} });
+      document.body.appendChild(panel.root);
+      panel.render({ quotes: [], measurements, services });
+      await new Promise((r) => setTimeout(r, 30));
+      panel.root.querySelector('input[type=checkbox]').click(); // only column 1
+      const createBtn = [...panel.root.querySelectorAll('button')].find((b) => b.textContent === 'Create Option Group');
+      createBtn.click();
+      await new Promise((r) => setTimeout(r, 60));
+      panel.root.remove();
+      return { calls: globalThis.__createOptionQuoteCalls };
+    }, { job: testJob });
+    assert.equal(info.calls.length, 0, 'a single-option "group" must be rejected client-side, not sent to the RPC');
+  });
+
+  /** A small, stateful get_customer_quote/respond_to_quote mock -- tracks
+   *  which option (if any) has been accepted across calls within one test,
+   *  so the accept flow can be verified end to end against the real
+   *  site/js/pages/quote.js, not just a single static fixture. */
+  async function mockOptionGroupBackend() {
+    await mock(`${BASE}/shared/supabase.js`, `
+      let acceptedId = null;
+      function optionsNow() {
+        return [
+          { id: 'opt-a', option_label: 'Essential', option_sort_order: 1, total: 440, pricing_approved: true,
+            status: acceptedId ? (acceptedId === 'opt-a' ? 'accepted' : 'superseded') : 'sent' },
+          { id: 'opt-b', option_label: 'Complete', option_sort_order: 2, total: 770, pricing_approved: true,
+            status: acceptedId ? (acceptedId === 'opt-b' ? 'accepted' : 'superseded') : 'sent' },
+          { id: 'opt-c', option_label: 'Full Home', option_sort_order: 3, total: 330, pricing_approved: false,
+            status: acceptedId ? (acceptedId === 'opt-c' ? 'accepted' : 'superseded') : 'sent' }
+        ];
+      }
+      export const supabase = {
+        storage: { from: () => ({ getPublicUrl: () => ({ data: { publicUrl: '' } }) }) },
+        rpc: async (name, args) => {
+          if (name === 'get_customer_quote') {
+            const opt = optionsNow().find(o => o.id === args.p_quote_id);
+            return { data: {
+              reference: 'NS-OPT', version: 1, status: opt.status === 'sent' ? 'sent' : opt.status,
+              issued_on: new Date().toISOString(), valid_until: null, currency: 'CAD',
+              customer_name: 'Jane Doe', property: '1 Test St', customer_notes: null, terms: null,
+              subtotal: opt.total, tax_total: 0, total: opt.total, company: { phone: '', email: '' },
+              lines: [{ description: 'Permanent Outdoor Lighting', amount: opt.total, pricing_approved: opt.pricing_approved }],
+              adjustments: [], change_orders: [],
+              option_group: { group_id: 'grp-1', options: optionsNow() }
+            }, error: null };
+          }
+          if (name === 'respond_to_quote') {
+            globalThis.__respondCalls = globalThis.__respondCalls || [];
+            globalThis.__respondCalls.push(args);
+            if (args.p_response === 'accepted') acceptedId = args.p_quote_id;
+            return { data: args.p_response, error: null };
+          }
+          return { data: null, error: { message: 'unexpected rpc: ' + name } };
+        }
+      };
+    `);
+  }
+
+  await record('site/js/pages/quote.js: an option-group link shows the sibling list, not the single-quote view', async () => {
+    await mockOptionGroupBackend();
+    await page.goto(`${BASE}/site/quote.html?id=opt-a`);
+    await page.waitForTimeout(150);
+    const info = await page.evaluate(() => ({
+      heading: document.querySelector('h1')?.textContent,
+      viewDetailsCount: [...document.querySelectorAll('button')].filter((b) => b.textContent === 'View details').length,
+      // .meta strong is the "Quote <reference>" header from sheetHead --
+      // excluded here since it isn't one of the option-list labels.
+      labels: [...document.querySelectorAll('strong')].filter((s) => !s.closest('.meta')).map((s) => s.textContent),
+      hasAccept: [...document.querySelectorAll('button')].some((b) => b.textContent.includes('Accept'))
+    }));
+    assert.equal(info.heading, 'Choose your option');
+    assert.equal(info.viewDetailsCount, 3);
+    assert.deepEqual(info.labels, ['Essential', 'Complete', 'Full Home'], 'options must render in deterministic option_sort_order');
+    assert.equal(info.hasAccept, false, 'the list view itself never shows an Accept button -- only a drilled-in option does');
+  });
+
+  await record('site/js/pages/quote.js: viewing one option shows its full detail with a back link; accepting it updates the group and is reflected on return', async () => {
+    await mockOptionGroupBackend();
+    await page.goto(`${BASE}/site/quote.html?id=opt-a`);
+    await page.waitForTimeout(150);
+
+    const detail = await page.evaluate(() => {
+      const btn = [...document.querySelectorAll('button')].find((b) => b.textContent === 'View details');
+      btn.click();
+      return new Promise((resolve) => setTimeout(() => {
+        resolve({
+          hasBack: [...document.querySelectorAll('button')].some((b) => b.textContent.includes('Back to all options')),
+          hasAccept: [...document.querySelectorAll('button')].some((b) => b.textContent === 'Accept this option'),
+          labelTag: [...document.querySelectorAll('p')].find((p) => p.textContent === 'Essential')?.textContent
+        });
+      }, 150));
+    });
+    assert.equal(detail.hasBack, true);
+    assert.equal(detail.hasAccept, true);
+    assert.equal(detail.labelTag, 'Essential');
+
+    const afterAccept = await page.evaluate(() => {
+      globalThis.__respondCalls = [];
+      const accept = [...document.querySelectorAll('button')].find((b) => b.textContent === 'Accept this option');
+      accept.click();
+      return new Promise((resolve) => setTimeout(() => {
+        resolve({
+          respondCalls: globalThis.__respondCalls,
+          statusBanner: document.querySelector('.state--ok')?.textContent
+        });
+      }, 200));
+    });
+    assert.equal(afterAccept.respondCalls.length, 1);
+    assert.equal(afterAccept.respondCalls[0].p_quote_id, 'opt-a');
+    assert.equal(afterAccept.respondCalls[0].p_response, 'accepted');
+    assert.ok(afterAccept.statusBanner?.includes('You accepted this option'),
+      `expected option-specific wording, got: ${JSON.stringify(afterAccept.statusBanner)}`);
+
+    const backToList = await page.evaluate(() => {
+      const back = [...document.querySelectorAll('button')].find((b) => b.textContent.includes('Back to all options'));
+      back.click();
+      const notes = [...document.querySelectorAll('p')].map((p) => p.textContent);
+      return { hasAccepted: notes.includes('Accepted'), hasUnavailable: notes.filter((t) => t === 'No longer available').length };
+    });
+    assert.equal(backToList.hasAccepted, true, 'the list must reflect the just-completed accept without a stale re-render');
+    assert.equal(backToList.hasUnavailable, 2, 'both other siblings must show as no longer available');
+  });
+
+  await record('site/js/pages/quote.js: an option with unapproved pricing withholds Accept, same as an ordinary provisional quote', async () => {
+    await mockOptionGroupBackend();
+    await page.goto(`${BASE}/site/quote.html?id=opt-c`);
+    await page.waitForTimeout(150);
+    // Drill into Option C (the unapproved one) specifically.
+    await page.evaluate(() => {
+      const rows = [...document.querySelectorAll('strong')];
+      const row = rows.find((s) => s.textContent === 'Full Home');
+      row.closest('div').parentElement.querySelector('button').click();
+    });
+    await page.waitForTimeout(150);
+    const detail = await page.evaluate(() => ({
+      hasAccept: [...document.querySelectorAll('button')].some((b) => b.textContent === 'Accept this option'),
+      pendingText: [...document.querySelectorAll('p')].find((p) => p.textContent.includes('We will confirm your pricing'))?.textContent
+    }));
+    assert.equal(detail.hasAccept, false, 'Accept must be withheld for an option with any unapproved line');
+    assert.ok(detail.pendingText);
+  });
+
+  await record('site/js/pages/quote.js: an ordinary (non-grouped) quote still renders the single-quote view exactly as before -- no option-list regression', async () => {
+    await mock(`${BASE}/shared/supabase.js`, `
+      export const supabase = {
+        storage: { from: () => ({ getPublicUrl: () => ({ data: { publicUrl: '' } }) }) },
+        rpc: async (name) => {
+          if (name !== 'get_customer_quote') return { data: null, error: { message: 'unexpected rpc' } };
+          return { data: {
+            reference: 'NS-PLAIN', version: 1, status: 'sent', issued_on: new Date().toISOString(),
+            valid_until: null, currency: 'CAD', customer_name: 'Jane Doe', property: '1 Test St',
+            customer_notes: null, terms: null, subtotal: 100, tax_total: 0, total: 100,
+            company: { phone: '', email: '' },
+            lines: [{ description: 'Siding / Soft Wash', amount: 100, pricing_approved: true }],
+            adjustments: [], change_orders: [],
+            option_group: null
+          }, error: null };
+        }
+      };
+    `);
+    await page.goto(`${BASE}/site/quote.html?id=plain-quote`);
+    await page.waitForTimeout(150);
+    const info = await page.evaluate(() => ({
+      hasChooseHeading: !!document.querySelector('h1') && document.querySelector('h1').textContent === 'Choose your option',
+      hasAccept: [...document.querySelectorAll('button')].some((b) => b.textContent === 'Accept this quote'),
+      hasBack: [...document.querySelectorAll('button')].some((b) => b.textContent.includes('Back to all options'))
+    }));
+    assert.equal(info.hasChooseHeading, false, 'option_group: null must render the plain single-quote view, never the chooser');
+    assert.equal(info.hasAccept, true);
+    assert.equal(info.hasBack, false);
   });
 
   await browser.close();
