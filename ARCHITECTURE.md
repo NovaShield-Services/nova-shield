@@ -304,3 +304,58 @@ mode, work through a measurement/checklist/photo/signature/note cycle, kill
 the app, reopen it still offline, confirm the outbox survived and nothing
 duplicates on reconnect. This repo's own tests cannot do that; they can only
 get the code ready for someone who can.
+
+### 18. Accepted/superseded quote rows cannot be deleted directly — delete the parent instead
+`quote_line_items` carries a `BEFORE INSERT OR DELETE OR UPDATE` trigger,
+`quote_line_items_draft_only`, running `guard_quote_is_draft()`. It is one of
+the Phase 2 immutability safeguards and it does exactly what it should: once a
+quote leaves `draft`, its priced lines are frozen, and any attempt to modify
+*or remove* them raises `check_violation` (SQLSTATE `23514`) — "only draft
+quotes can be modified. Create a new version instead."
+
+The consequence worth writing down is about **cleanup, not pricing**. Any
+teardown that tries `delete from quote_line_items where quote_id = ...` on a
+quote that has been sent, accepted, rejected or superseded fails
+deterministically on the first row. That is not a lock, not a slow query and
+not an infrastructure problem — it is the guard working. Diagnosing it as a
+transport failure is an easy mistake to make, because a multi-statement
+teardown batch aborts as a whole and the symptom can surface without the
+underlying `23514` being obvious; the fix is to probe one statement at a time
+inside a subtransaction before concluding anything about the write path.
+
+The correct teardown exploits the guard's own escape hatch. `guard_quote_is_draft()`
+opens with:
+
+```sql
+select status into q_status from public.ns_quotes where id = q_id;
+if q_status is null then return coalesce(new, old); end if;
+```
+
+During a cascaded delete the parent `ns_quotes` row is already gone, so the
+status lookup returns `null` and the guard permits the child delete. Combined
+with `quote_line_items_quote_id_fkey ON DELETE CASCADE`, this means **deleting
+the quote deletes its lines, at any status** — you simply must never target the
+lines directly. The same holds one level up: `ns_quotes_job_id_fkey` and
+`job_measurements_job_id_fkey` both cascade from `ns_jobs`.
+
+So a full synthetic-job teardown is six statements, not ten:
+
+1. `notifications` — **explicitly**, because `notifications_job_id_fkey` is
+   `ON DELETE SET NULL`, not `CASCADE`. Cascading would silently orphan the
+   rows with a null `job_id` rather than remove them.
+2. `ns_jobs` — cascades `job_measurements` and `ns_quotes`, which in turn
+   cascade `quote_line_items`, `quote_option_measurements` and
+   `quote_adjustments`.
+3. `properties`, then 4. `customers` — in that order, because
+   `ns_jobs_customer_id_fkey` and `ns_jobs_property_id_fkey` are `RESTRICT`
+   and `properties_customer_id_fkey` is `SET NULL`.
+5. `admin_users`, then 6. `auth.users`.
+
+**The committed integration suite is structurally immune to all of this** and
+needs no change: every test in `tests/integration/` runs inside
+`BEGIN`/`ROLLBACK` via `db-client.mjs`, so it never issues a delete and never
+reaches the guard. This finding applies only to manual real-DB verification
+performed over a connection that cannot hold one transaction open across
+concurrent statements — notably a genuine concurrent-acceptance race test,
+which must commit in order to race at all, and therefore has to be cleaned up
+by hand afterwards.
