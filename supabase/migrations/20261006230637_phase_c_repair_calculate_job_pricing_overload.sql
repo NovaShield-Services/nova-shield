@@ -1,0 +1,59 @@
+-- Phase C repair: make the calculate_job_pricing overload removal reproducible.
+--
+-- Ordering: this migration must run immediately after
+-- 20261005003851_phase_c_option_group_architecture. It does not modify that
+-- migration, and it does not change calculate_job_pricing's implementation,
+-- the option-group schema, or any RPC's behaviour.
+--
+-- THE BUG THIS RECORDS
+--
+-- phase_c_option_group_architecture added
+--
+--   create or replace function public.calculate_job_pricing(
+--     p_job_id uuid, p_measurement_ids uuid[] default null)
+--
+-- Postgres keys a function on its argument types, so a changed parameter list
+-- creates a NEW overload rather than replacing the existing one -- a DEFAULT on
+-- the added parameter does not change that. The original 1-arg
+-- calculate_job_pricing(uuid), created in ns_core_08_pricing_engine and last
+-- replaced in ns_core_10_harden_functions, therefore survived alongside the new
+-- 2-arg version. Every single-argument call through PostgREST/RPC then became
+-- ambiguous -- "function public.calculate_job_pricing(uuid) is not unique"
+-- (SQLSTATE 42725) -- which broke ordinary, non-option-group quote creation in
+-- production.
+--
+-- This is the same failure mode, and the same remedy, as
+-- ns_site_18_drop_ambiguous_dispatch_overload (20261001085748).
+--
+-- WHY THIS IS SUFFICIENT
+--
+-- Dropping the stale 1-arg overload leaves exactly one definition. The
+-- surviving 2-arg version defaults p_measurement_ids, so existing
+-- single-argument callers keep resolving, unchanged, to it.
+--
+-- The (uuid) signature below targets the 1-arg version only: the surviving
+-- overload's identity arguments are (uuid, uuid[]) and cannot be matched by it.
+--
+-- WHY `if exists`
+--
+-- Deliberate, and consistent with ns_site_18. On the live project the stale
+-- overload was already removed by an ad hoc repair performed during Phase C
+-- recovery, so a bare DROP would fail here with 42883 (undefined_function). On
+-- a fresh replay from an empty database the 1-arg version does exist at this
+-- point in the ordering and is dropped. Either way the post-state is
+-- deterministic: calculate_job_pricing has exactly one signature. `if exists`
+-- makes the outcome reproducible across both paths; a bare DROP would not be
+-- appliable to the live project at all.
+--
+-- REPO CONVENTION NOTE
+--
+-- This project's 50 prior migrations live only in the Supabase project's
+-- supabase_migrations.schema_migrations table; none were ever checked in, so
+-- this is the first migration file in the repository. It is kept here because
+-- the whole point of this change is reproducibility, and a migration that
+-- exists only in one project's history is exactly the gap being closed. Do not
+-- read the presence of this single file as meaning the repository mirrors
+-- migration history -- it does not, and the Supabase project remains the
+-- authoritative record.
+
+drop function if exists public.calculate_job_pricing(uuid);
