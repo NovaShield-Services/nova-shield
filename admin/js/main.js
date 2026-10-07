@@ -7,6 +7,8 @@ import { renderLogin } from './views/login.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderRequests } from './views/requests.js';
 import { renderJobs, renderJob } from './views/job.js';
+import { renderCustomers, renderCustomer } from './views/customers.js';
+import { renderProperty } from './views/property.js';
 import { renderSettings } from './views/settings.js';
 import { renderWinter } from './views/winter.js';
 
@@ -19,6 +21,14 @@ const routes = [
   { pattern: /^\/requests$/,         nav: 'requests',  render: renderRequests },
   { pattern: /^\/jobs$/,             nav: 'jobs',      render: renderJobs },
   { pattern: /^\/jobs\/([0-9a-f-]+)$/, nav: 'jobs',    render: (ctx, id) => renderJob(ctx, id) },
+  { pattern: /^\/customers$/,        nav: 'customers', render: renderCustomers },
+  { pattern: /^\/customers\/([0-9a-f-]+)$/, nav: 'customers',
+    render: (ctx, id) => renderCustomer(ctx, id) },
+  // Properties have no list of their own: a property is always reached
+  // through the customer who owns it, which is also what makes its Back
+  // target unambiguous.
+  { pattern: /^\/properties\/([0-9a-f-]+)$/, nav: 'customers',
+    render: (ctx, id) => renderProperty(ctx, id) },
   { pattern: /^\/winter$/,           nav: 'winter',    render: renderWinter },
   { pattern: /^\/settings$/,         nav: 'settings',  render: renderSettings }
 ];

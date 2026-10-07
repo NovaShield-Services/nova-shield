@@ -160,7 +160,11 @@ h3 { font-size: .95rem; margin: 0; }
 .field, .field p, .row-item, .row-item__main, .row-item__meta, .card, .qline {
   min-width: 0;
 }
-.field p, .row-item__meta, .card__head p, .hint {
+/* .page-head p joined this list in Batch 4. Until then every page header
+   held text that breaks at spaces (a job reference plus an address); the
+   customer header is the first to put a bare email address there, and a
+   56-character one pushed the whole document to 505px at a 390px viewport. */
+.field p, .row-item__meta, .card__head p, .hint, .page-head p {
   overflow-wrap: anywhere;
 }
 

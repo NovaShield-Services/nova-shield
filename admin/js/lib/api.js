@@ -105,6 +105,82 @@ export async function setServiceActive(serviceId, patch) {
     .update(patch).eq('id', serviceId).select().single());
 }
 
+/* ------------------------------------------------------------- customers -- */
+
+/* NOTE ON WHY MOST OF THIS IS PLAIN TABLE ACCESS, NOT RPCs.
+ *
+ * customers and properties both carry a single RLS policy -- `admin_all`,
+ * ALL commands, role authenticated, is_admin() for USING and WITH CHECK --
+ * verified against the live database. So a direct .from('customers') read
+ * is ALREADY admin-only, and wrapping it in a SECURITY DEFINER RPC would
+ * bypass that policy and make the SQL solely responsible for not leaking
+ * rows. The two RPCs below exist only where PostgREST genuinely cannot
+ * express the query; everything else stays a plain, RLS-enforced query. */
+
+/** Customer search. An RPC because it ORs a text match across customers AND
+ *  the addresses of their properties -- PostgREST can filter one embedded
+ *  resource but cannot OR across a parent and its child, the same wall
+ *  search_jobs hit in Batch 3. */
+export async function searchCustomers({
+  query = null, sort = 'name_asc', limit = 50, offset = 0
+} = {}) {
+  return unwrap(await supabase.rpc('search_customers', {
+    p_query: query || null, p_sort: sort, p_limit: limit, p_offset: offset
+  }));
+}
+
+/** One customer with the properties they own. Properties come embedded
+ *  rather than as a second round trip, and nothing here is aggregated --
+ *  counts belong to the list, which already computes them server-side. */
+export async function getCustomer(id) {
+  return unwrap(await supabase.from('customers')
+    .select('*, properties(id,address_line1,address_line2,city,province,postal_code,' +
+            'property_type,access_note,created_at)')
+    .eq('id', id).single());
+}
+
+/** Jobs for a customer, with their quotes embedded -- one query rather than
+ *  one per job, which is the N+1 the brief calls out. */
+export async function listCustomerJobs(customerId) {
+  return unwrap(await supabase.from('ns_jobs')
+    .select('id,reference,title,status,created_at,scheduled_for,completed_at,' +
+            'properties(id,address_line1,city), ns_quotes(id,version,status,total)')
+    .eq('customer_id', customerId)
+    .order('created_at', { ascending: false }));
+}
+
+/** The customer's own request history -- real rows, not a reconstruction. */
+export async function listCustomerRequests(customerId) {
+  return unwrap(await supabase.from('quote_requests')
+    .select('id,status,submitted_at,customer_message,preferred_schedule,' +
+            'properties(id,address_line1,city)')
+    .eq('customer_id', customerId)
+    .order('submitted_at', { ascending: false }));
+}
+
+/** Plain update; RLS enforces admin. Callers pass only the fields the
+ *  schema actually has -- see views/customers.js for which those are. */
+export async function updateCustomer(id, patch) {
+  return unwrap(await supabase.from('customers')
+    .update(patch).eq('id', id).select().single());
+}
+
+/* ------------------------------------------------------------ properties -- */
+
+/** Everything the Property Passport shows, in one round trip.
+ *
+ *  An RPC because the alternative is five separate job-scoped queries from
+ *  the browser. Nothing it returns is property-scoped data that the schema
+ *  does not have: measurements, photos, inspections and quotes are all
+ *  job-scoped here, so each row arrives carrying its job and its date and
+ *  the UI presents them as history rather than as standing property facts.
+ *
+ *  Photos come back as storage paths only -- both buckets are private, so
+ *  the browser mints a signed URL per photo with signedPhotoUrl(). */
+export async function propertyHistory(propertyId) {
+  return unwrap(await supabase.rpc('property_history', { p_property_id: propertyId }));
+}
+
 /* -------------------------------------------------------------- requests -- */
 
 export async function listRequests(status = 'new') {

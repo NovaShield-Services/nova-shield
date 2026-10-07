@@ -1059,6 +1059,21 @@ export async function renderJob({ mount }, jobId) {
       el('h1', { text: job.customers?.name || 'Job' }),
       el('p', { text: [job.reference, address].filter(Boolean).join(' · ') })
     ]),
+
+    /* The job stays the operational screen; these are the two doors out of
+       it to the persistent records. Deliberately links, not a copy of the
+       customer's or property's details -- duplicating them here is how the
+       two drift apart. */
+    el('div', { class: 'btn-row', style: 'margin-bottom:12px' }, [
+      job.customers?.id
+        ? el('a', { class: 'btn btn--sm', href: `#/customers/${job.customers.id}`,
+                    text: `Customer: ${job.customers.name || 'view'}` })
+        : null,
+      job.properties?.id
+        ? el('a', { class: 'btn btn--sm', href: `#/properties/${job.properties.id}`,
+                    text: 'Property Passport' })
+        : null
+    ]),
     el('div', { class: 'card' }, [
       el('div', { class: 'grid grid--3' }, [
         el('label', { class: 'field', style: 'margin:0' }, [
