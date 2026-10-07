@@ -61,7 +61,7 @@ const QUOTE_TONE = {
   declined: 'badge--muted', expired: 'badge--muted', superseded: 'badge--muted'
 };
 
-export async function renderJobs({ mount, params }) {
+export async function renderJobs({ mount, params, replaceQuery }) {
   // Deep-link state from the dashboard, e.g. #/jobs?bucket=today
   const state = {
     query: params?.get('q') || '',
@@ -117,6 +117,22 @@ export async function renderJobs({ mount, params }) {
   const filtersActive = () =>
     !!(state.query || state.status || state.bucket || state.needsReview);
 
+  /* Keep the address bar in step with the filters, WITHOUT pushing a
+     history entry per keystroke or per dropdown change. That makes a
+     filtered list reloadable and shareable, while leaving Android's Back
+     to mean "previous screen" rather than "undo my last filter" -- see
+     main.js's replaceQuery for why that distinction is the whole point. */
+  function syncUrl() {
+    if (!replaceQuery) return;              // field console / tests may omit it
+    const qs = new URLSearchParams();
+    if (state.query) qs.set('q', state.query);
+    if (state.status) qs.set('status', state.status);
+    if (state.bucket) qs.set('bucket', state.bucket);
+    if (state.needsReview) qs.set('needs_review', '1');
+    if (state.sort && state.sort !== 'updated_desc') qs.set('sort', state.sort);
+    replaceQuery(qs.toString());
+  }
+
   function jobRow(j) {
     const flags = Number(j.review_flags?.total || 0);
     const q = j.latest_quote;
@@ -162,6 +178,7 @@ export async function renderJobs({ mount, params }) {
   }
 
   async function load() {
+    syncUrl();
     clear(list).append(el('div', { class: 'loading', text: 'Loading…' }));
     summaryLine.textContent = '';
 

@@ -18,7 +18,8 @@ const PINNED = {
   filesystem: 'https://cdn.jsdelivr.net/npm/@capacitor/filesystem@8.1.4/+esm',
   haptics: 'https://cdn.jsdelivr.net/npm/@capacitor/haptics@8.0.2/+esm',
   statusBar: 'https://cdn.jsdelivr.net/npm/@capacitor/status-bar@8.0.4/+esm',
-  geolocation: 'https://cdn.jsdelivr.net/npm/@capacitor/geolocation@8.2.3/+esm'
+  geolocation: 'https://cdn.jsdelivr.net/npm/@capacitor/geolocation@8.2.3/+esm',
+  app: 'https://cdn.jsdelivr.net/npm/@capacitor/app@8.1.2/+esm'
 };
 
 /** Single place every other file asks "are we native?" and reaches for a
@@ -170,4 +171,18 @@ export async function setStatusBarTheme() {
     await StatusBar.setBackgroundColor({ color: '#0f172a' });
     await StatusBar.setStyle({ style: Style.Dark });
   } catch (err) { /* cosmetic only */ }
+}
+
+/** The App plugin, for the Android hardware/gesture Back button and
+ *  exitApp(). Unlike every other export here this returns the plugin
+ *  rather than wrapping a single call, because lib/navigation.js needs both
+ *  addListener() and exitApp() and owns the decision logic between them --
+ *  keeping that logic here would bury a pure, testable state machine inside
+ *  the one module that cannot be tested off-device.
+ *
+ *  Callers must be isNative()-gated: @capacitor/app's web implementation
+ *  never emits backButton (a browser tab has no such button), so wiring it
+ *  off-native is dead code that only risks a wasted plugin fetch. */
+export function loadAppPlugin() {
+  return import(PINNED.app);
 }

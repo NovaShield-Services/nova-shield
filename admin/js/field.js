@@ -4,8 +4,9 @@ import { renderLogin } from './views/login.js';
 import { renderSchedule } from './views/field-schedule.js';
 import { renderVisit } from './views/field-workspace.js';
 import * as offlineQueue from './lib/offline-queue.js';
-import { setStatusBarTheme } from './lib/native.js';
+import { setStatusBarTheme, isNative, loadAppPlugin } from './lib/native.js';
 import { installUnhandledRejectionToast } from './lib/save.js';
+import { installBackHandler, installEscapeHandler, fieldParentOf } from './lib/navigation.js';
 
 setStatusBarTheme();
 
@@ -32,6 +33,25 @@ function currentPath() {
   return window.location.hash.replace(/^#/, '') || '/';
 }
 
+/* Same history-depth stamp as the desktop console (see main.js for why
+   history.length cannot answer this). The field console needs it for the
+   same reason and more sharply: a tech opens a visit from a notification,
+   lands on /visit/<id> with an empty history, and Back must take them to
+   the schedule rather than drop them out of the app mid-job. */
+let navDepth = 0;
+
+function syncNavDepth() {
+  const state = window.history.state;
+  if (state && typeof state.nsDepth === 'number') {
+    navDepth = state.nsDepth;
+    return;
+  }
+  navDepth += 1;
+  try {
+    window.history.replaceState({ ...(state || {}), nsDepth: navDepth }, '');
+  } catch { /* see main.js */ }
+}
+
 function showMessage(title, body, action) {
   clear(viewEl).append(
     el('div', { class: 'card' }, [
@@ -43,6 +63,7 @@ function showMessage(title, body, action) {
 }
 
 async function router() {
+  syncNavDepth();
   const { session, isAdmin } = await getSession();
 
   if (!session) return renderLogin({ mount: viewEl, onSignedIn: router });
@@ -85,6 +106,21 @@ document.getElementById('signOut')?.addEventListener('click', async () => {
   toast('Signed out');
   navigate('/');
   router();
+});
+
+/* Escape / Android Back. This page has no nav drawer, but it is where the
+   photo-markup overlay is actually used, so overlay dismissal matters more
+   here than on the desktop console. fieldParentOf is passed explicitly
+   because this router's root is '/', not '/dashboard'. */
+installEscapeHandler();
+
+installBackHandler({
+  currentPath,
+  navigate,
+  canGoBack: () => navDepth > 1,
+  resolveParent: fieldParentOf,
+  loadApp: loadAppPlugin,
+  native: isNative
 });
 
 /* Online [green] / Offline Queue: N actions [yellow] -- offline-queue.js

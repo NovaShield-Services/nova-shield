@@ -1,6 +1,8 @@
 import { supabase, getSession } from '../../shared/supabase.js';
 import { el, clear, toast } from '../../shared/dom.js';
 import { installUnhandledRejectionToast } from './lib/save.js';
+import { isNative, loadAppPlugin } from './lib/native.js';
+import { installBackHandler, installEscapeHandler } from './lib/navigation.js';
 import { renderLogin } from './views/login.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderRequests } from './views/requests.js';
@@ -41,6 +43,72 @@ function currentPath() {
   return currentLocation().path;
 }
 
+/* ---------------------------------------------- history depth tracking -- */
+
+/* Android's Back has to tell "this app pushed an entry I can pop" apart
+   from "the entry behind me belongs to whatever was open before the app
+   booted". history.length cannot: it counts both. So each entry gets
+   stamped with a depth the first time we see it.
+
+   The stamp goes on with replaceState, which annotates the current entry
+   and adds nothing -- so this works for every way a route can change in
+   this app: an <a href="#/..."> click (which is most of them), a hash
+   assignment from navigate(), or going back/forward, where the entry we
+   land on reports the depth we already gave it and we simply adopt it. */
+let navDepth = 0;
+
+function syncNavDepth() {
+  const state = window.history.state;
+  if (state && typeof state.nsDepth === 'number') {
+    navDepth = state.nsDepth;                     // an entry we have seen
+    return;
+  }
+  navDepth += 1;                                  // a brand-new entry
+  try {
+    window.history.replaceState({ ...(state || {}), nsDepth: navDepth }, '');
+  } catch {
+    // replaceState can throw in a sandboxed frame or over file://. The
+    // depth is still right in memory for this session; only back/forward
+    // across a reload would lose it.
+  }
+}
+
+/** Whether the app itself has an entry to pop. */
+function canGoBack() {
+  return navDepth > 1;
+}
+
+/* A screen can name a better parent than the static route map knows -- a
+   property opened from a customer should go back to THAT customer. Reset
+   before every render so a stale parent cannot leak across screens. */
+let contextParentPath = null;
+
+/** Called by a view to say where its Back should go. */
+export function setContextParent(path) {
+  contextParentPath = path || null;
+}
+
+/** Rewrites the current route's query string WITHOUT adding a history
+ *  entry, so changing a filter is not something Back has to walk back
+ *  through. The URL still reflects the filters, so it survives a reload and
+ *  can be shared -- pushState would give that too, but at the cost of
+ *  making Back mean "undo my last filter". On Android, Back means
+ *  "previous screen", so replaceState is the only correct choice. */
+export function replaceQuery(queryString) {
+  const { path } = currentLocation();
+  const qs = String(queryString || '').replace(/^\?/, '');
+  try {
+    window.history.replaceState(
+      { ...(window.history.state || {}), nsDepth: navDepth },
+      '',
+      qs ? `#${path}?${qs}` : `#${path}`
+    );
+  } catch {
+    // Non-fatal: the filter has already been applied to the view, only the
+    // address bar lags behind.
+  }
+}
+
 function setChrome(visible, navKey) {
   topbarEl.hidden = !visible;
   navEl.hidden = !visible;
@@ -63,6 +131,8 @@ function showMessage(title, body, action) {
 }
 
 async function router() {
+  syncNavDepth();
+  contextParentPath = null;
   const { session, isAdmin } = await getSession();
 
   if (!session) {
@@ -96,7 +166,10 @@ async function router() {
   clear(viewEl).append(el('div', { class: 'loading', text: 'Loading…' }));
 
   try {
-    await match.r.render({ mount: viewEl, navigate, params }, match.m[1]);
+    await match.r.render(
+      { mount: viewEl, navigate, params, replaceQuery, setContextParent },
+      match.m[1]
+    );
   } catch (err) {
     console.error(err);
     clear(viewEl).append(
@@ -143,6 +216,30 @@ document.getElementById('signOut')?.addEventListener('click', async () => {
    a success toast sitting over a stale card -- which invites a double-send.
    This is the last-resort net for anything that escapes trySave(). */
 installUnhandledRejectionToast();
+
+/* Escape closes the topmost overlay on desktop. Same code path the Android
+   Back button takes, so the two cannot drift apart. */
+installEscapeHandler();
+
+/* Android hardware/gesture Back. A no-op in a browser tab -- there is no
+   such button -- so this is safe to call unconditionally; installBackHandler
+   checks isNative() itself and resolves to null off-native.
+   Un-awaited on purpose: the first route must render immediately rather
+   than wait on a CDN plugin fetch, and until the listener attaches Back
+   behaves exactly as it did before (plain WebView history). */
+installBackHandler({
+  currentPath: () => currentLocation().path,
+  navigate,
+  canGoBack,
+  isDrawerOpen: () => navEl.classList.contains('is-open'),
+  closeDrawer: () => {
+    navEl.classList.remove('is-open');
+    document.getElementById('navToggle')?.setAttribute('aria-expanded', 'false');
+  },
+  contextParent: () => contextParentPath,
+  loadApp: loadAppPlugin,
+  native: isNative
+});
 
 window.addEventListener('hashchange', router);
 router();

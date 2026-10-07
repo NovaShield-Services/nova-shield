@@ -1,4 +1,5 @@
 import { el } from '../../../shared/dom.js';
+import { pushOverlay, removeOverlay } from '../lib/navigation.js';
 
 /** A quick annotation pass over a just-captured photo -- drag to draw a red
  *  arrow or circle on whatever needs pointing out (a damage spot, a
@@ -97,7 +98,15 @@ export function openPhotoMarkup(file) {
     canvas.addEventListener('touchmove', onMove, { passive: false });
     canvas.addEventListener('touchend', onEnd);
 
+    /* Android Back (and Escape) must dismiss this layer rather than
+       navigate the screen out from underneath it -- it is a fixed overlay
+       on document.body, not a route, so nothing else would clean it up.
+       Dismissing is Skip: the caller still gets the unmodified photo it
+       was always going to get if the tech chose not to mark it up. */
+    const backDismiss = () => finish(false);
+
     function finish(useMarkup) {
+      removeOverlay(backDismiss);
       canvas.removeEventListener('pointerdown', onStart);
       canvas.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onEnd);
@@ -131,6 +140,7 @@ export function openPhotoMarkup(file) {
       ])
     );
     document.body.append(overlay);
+    pushOverlay(backDismiss);
 
     img = new Image();
     img.onload = () => {
