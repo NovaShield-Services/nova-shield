@@ -115,7 +115,11 @@ function fakeApi({ job = JOB, jobFlags = [{ flag_id: 'flag-1', note: null }], no
     export async function saveQuoteSignature() { return {}; }
     export async function addChangeOrder() { return {}; }
     export async function setChangeOrderStatus() {}
-    export async function listJobs() { return []; }
+    // Batch 3 added the activity card to this same page. Mocked as empty
+    // here so these Batch 2 assertions exercise the normal path rather than
+    // the activity error card; phase18 covers activity itself.
+    export async function jobActivity() { return []; }
+    export async function searchJobs() { return { total: 0, rows: [] }; }
   `;
 }
 

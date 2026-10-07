@@ -236,7 +236,24 @@ input[inputmode="decimal"], input[type="number"] {
 .row-item:hover { border-color: var(--accent); }
 .row-item__main { flex: 1 1 220px; min-width: 0; }
 .row-item__main strong { display: block; }
-.row-item__meta { color: var(--muted); font-size: .84rem; }
+/* One meta line per span. Until Batch 3 every row carried exactly one of
+   these, so the default inline display never showed; the jobs list and the
+   activity timeline stack two or three (address, requested services,
+   schedule), which ran together as "...KelownaRequested: Gutter Cleaning".
+   Every call site renders these as their own line, so block is correct for
+   all of them. */
+.row-item__meta { display: block; color: var(--muted); font-size: .84rem; }
+/* A row's badge cluster. The flex-basis matters: as a plain flex item a
+   five-badge cluster sizes to its max-content (~690px), which starved
+   .row-item__main of room on a wide screen and wrapped a customer name
+   onto two lines beside 500px of white space. Capping the basis lets the
+   badges wrap among themselves instead, and main -- the only grower --
+   takes the rest. Below ~640px the whole row still wraps, so the cluster
+   drops to its own line exactly as before. */
+.row-item__badges {
+  display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+  flex: 0 1 320px; min-width: 0;
+}
 
 /* ------------------------------------------------------------ inspection -- */
 .check-grid { display: grid; gap: 8px; }

@@ -6,6 +6,7 @@ import { createQuotePanel } from './quote.js';
 import { reviewFlag } from '../components/review-flag.js';
 import { trySave } from '../lib/save.js';
 import { jobSteps, STEP_DONE, STEP_NOW } from '../components/next-step.js';
+import { activityRows, groupByDay } from '../components/job-activity.js';
 
 const JOB_STATUSES = ['new','reviewing','estimate_drafted','site_visit_scheduled','assessed',
   'quote_sent','accepted','declined','scheduled','in_progress','completed','invoiced','paid',
@@ -33,26 +34,219 @@ function formatWhen(iso) {
 
 /* ------------------------------------------------------------- job list -- */
 
-export async function renderJobs({ mount }) {
-  const jobs = await api.listJobs('all');
+/* Schedule buckets are named here but DEFINED in the search_jobs RPC, which
+   is also what the dashboard counts with -- so "On today" on the dashboard
+   and this filter always mean the same window. */
+const SCHEDULE_BUCKETS = [
+  { value: '',            label: 'Any schedule' },
+  { value: 'today',       label: 'Today' },
+  { value: 'upcoming',    label: 'Next 7 days' },
+  { value: 'overdue',     label: 'Overdue (past date, not complete)' },
+  { value: 'unscheduled', label: 'No date set' }
+];
+
+const SORTS = [
+  { value: 'updated_desc',   label: 'Recently updated' },
+  { value: 'scheduled_asc',  label: 'Scheduled — soonest first' },
+  { value: 'scheduled_desc', label: 'Scheduled — latest first' },
+  { value: 'created_desc',   label: 'Newest job first' },
+  { value: 'customer_asc',   label: 'Customer A–Z' }
+];
+
+/* Quote status drives a colour, and the mapping is deliberate: accepted is
+   the only 'ok'. declined/expired/superseded must never render the same as
+   a win -- that was a real defect on the job page's own badge. */
+const QUOTE_TONE = {
+  draft: 'badge--muted', sent: 'badge--warn', accepted: 'badge--ok',
+  declined: 'badge--muted', expired: 'badge--muted', superseded: 'badge--muted'
+};
+
+export async function renderJobs({ mount, params }) {
+  // Deep-link state from the dashboard, e.g. #/jobs?bucket=today
+  const state = {
+    query: params?.get('q') || '',
+    status: params?.get('status') || '',
+    bucket: params?.get('bucket') || '',
+    needsReview: params?.get('needs_review') === '1',
+    sort: params?.get('sort') || 'updated_desc'
+  };
+
+  const searchInput = el('input', {
+    type: 'search', value: state.query, 'aria-label': 'Search jobs',
+    placeholder: 'Customer, address, postcode, phone, email or job reference'
+  });
+  const statusSelect = select(
+    [{ value: '', label: 'Any status' },
+     ...JOB_STATUSES.map(s => ({ value: s, label: humanise(s) }))],
+    state.status, () => { state.status = statusSelect.value; load(); }
+  );
+  const bucketSelect = select(SCHEDULE_BUCKETS, state.bucket,
+    () => { state.bucket = bucketSelect.value; load(); });
+  const sortSelect = select(SORTS, state.sort,
+    () => { state.sort = sortSelect.value; load(); });
+  const reviewBox = el('input', { type: 'checkbox', checked: state.needsReview });
+  const reviewLabel = el('label', { class: `check ${state.needsReview ? 'is-on' : ''}` }, [
+    reviewBox, el('span', { text: 'Only jobs flagged for review' })
+  ]);
+  reviewBox.addEventListener('change', () => {
+    state.needsReview = reviewBox.checked;
+    reviewLabel.className = `check ${reviewBox.checked ? 'is-on' : ''}`;
+    load();
+  });
+
+  // Typing is debounced so a search is one request per pause, not per
+  // keystroke -- the whole point of filtering server-side.
+  let typingTimer;
+  searchInput.addEventListener('input', () => {
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(() => { state.query = searchInput.value; load(); }, 250);
+  });
+
+  const summaryLine = el('p', { class: 'hint', style: 'margin:0 0 10px' });
+  const list = el('div', {});
+
+  function clearAll() {
+    state.query = ''; state.status = ''; state.bucket = ''; state.needsReview = false;
+    state.sort = 'updated_desc';
+    searchInput.value = ''; statusSelect.value = ''; bucketSelect.value = '';
+    sortSelect.value = 'updated_desc'; reviewBox.checked = false;
+    reviewLabel.className = 'check';
+    load();
+  }
+
+  const filtersActive = () =>
+    !!(state.query || state.status || state.bucket || state.needsReview);
+
+  function jobRow(j) {
+    const flags = Number(j.review_flags?.total || 0);
+    const q = j.latest_quote;
+    const requested = Array.isArray(j.requested_services) ? j.requested_services : [];
+    const when = j.scheduled_for ? formatWhen(j.scheduled_for) : null;
+    const overdue = j.scheduled_for && !j.completed_at &&
+                    new Date(j.scheduled_for) < new Date();
+
+    const meta = [
+      j.reference,
+      [j.property?.address_line1, j.property?.city].filter(Boolean).join(', ')
+    ].filter(Boolean).join(' · ');
+
+    return el('div', { class: 'row-item' }, [
+      el('div', { class: 'row-item__main' }, [
+        el('strong', { text: j.customer?.name || 'Unnamed customer' }),
+        el('span', { class: 'row-item__meta', text: meta || 'No address on file' }),
+        // Service context: what was originally requested, which is the only
+        // service information a job row can show without another query.
+        requested.length
+          ? el('span', { class: 'row-item__meta',
+                         text: `Requested: ${requested.slice(0, 3).join(', ')}` +
+                               (requested.length > 3 ? ` +${requested.length - 3}` : '') })
+          : null,
+        el('span', { class: 'row-item__meta',
+                     text: when ? (overdue ? `${when} — date has passed` : when)
+                                : 'No date set' })
+      ]),
+      el('span', { class: 'row-item__badges' }, [
+        el('span', { class: 'badge badge--muted', text: humanise(j.status) }),
+        q ? el('span', { class: `badge ${QUOTE_TONE[q.status] || 'badge--muted'}`,
+                         text: `Quote v${q.version} ${humanise(q.status)}` })
+          : el('span', { class: 'badge badge--muted', text: 'No quote' }),
+        j.has_unapproved_pricing
+          ? el('span', { class: 'badge badge--warn', text: 'Pricing not approved' }) : null,
+        flags
+          ? el('span', { class: 'badge badge--warn',
+                         text: `${flags} flagged for review` }) : null,
+        overdue ? el('span', { class: 'badge badge--warn', text: 'Overdue' }) : null
+      ]),
+      el('a', { class: 'btn btn--sm', href: `#/jobs/${j.id}`, text: 'Open' })
+    ]);
+  }
+
+  async function load() {
+    clear(list).append(el('div', { class: 'loading', text: 'Loading…' }));
+    summaryLine.textContent = '';
+
+    let result;
+    try {
+      result = await api.searchJobs({
+        query: state.query,
+        statuses: state.status ? [state.status] : null,
+        scheduleBucket: state.bucket,
+        needsReview: state.needsReview,
+        sort: state.sort,
+        limit: 50
+      });
+    } catch (err) {
+      clear(list).append(
+        el('div', { class: 'card' }, [
+          el('h2', { text: 'Could not load jobs' }),
+          el('p', { class: 'error-text', text: err.message }),
+          el('div', { class: 'btn-row', style: 'margin-top:12px' }, [
+            el('button', { class: 'btn', text: 'Retry', onClick: load })
+          ])
+        ])
+      );
+      return;
+    }
+
+    const rows = Array.isArray(result?.rows) ? result.rows : [];
+    const total = Number(result?.total || 0);
+
+    summaryLine.textContent = total
+      ? `${total} job${total === 1 ? '' : 's'}` +
+        (rows.length < total ? ` · showing the first ${rows.length}` : '') +
+        (filtersActive() ? ' matching these filters' : '')
+      : '';
+
+    if (!rows.length) {
+      // Two genuinely different empty states: nothing matched a filter
+      // (offer to clear it) versus no jobs exist at all (offer the real
+      // next step, which is converting a request).
+      clear(list).append(
+        filtersActive()
+          ? el('div', { class: 'card' }, [
+              el('div', { class: 'empty', text: 'No jobs match these filters.' }),
+              el('div', { class: 'btn-row', style: 'margin-top:12px;justify-content:center' }, [
+                el('button', { class: 'btn btn--sm', text: 'Clear filters', onClick: clearAll })
+              ])
+            ])
+          : el('div', { class: 'empty',
+                        text: 'No jobs yet. Convert a request to get started.' })
+      );
+      return;
+    }
+
+    clear(list).append(...rows.map(jobRow));
+  }
 
   clear(mount).append(
     el('div', { class: 'page-head' }, [
       el('h1', { text: 'Jobs' }),
-      el('p', { text: `${jobs.length} job${jobs.length === 1 ? '' : 's'}` })
+      el('p', { text: 'Search and filter every job. Searching covers the customer, ' +
+                      'the property and the job reference.' })
     ]),
-    jobs.length
-      ? el('div', {}, jobs.map(j => el('div', { class: 'row-item' }, [
-          el('div', { class: 'row-item__main' }, [
-            el('strong', { text: j.customers?.name || 'Unnamed' }),
-            el('span', { class: 'row-item__meta',
-              text: [j.reference, j.properties?.address_line1].filter(Boolean).join(' · ') })
-          ]),
-          el('span', { class: 'badge badge--muted', text: humanise(j.status) }),
-          el('a', { class: 'btn btn--sm', href: `#/jobs/${j.id}`, text: 'Open' })
-        ])))
-      : el('div', { class: 'empty', text: 'No jobs yet. Convert a request to get started.' })
+    el('div', { class: 'card' }, [
+      el('label', { class: 'field' }, [el('span', { text: 'Search' }), searchInput]),
+      el('div', { class: 'grid grid--3' }, [
+        el('label', { class: 'field', style: 'margin:0' }, [
+          el('span', { text: 'Job status' }), statusSelect
+        ]),
+        el('label', { class: 'field', style: 'margin:0' }, [
+          el('span', { text: 'Schedule' }), bucketSelect
+        ]),
+        el('label', { class: 'field', style: 'margin:0' }, [
+          el('span', { text: 'Sort by' }), sortSelect
+        ])
+      ]),
+      reviewLabel,
+      el('div', { class: 'btn-row', style: 'margin-top:10px' }, [
+        el('button', { class: 'btn btn--sm', text: 'Clear filters', onClick: clearAll })
+      ])
+    ]),
+    summaryLine,
+    list
   );
+
+  await load();
 }
 
 /* ----------------------------------------------------------- job detail -- */
@@ -100,6 +294,8 @@ export async function renderJob({ mount }, jobId) {
   const nextStepHost = el('div', {});
   const requestedHost = el('div', {});
   const notesHost = el('div', {});
+  const attentionHost = el('div', {});
+  const activityHost = el('div', {});
   const measurementsPanel = createMeasurementsPanel({ job, refs, onChange: reload });
   const quotePanel = createQuotePanel({ job, onChange: reload });
 
@@ -251,6 +447,142 @@ export async function renderJob({ mount }, jobId) {
                            text: s.state === STEP_DONE ? 'done' : s.state })
             ])))
           : null
+      ])
+    );
+  }
+
+  /* ------------------------------------------------- review-flag rollup -- */
+
+  /** review_required already existed per measurement and per elevation with
+   *  no rollup, so a flag typed by a tech was only visible by scrolling to
+   *  that one row and expanding it. This aggregates them and shows each
+   *  reason, which is the actual content of the flag. Visibility only: it
+   *  does not block quoting, because no existing business rule says it
+   *  should. */
+  function renderAttention(measurements) {
+    const flaggedMeasurements = measurements.filter(m => m.review_required);
+    const flaggedSections = refs.sections.filter(s => s.review_required);
+    const total = flaggedMeasurements.length + flaggedSections.length;
+
+    if (!total) { clear(attentionHost); return; }
+
+    const serviceName = (id) => (services.find(s => s.id === id)?.name) || 'Service';
+
+    clear(attentionHost).append(
+      el('div', { class: 'card' }, [
+        el('div', { class: 'card__head' }, [
+          el('div', {}, [
+            el('h2', { text: 'Needs review' }),
+            el('p', { text: 'Someone flagged these on site. Clear them before treating the ' +
+                            'quote as final.' })
+          ]),
+          el('span', { class: 'badge badge--warn',
+                       text: `${total} item${total === 1 ? '' : 's'}` })
+        ]),
+        el('div', {}, [
+          ...flaggedMeasurements.map(m => el('div', { class: 'row-item' }, [
+            el('div', { class: 'row-item__main' }, [
+              el('strong', { text: `${serviceName(m.service_id)}${m.label ? ` — ${m.label}` : ''}` }),
+              el('span', { class: 'row-item__meta',
+                           text: m.review_reason || 'No reason given' })
+            ]),
+            el('span', { class: 'badge badge--muted', text: 'Measurement' })
+          ])),
+          ...flaggedSections.map(s => el('div', { class: 'row-item' }, [
+            el('div', { class: 'row-item__main' }, [
+              el('strong', { text: s.name || 'Elevation' }),
+              el('span', { class: 'row-item__meta',
+                           text: s.review_reason || 'No reason given' })
+            ]),
+            el('span', { class: 'badge badge--muted', text: 'Elevation' })
+          ]))
+        ])
+      ])
+    );
+  }
+
+  /* -------------------------------------------------------- activity -- */
+
+  /** Chronological activity, from job_activity(). One query across nine
+   *  tables; components/job-activity.js owns the wording. Nothing here is
+   *  derived or guessed -- see that module for the list of events the schema
+   *  cannot support (viewed, supersession timing, replies/calls/texts). */
+  async function renderActivity() {
+    clear(activityHost).append(
+      el('div', { class: 'card' }, [
+        el('div', { class: 'card__head' }, [
+          el('div', {}, [el('h2', { text: 'Activity' }),
+                         el('p', { text: 'Loading…' })])
+        ]),
+        el('div', { class: 'loading', text: 'Loading…' })
+      ])
+    );
+
+    let events;
+    try {
+      events = await api.jobActivity(job.id);
+    } catch (err) {
+      clear(activityHost).append(
+        el('div', { class: 'card' }, [
+          el('div', { class: 'card__head' }, [
+            el('div', {}, [el('h2', { text: 'Activity' })])
+          ]),
+          el('p', { class: 'error-text', text: `Could not load activity: ${err.message}` }),
+          el('div', { class: 'btn-row', style: 'margin-top:10px' }, [
+            el('button', { class: 'btn btn--sm', text: 'Retry', onClick: renderActivity })
+          ])
+        ])
+      );
+      return;
+    }
+
+    const rows = activityRows(events, { currentUserId });
+    const days = groupByDay(rows);
+
+    clear(activityHost).append(
+      el('div', { class: 'card' }, [
+        el('div', { class: 'card__head' }, [
+          el('div', {}, [
+            el('h2', { text: 'Activity' }),
+            el('p', { text: 'Everything the system actually recorded, newest first.' })
+          ]),
+          el('span', { class: 'badge badge--muted',
+                       text: `${rows.length} event${rows.length === 1 ? '' : 's'}` })
+        ]),
+        rows.length
+          ? el('div', {}, days.map(day => el('div', { style: 'margin-bottom:8px' }, [
+              el('p', { class: 'hint', style: 'margin:10px 0 4px', text: date(day.at) }),
+              ...day.rows.map(r => el('div', { class: 'row-item' }, [
+                el('div', { class: 'row-item__main' }, [
+                  el('strong', { text: r.label }),
+                  r.detail ? el('span', { class: 'row-item__meta', text: r.detail }) : null,
+                  // Notes carry their text, and internal vs customer-visible
+                  // has to be unmistakable on screen.
+                  r.body
+                    ? el('span', {
+                        class: 'row-item__meta',
+                        style: r.visibility === 'customer'
+                          ? 'white-space:pre-wrap;border-left:3px solid var(--gold);padding-left:8px'
+                          : 'white-space:pre-wrap;border-left:3px solid var(--line);padding-left:8px',
+                        text: r.body
+                      })
+                    : null,
+                  r.actor ? el('span', { class: 'row-item__meta', text: `by ${r.actor}` }) : null
+                ]),
+                el('span', { class: 'row-item__badges' }, [
+                  r.visibility
+                    ? el('span', {
+                        class: `badge ${r.visibility === 'customer' ? 'badge--warn' : 'badge--muted'}`,
+                        text: r.visibility === 'customer' ? 'Customer-visible' : 'Internal'
+                      })
+                    : null,
+                  r.sourceLabel
+                    ? el('span', { class: 'badge badge--muted', text: r.sourceLabel }) : null
+                ])
+              ]))
+            ])))
+          : el('div', { class: 'empty',
+                        text: 'Nothing recorded for this job yet.' })
       ])
     );
   }
@@ -591,8 +923,10 @@ export async function renderJob({ mount }, jobId) {
     renderPricing(pricing);
     quotePanel.render({ quotes, measurements, services });
     renderNotes(notes, currentUserId);
+    renderAttention(measurements);
     renderNextStep(measurements, quotes, jobFlags);
     renderPhotos(attachments);   // async, fills in as signed URLs resolve
+    renderActivity();            // async, its own query + its own error state
   }
 
   /* --------------------------------------------------------------- shell -- */
@@ -739,6 +1073,7 @@ export async function renderJob({ mount }, jobId) {
       ])
     ]),
     nextStepHost,
+    attentionHost,
     requestedHost,
     sectionsHost,
     photosHost,
@@ -746,7 +1081,8 @@ export async function renderJob({ mount }, jobId) {
     inspectionHost,
     pricingHost,
     el('div', { class: 'card' }, [quotePanel.root]),
-    notesHost
+    notesHost,
+    activityHost
   );
 
   paintCompletion();

@@ -134,12 +134,36 @@ export async function markRequestStatus(id, status) {
 
 /* ------------------------------------------------------------------ jobs -- */
 
-export async function listJobs(status = 'all') {
-  let q = supabase.from('ns_jobs')
-    .select('*, customers(name,phone,email), properties(address_line1,city)')
-    .order('updated_at', { ascending: false }).limit(200);
-  if (status && status !== 'all') q = q.eq('status', status);
-  return unwrap(await q);
+/** Jobs list, searched/filtered/sorted server-side by the search_jobs RPC.
+ *
+ *  Replaces the old listJobs(), which fetched 200 unfiltered rows and offered
+ *  no search at all. Text search has to span ns_jobs, customers and
+ *  properties; PostgREST can filter on one embedded resource but cannot OR
+ *  across two, so this is a function rather than a query builder.
+ *
+ *  The RPC also owns the definitions of today / upcoming / overdue /
+ *  unscheduled, so a dashboard count and the list it links to are computed in
+ *  the same place and cannot disagree.
+ *
+ *  Returns { total, limit, offset, sort, rows } where each row already
+ *  carries its customer, property, requested services, latest quote and
+ *  review-flag rollup -- no per-row follow-up queries. */
+export async function searchJobs({
+  query = null, statuses = null, scheduleBucket = null,
+  scheduledFrom = null, scheduledTo = null, needsReview = false,
+  sort = 'updated_desc', limit = 50, offset = 0
+} = {}) {
+  return unwrap(await supabase.rpc('search_jobs', {
+    p_query: query || null,
+    p_statuses: statuses && statuses.length ? statuses : null,
+    p_schedule_bucket: scheduleBucket || null,
+    p_scheduled_from: scheduledFrom || null,
+    p_scheduled_to: scheduledTo || null,
+    p_needs_review: !!needsReview,
+    p_sort: sort,
+    p_limit: limit,
+    p_offset: offset
+  }));
 }
 
 /** Field console's schedule screen: jobs booked for today, with enough on
@@ -228,17 +252,25 @@ export async function updateProperty(id, patch) {
     .update(patch).eq('id', id).select().single());
 }
 
-export async function dashboardCounts() {
-  const [requests, jobs] = await Promise.all([
-    supabase.from('quote_requests').select('status').eq('status', 'new'),
-    supabase.from('ns_jobs').select('status')
-  ]);
-  if (requests.error) throw new Error(requests.error.message);
-  if (jobs.error) throw new Error(jobs.error.message);
+/** The whole dashboard in one round trip.
+ *
+ *  Replaces dashboardCounts(), which fetched EVERY ns_jobs row just to tally
+ *  statuses in JS and still could not answer most of what the home screen
+ *  needs. Counting server-side also means a failed load is a single clear
+ *  failure rather than a screen of plausible-looking zeros.
+ *
+ *  Every field maps to a real column; see the migration for what was
+ *  deliberately left out (no "viewed", no undateable supersession). */
+export async function dashboardSummary() {
+  return unwrap(await supabase.rpc('admin_dashboard_summary'));
+}
 
-  const byStatus = {};
-  for (const row of jobs.data) byStatus[row.status] = (byStatus[row.status] || 0) + 1;
-  return { newRequests: requests.data.length, jobsByStatus: byStatus, totalJobs: jobs.data.length };
+/** Chronological activity for one job, assembled server-side from the
+ *  timestamps that actually exist across nine tables. One query instead of
+ *  nine. Returns normalized events; components/job-activity.js turns them
+ *  into display rows. */
+export async function jobActivity(jobId) {
+  return unwrap(await supabase.rpc('job_activity', { p_job_id: jobId }));
 }
 
 /* -------------------------------------------------------------- sections -- */

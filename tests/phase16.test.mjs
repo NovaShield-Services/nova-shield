@@ -32,12 +32,21 @@ const MANY_REQUESTS = Array.from({ length: 14 }, (_, i) => ({
   quote_request_services: [{ other_label: null, services: { name: 'Gutter Cleaning', key: 'gutter' } }]
 }));
 
+/* Batch 3 replaced dashboardCounts()/listJobs() with the two server-side
+   RPC wrappers, so this fixture mocks those instead. The counts are kept
+   large enough that the dashboard is still taller than a phone viewport,
+   which is what the drawer defects below depend on. */
 const FAKE_API_DASHBOARD = `
-  export async function dashboardCounts() {
-    return { newRequests: 14, jobsByStatus: { reviewing: 3, quote_sent: 2, accepted: 1 }, totalJobs: 6 };
+  export async function dashboardSummary() {
+    return {
+      requests_new: 14, requests_reviewed_unconverted: 3, jobs_awaiting_customer: 2,
+      jobs_accepted_unscheduled: 1, scheduled_today: 2, scheduled_next_7_days: 5,
+      overdue_scheduled: 1, completed_last_14_days: 6, jobs_with_review_flags: 2,
+      recent_activity: [], generated_at: '2026-10-07T12:00:00Z'
+    };
   }
   export async function listRequests() { return ${JSON.stringify(MANY_REQUESTS)}; }
-  export async function listJobs() { return []; }
+  export async function searchJobs() { return { total: 0, limit: 50, offset: 0, sort: 'updated_desc', rows: [] }; }
   export async function getSettings() { return {}; }
 `;
 

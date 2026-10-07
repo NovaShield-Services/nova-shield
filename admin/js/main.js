@@ -21,9 +21,24 @@ const routes = [
   { pattern: /^\/settings$/,         nav: 'settings',  render: renderSettings }
 ];
 
+/* Routes carry an optional query string so a dashboard card can link
+   straight at the records it counted -- #/jobs?bucket=today,
+   #/jobs?needs_review=1, #/requests?status=new. The route table still
+   matches on the path alone; the params ride along in the render context. */
+function currentLocation() {
+  const hash = window.location.hash.replace(/^#/, '') || '/dashboard';
+  const cut = hash.indexOf('?');
+  return cut === -1
+    ? { path: hash, query: '', params: new URLSearchParams() }
+    : {
+        path: hash.slice(0, cut) || '/dashboard',
+        query: hash.slice(cut + 1),
+        params: new URLSearchParams(hash.slice(cut + 1))
+      };
+}
+
 function currentPath() {
-  const hash = window.location.hash.replace(/^#/, '');
-  return hash || '/dashboard';
+  return currentLocation().path;
 }
 
 function setChrome(visible, navKey) {
@@ -68,7 +83,7 @@ async function router() {
     );
   }
 
-  const path = currentPath();
+  const { path, params } = currentLocation();
   const match = routes.map(r => ({ r, m: path.match(r.pattern) })).find(x => x.m);
 
   if (!match) {
@@ -81,7 +96,7 @@ async function router() {
   clear(viewEl).append(el('div', { class: 'loading', text: 'Loading…' }));
 
   try {
-    await match.r.render({ mount: viewEl, navigate }, match.m[1]);
+    await match.r.render({ mount: viewEl, navigate, params }, match.m[1]);
   } catch (err) {
     console.error(err);
     clear(viewEl).append(
@@ -97,7 +112,12 @@ async function router() {
 }
 
 export function navigate(path) {
-  if (currentPath() === path) router();
+  // Compare the whole location, query string included: navigating from
+  // #/jobs?bucket=today to #/jobs is a real change even though the path
+  // is identical, and must not be swallowed as a no-op re-render.
+  const here = currentLocation();
+  const full = here.query ? `${here.path}?${here.query}` : here.path;
+  if (full === path) router();
   else window.location.hash = path;
 }
 
