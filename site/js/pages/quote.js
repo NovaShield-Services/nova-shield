@@ -140,6 +140,12 @@ function renderDetail(q) {
   // enforcement has to live there) -- this just avoids a round-trip for the
   // case we can already see from the lines we rendered.
   const hasUnapprovedPricing = (q.lines || []).some((l) => l.pricing_approved === false);
+  // A quote with no lines has nothing to buy. respond_to_quote rejects this
+  // server-side too; before that guard existed, bool_and() over zero rows
+  // returning NULL meant an empty quote passed the approval check and
+  // accepted cleanly. Withheld here as well so the customer sees why instead
+  // of a round-trip error.
+  const hasNoLines = (q.lines || []).length === 0;
   const isOption = !!q.option_group;
 
   const thing = isOption ? 'option' : 'quote';
@@ -185,7 +191,10 @@ function renderDetail(q) {
     decline.addEventListener('click', () => respond('declined', decline));
     // Declining a provisional price is always fine; only accepting it is
     // the risk, so only the accept button is held back.
-    if (hasUnapprovedPricing) {
+    if (hasNoLines) {
+      actions.append(el('p', { class: 'state state--warn', style: 'margin:0 0 10px',
+        text: `This ${thing} does not list any work yet. We will send the detail before it can be accepted.` }));
+    } else if (hasUnapprovedPricing) {
       actions.append(el('p', { class: 'state state--warn', style: 'margin:0 0 10px',
         text: `Final pricing is still pending confirmation. We will confirm your pricing before accepting this ${thing}.` }));
     } else {

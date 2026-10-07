@@ -5,10 +5,31 @@ import { createMeasurementsPanel } from './measurements.js';
 import { createQuotePanel } from './quote.js';
 import { reviewFlag } from '../components/review-flag.js';
 import { trySave } from '../lib/save.js';
+import { jobSteps, STEP_DONE, STEP_NOW } from '../components/next-step.js';
 
 const JOB_STATUSES = ['new','reviewing','estimate_drafted','site_visit_scheduled','assessed',
   'quote_sent','accepted','declined','scheduled','in_progress','completed','invoiced','paid',
   'closed','lost'];
+
+/** timestamptz -> the local "YYYY-MM-DDTHH:mm" an <input type="datetime-local">
+ *  expects. Built from the local getters rather than toISOString().slice(),
+ *  which would shift the displayed time by the UTC offset. */
+function toLocalInputValue(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+         `T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function formatWhen(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null
+    : d.toLocaleString('en-CA', { weekday: 'short', year: 'numeric', month: 'short',
+                                  day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
 
 /* ------------------------------------------------------------- job list -- */
 
@@ -37,15 +58,17 @@ export async function renderJobs({ mount }) {
 /* ----------------------------------------------------------- job detail -- */
 
 export async function renderJob({ mount }, jobId) {
-  const [job, services, modifiers, siteFactors, flags, flagMap, pricingRules] = await Promise.all([
-    api.getJob(jobId),
-    api.listServices(),
-    api.listModifiers(),
-    api.listSiteFactors(),
-    api.listInspectionFlags(),
-    api.listServiceFlagMap(),
-    api.listPricingRules()
-  ]);
+  const [job, services, modifiers, siteFactors, flags, flagMap, pricingRules, currentUserId] =
+    await Promise.all([
+      api.getJob(jobId),
+      api.listServices(),
+      api.listModifiers(),
+      api.listSiteFactors(),
+      api.listInspectionFlags(),
+      api.listServiceFlagMap(),
+      api.listPricingRules(),
+      api.currentUserId()
+    ]);
 
   const refs = { services, modifiers, siteFactors, flags, flagMap, pricingRules, sections: [] };
 
@@ -74,6 +97,9 @@ export async function renderJob({ mount }, jobId) {
   const photosHost = el('div', {});
   const inspectionHost = el('div', {});
   const pricingHost = el('div', {});
+  const nextStepHost = el('div', {});
+  const requestedHost = el('div', {});
+  const notesHost = el('div', {});
   const measurementsPanel = createMeasurementsPanel({ job, refs, onChange: reload });
   const quotePanel = createQuotePanel({ job, onChange: reload });
 
@@ -190,6 +216,171 @@ export async function renderJob({ mount }, jobId) {
     );
   }
 
+  /* ---------------------------------------------------------- next steps -- */
+
+  function renderNextStep(measurements, quotes, jobFlags) {
+    const steps = jobSteps({ job, measurements, sections: refs.sections, quotes, jobFlags });
+    const now = steps.find(s => s.state === STEP_NOW);
+
+    clear(nextStepHost).append(
+      el('div', { class: 'card' }, [
+        el('div', { class: 'card__head' }, [
+          el('div', {}, [
+            el('h2', { text: now ? `Next: ${now.label}` : 'Nothing outstanding' }),
+            el('p', { text: now ? now.detail
+              : job.completed_at ? 'This job is complete.'
+              : 'Nothing is waiting on you right now.' })
+          ]),
+          now ? el('span', { class: 'badge badge--warn', text: 'Action needed' })
+              : el('span', { class: 'badge badge--ok', text: 'Clear' })
+        ]),
+        // The whole ladder, so it is obvious what has already been done and
+        // what is still ahead -- not just the current step in isolation.
+        steps.length
+          ? el('div', {}, steps.map(s => el('div', {
+              class: 'qline',
+              style: s.state === STEP_NOW ? 'font-weight:600' : ''
+            }, [
+              el('span', {}, [
+                s.state === STEP_DONE ? '✓ ' : s.state === STEP_NOW ? '→ ' : '· ',
+                s.label
+              ]),
+              // nowrap: at 390px the squeezed .qline right-hand column broke
+              // "done" across two lines as "don / e".
+              el('span', { class: 'hint', style: 'white-space:nowrap',
+                           text: s.state === STEP_DONE ? 'done' : s.state })
+            ])))
+          : null
+      ])
+    );
+  }
+
+  /* --------------------------------------------------- requested services -- */
+
+  /** What the customer originally asked for, read from the request through
+   *  the normalized quote_request_services relationship. Read-only by
+   *  design: this is history, and quoting must never rewrite it. */
+  function renderRequested() {
+    const request = job.quote_requests;
+    if (!request) { clear(requestedHost); return; }
+
+    const asked = (request.quote_request_services || [])
+      .map(r => r.services?.name || (r.other_label ? `${r.other_label} (other)` : null))
+      .filter(Boolean);
+
+    clear(requestedHost).append(
+      el('div', { class: 'card' }, [
+        el('div', { class: 'card__head' }, [
+          el('div', {}, [
+            el('h2', { text: 'Originally requested' }),
+            el('p', { text: 'What the customer asked for on the website. Kept as history — ' +
+                            'quoting below can differ from it.' })
+          ]),
+          el('a', { class: 'btn btn--sm', href: '#/requests', text: 'All requests' })
+        ]),
+        asked.length
+          ? el('p', { style: 'margin:0 0 8px' }, asked.map(name =>
+              el('span', { class: 'badge', style: 'margin:0 6px 6px 0', text: name })))
+          : el('p', { class: 'hint', style: 'margin:0 0 8px',
+                      text: 'No specific services were selected on the request.' }),
+        request.customer_message
+          ? el('div', { class: 'field', style: 'margin:0' }, [
+              el('span', { text: 'Their message' }),
+              el('p', { style: 'margin:0', text: request.customer_message })
+            ])
+          : null,
+        request.preferred_schedule
+          ? el('p', { class: 'hint', style: 'margin:8px 0 0',
+                      text: `Preferred timing: ${request.preferred_schedule}` })
+          : null,
+        request.submitted_at
+          ? el('p', { class: 'hint', style: 'margin:6px 0 0',
+                      text: `Submitted ${date(request.submitted_at)}` })
+          : null
+      ])
+    );
+  }
+
+  /* --------------------------------------------------------------- notes -- */
+
+  function renderNotes(notes, currentUserId) {
+    const body = el('textarea', {
+      placeholder: 'What happened, what to watch out for, what you told the customer…',
+      'aria-label': 'Note'
+    });
+    const visibility = select(
+      [{ value: 'internal', label: 'Internal — staff only' },
+       { value: 'customer', label: 'Customer-visible — can appear on the completion report' }],
+      'internal'
+    );
+    const addBtn = el('button', { class: 'btn btn--sm btn--primary', text: 'Add note' });
+
+    addBtn.addEventListener('click', async () => {
+      const text = body.value.trim();
+      if (!text) return toast('Write something first', 'error');
+      addBtn.disabled = true;
+      addBtn.textContent = 'Saving…';
+      const saved = await trySave(
+        () => api.addNote(job.id, text, visibility.value),
+        { success: 'Note added', after: reload }
+      );
+      if (saved) body.value = '';
+      addBtn.disabled = false;
+      addBtn.textContent = 'Add note';
+    });
+
+    clear(notesHost).append(
+      el('div', { class: 'card' }, [
+        el('div', { class: 'card__head' }, [
+          el('div', {}, [
+            el('h2', { text: 'Notes' }),
+            el('p', { text: 'Newest first. Internal notes are never shown to the customer.' })
+          ]),
+          notes.length
+            ? el('span', { class: 'badge badge--muted',
+                           text: `${notes.length} note${notes.length === 1 ? '' : 's'}` })
+            : null
+        ]),
+        el('label', { class: 'field' }, [el('span', { text: 'New note' }), body]),
+        el('label', { class: 'field' }, [el('span', { text: 'Who can see it' }), visibility]),
+        el('div', { class: 'btn-row', style: 'margin-bottom:12px' }, [addBtn]),
+        notes.length
+          ? el('div', {}, notes.map(n => el('div', { class: 'section-box' }, [
+              el('div', { class: 'section-box__head' }, [
+                el('div', {}, [
+                  el('span', {
+                    class: `badge ${n.visibility === 'customer' ? 'badge--warn' : 'badge--muted'}`,
+                    text: n.visibility === 'customer' ? 'Customer-visible' : 'Internal'
+                  }),
+                  // job_notes.author_id references auth.users and admin_users
+                  // holds only user_id, so there is no name to show -- "you"
+                  // vs "another admin" is the honest limit of what we know.
+                  el('span', { class: 'hint', style: 'margin-left:8px',
+                    text: [
+                      n.author_id
+                        ? (n.author_id === currentUserId ? 'you' : 'another admin')
+                        : 'unattributed',
+                      date(n.created_at)
+                    ].join(' · ') })
+                ]),
+                el('button', {
+                  class: 'btn btn--sm btn--danger', text: 'Delete',
+                  onClick: async (e) => {
+                    if (!confirmAction('Delete this note?')) return;
+                    const btn = e.target;
+                    btn.disabled = true;
+                    await trySave(() => api.deleteNote(n.id), { after: reload });
+                    btn.disabled = false;
+                  }
+                })
+              ]),
+              el('p', { style: 'margin:8px 0 0;white-space:pre-wrap', text: n.body })
+            ])))
+          : el('div', { class: 'empty', text: 'No notes yet.' })
+      ])
+    );
+  }
+
   /* -------------------------------------------------------------- photos -- */
 
   async function renderPhotos(attachments) {
@@ -245,7 +436,9 @@ export async function renderJob({ mount }, jobId) {
 
   /* ---------------------------------------------------------- inspection -- */
 
-  function renderInspection(measurements, activeFlagIds) {
+  function renderInspection(measurements, jobFlags) {
+    const activeFlagIds = new Set(jobFlags.map(f => f.flag_id));
+    const noteByFlagId = new Map(jobFlags.map(f => [f.flag_id, f.note || '']));
     const serviceIds = new Set(measurements.map(m => m.service_id));
     const relevant = new Set(
       flagMap.filter(r => serviceIds.has(r.service_id)).map(r => r.flag_id)
@@ -268,6 +461,34 @@ export async function renderJob({ mount }, jobId) {
       return label;
     });
 
+    /* A ticked check on its own says "something is up here" without saying
+       what. job_inspection_flags.note has always existed and nothing wrote
+       it, so the observation lived only in the tech's head. One note input
+       per ticked flag, saved on blur. No severity or category: those
+       columns do not exist on inspection_flags and inventing them would be
+       fabricating data. */
+    const noteRows = shown.filter(f => activeFlagIds.has(f.id)).map(flag => {
+      const input = el('input', {
+        value: noteByFlagId.get(flag.id) || '',
+        placeholder: 'What did you see? (e.g. "Soffit rotted above the bay window")',
+        'aria-label': `Note for ${flag.name}`
+      });
+      input.addEventListener('change', async () => {
+        const before = noteByFlagId.get(flag.id) || '';
+        const next = input.value.trim();
+        await trySave(
+          async () => {
+            await api.setJobFlagNote(job.id, flag.id, next);
+            noteByFlagId.set(flag.id, next);
+          },
+          { revert: () => { input.value = before; }, after: reload }
+        );
+      });
+      return el('label', { class: 'field', style: 'margin:0 0 10px' }, [
+        el('span', { text: flag.name }), input
+      ]);
+    });
+
     const warnings = flags
       .filter(f => activeFlagIds.has(f.id) && relevant.has(f.id))
       .map(f => el('div', { class: 'warn' }, [
@@ -288,7 +509,14 @@ export async function renderJob({ mount }, jobId) {
             : null
         ]),
         shown.length ? el('div', { class: 'check-grid' }, checks) : null,
-        ...warnings
+        ...warnings,
+        noteRows.length
+          ? el('div', { style: 'margin-top:12px' }, [
+              el('p', { class: 'hint', style: 'margin:0 0 8px',
+                        text: 'Say what you saw for each check you ticked.' }),
+              ...noteRows
+            ])
+          : null
       ])
     );
   }
@@ -331,27 +559,39 @@ export async function renderJob({ mount }, jobId) {
   /* -------------------------------------------------------------- reload -- */
 
   async function reload() {
-    const [fresh, sections, measurements, jobFlags, pricing, quotes, attachments] = await Promise.all([
-      api.getJob(job.id),
-      api.listSections(job.id),
-      api.listMeasurements(job.id),
-      api.listJobFlags(job.id),
-      api.calculatePricing(job.id),
-      api.listQuotes(job.id),
-      api.listAttachments(job.id)
-    ]);
+    const [fresh, sections, measurements, jobFlags, pricing, quotes, attachments, notes] =
+      await Promise.all([
+        api.getJob(job.id),
+        api.listSections(job.id),
+        api.listMeasurements(job.id),
+        api.listJobFlags(job.id),
+        api.calculatePricing(job.id),
+        api.listQuotes(job.id),
+        api.listAttachments(job.id),
+        api.listNotes(job.id)
+      ]);
 
     // sending a quote advances the job server-side, so re-sync the header
-    // rather than leaving a stale status in the dropdown
+    // rather than leaving a stale status in the dropdown. scheduled_for and
+    // completed_at are re-synced for the same reason: the field console can
+    // move them while this page is open.
     job.status = fresh.status;
+    job.scheduled_for = fresh.scheduled_for;
+    job.completed_at = fresh.completed_at;
+    job.quote_requests = fresh.quote_requests;
     if (statusSelect.value !== fresh.status) statusSelect.value = fresh.status;
+    scheduleInput.value = toLocalInputValue(fresh.scheduled_for);
+    paintCompletion();
 
     refs.sections = sections;
     renderSections();
+    renderRequested();
     measurementsPanel.render({ measurements, pricing });
-    renderInspection(measurements, new Set(jobFlags.map(f => f.flag_id)));
+    renderInspection(measurements, jobFlags);
     renderPricing(pricing);
     quotePanel.render({ quotes, measurements, services });
+    renderNotes(notes, currentUserId);
+    renderNextStep(measurements, quotes, jobFlags);
     renderPhotos(attachments);   // async, fills in as signed URLs resolve
   }
 
@@ -372,6 +612,92 @@ export async function renderJob({ mount }, jobId) {
       );
     }
   );
+
+  /* ------------------------------------------------- schedule + complete -- */
+
+  const scheduleInput = el('input', {
+    type: 'datetime-local', 'aria-label': 'Scheduled for',
+    value: toLocalInputValue(job.scheduled_for)
+  });
+  const scheduleSaveBtn = el('button', { class: 'btn btn--sm btn--primary', text: 'Save date' });
+  const scheduleClearBtn = el('button', { class: 'btn btn--sm', text: 'Clear' });
+  const scheduleWhen = el('p', { class: 'hint', style: 'margin:6px 0 0' });
+
+  function paintSchedule() {
+    const when = formatWhen(job.scheduled_for);
+    scheduleWhen.textContent = when
+      ? `Booked for ${when}${new Date(job.scheduled_for) < new Date() ? ' (in the past)' : ''}`
+      : 'Not booked in. The field console only lists jobs that have a date.';
+  }
+
+  async function saveSchedule(value) {
+    // Disabled during the write so a double-tap cannot fire two updates.
+    scheduleSaveBtn.disabled = true;
+    scheduleClearBtn.disabled = true;
+    const label = scheduleSaveBtn.textContent;
+    scheduleSaveBtn.textContent = 'Saving…';
+    await trySave(
+      async () => {
+        const saved = await api.scheduleJob(job.id, value);
+        job.scheduled_for = saved.scheduled_for;
+      },
+      {
+        revert: () => { scheduleInput.value = toLocalInputValue(job.scheduled_for); },
+        success: value ? 'Scheduled' : 'Schedule cleared',
+        after: reload
+      }
+    );
+    scheduleSaveBtn.textContent = label;
+    scheduleSaveBtn.disabled = false;
+    scheduleClearBtn.disabled = false;
+    paintSchedule();
+  }
+
+  scheduleSaveBtn.addEventListener('click', () => {
+    const raw = scheduleInput.value;
+    if (!raw) return toast('Pick a date and time first', 'error');
+    const when = new Date(raw);
+    if (Number.isNaN(when.getTime())) return toast('That is not a valid date and time', 'error');
+    saveSchedule(when.toISOString());
+  });
+  scheduleClearBtn.addEventListener('click', () => {
+    if (!job.scheduled_for) return toast('Nothing to clear');
+    if (!confirmAction('Clear the scheduled date? The job will drop off the field schedule.')) return;
+    scheduleInput.value = '';
+    saveSchedule(null);
+  });
+
+  const completeBtn = el('button', { class: 'btn btn--primary', text: 'Mark job complete' });
+  const completeWhen = el('p', { class: 'hint', style: 'margin:6px 0 0' });
+
+  function paintCompletion() {
+    const when = formatWhen(job.completed_at);
+    completeWhen.textContent = when
+      ? `Completed ${when}`
+      : 'Not completed yet. Completing stamps the time used by the completion report.';
+    completeBtn.disabled = !!job.completed_at;
+    completeBtn.textContent = job.completed_at ? 'Already complete' : 'Mark job complete';
+    paintSchedule();
+  }
+
+  completeBtn.addEventListener('click', async () => {
+    if (job.completed_at) return;
+    if (!confirmAction('Mark this job complete? This stamps the completion time on the record.')) return;
+    completeBtn.disabled = true;
+    completeBtn.textContent = 'Completing…';
+    await trySave(
+      async () => {
+        const saved = await api.completeJob(job.id);
+        // completeJob only matches a row whose completed_at is still null, so
+        // a second submit returns null rather than moving the timestamp.
+        if (!saved) throw new Error('This job was already marked complete.');
+        job.completed_at = saved.completed_at;
+        job.status = saved.status;
+      },
+      { success: 'Job marked complete', after: reload }
+    );
+    paintCompletion();
+  });
 
   const address = [job.properties?.address_line1, job.properties?.city, job.properties?.postal_code]
     .filter(Boolean).join(', ');
@@ -397,15 +723,32 @@ export async function renderJob({ mount }, jobId) {
           el('p', {}, [el('a', { href: `mailto:${job.customers?.email || ''}`,
                                  text: job.customers?.email || '—' })])
         ])
+      ]),
+      el('div', { class: 'grid grid--2', style: 'margin-top:12px' }, [
+        el('div', { class: 'field', style: 'margin:0' }, [
+          el('span', { text: 'Scheduled for' }),
+          scheduleInput,
+          el('div', { class: 'btn-row', style: 'margin-top:8px' }, [scheduleSaveBtn, scheduleClearBtn]),
+          scheduleWhen
+        ]),
+        el('div', { class: 'field', style: 'margin:0' }, [
+          el('span', { text: 'Completion' }),
+          el('div', { class: 'btn-row' }, [completeBtn]),
+          completeWhen
+        ])
       ])
     ]),
+    nextStepHost,
+    requestedHost,
     sectionsHost,
     photosHost,
     measurementsPanel.root,
     inspectionHost,
     pricingHost,
-    el('div', { class: 'card' }, [quotePanel.root])
+    el('div', { class: 'card' }, [quotePanel.root]),
+    notesHost
   );
 
+  paintCompletion();
   await reload();
 }

@@ -84,6 +84,11 @@ const FAKE_API = `
   // lets individual tests vary listTodaysVisits' response without needing a
   // second (ineffective, post-cache) page.route() call.
   export async function listTodaysVisits() { return globalThis.__todaysVisits || []; }
+  // Batch 2 added a "Coming up" list to the schedule screen, which fetches
+  // this alongside today's visits. Same globalThis escape hatch as above so a
+  // test can vary it; defaults to empty, which is what these arrival-banner
+  // tests want -- they assert on today's cards only.
+  export async function listUpcomingVisits() { return globalThis.__upcomingVisits || []; }
 `;
 
 async function main() {

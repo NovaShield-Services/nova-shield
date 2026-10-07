@@ -624,7 +624,11 @@ export function createQuotePanel({ job, onChange, saveSignatureFn }) {
     const current = quotes[0];
     const { ungrouped, groups } = splitByOptionGroup(quotes);
 
-    clear(root).append(
+    // .filter(Boolean) for the same reason measurements.js does it:
+    // Element.append() stringifies any non-Node argument, so the trailing
+    // conditional below rendered the literal text "null" in the field
+    // console, which never passes measurements/services.
+    clear(root).append(...[
       el('div', { class: 'card__head' }, [
         el('div', {}, [
           el('h2', { text: 'Quotes' }),
@@ -649,7 +653,7 @@ export function createQuotePanel({ job, onChange, saveSignatureFn }) {
       // them, so this simply doesn't render there. Measurement-subset
       // selection is a desk task, not a field one.
       measurements && services ? optionGroupBuilder({ measurements, services }) : null
-    );
+    ].filter(Boolean));
 
     async function build(kind) {
       try {

@@ -83,7 +83,13 @@ async function render(job, services, measurements, attachments, notes) {
         el('div', { class: 'meta' }, [
           el('strong', { text: 'Completion Report' }),
           el('div', { text: job.reference || '' }),
-          el('div', { text: date(new Date()) })
+          // ns_jobs.completed_at, not the print date. This used to be
+          // date(new Date()), so a report regenerated a week later claimed
+          // the wrong completion date -- and before completion was a real
+          // action, completed_at was always NULL so there was nothing else
+          // to use. An un-completed job says so rather than dating itself
+          // today and implying work that hasn't been recorded as finished.
+          el('div', { text: job.completed_at ? date(job.completed_at) : 'Not yet marked complete' })
         ])
       ]),
 
@@ -116,7 +122,10 @@ async function render(job, services, measurements, attachments, notes) {
         el('h2', { text: 'Technician sign-off' }),
         el('div', { class: 'signoff-line' }, [
           el('label', { class: 'field' }, [el('span', { text: 'Technician name' }), el('input', {})]),
-          el('label', { class: 'field' }, [el('span', { text: 'Date' }), el('input', { value: date(new Date()) })])
+          el('label', { class: 'field' }, [
+            el('span', { text: 'Date' }),
+            el('input', { value: job.completed_at ? date(job.completed_at) : date(new Date()) })
+          ])
         ])
       ]),
 

@@ -157,10 +157,63 @@ export async function listTodaysVisits() {
     .order('scheduled_for'));
 }
 
-export async function getJob(id) {
+/** The next few days after today, so a tech can see what is coming without
+ *  leaving the field console. Same shape as listTodaysVisits so the schedule
+ *  screen can render either list with one row renderer. */
+export async function listUpcomingVisits(days = 7) {
+  const start = new Date(); start.setHours(0, 0, 0, 0);
+  const from = new Date(start); from.setDate(from.getDate() + 1);
+  const to = new Date(start); to.setDate(to.getDate() + 1 + days);
   return unwrap(await supabase.from('ns_jobs')
-    .select('*, customers(*), properties(*)')
+    .select('*, customers(name,phone,email), properties(address_line1,city,postal_code,latitude,longitude), ' +
+            'ns_quotes(id,version,total,status)')
+    .gte('scheduled_for', from.toISOString()).lt('scheduled_for', to.toISOString())
+    .order('scheduled_for'));
+}
+
+export async function getJob(id) {
+  // The original request's service choices come along via the normalized
+  // quote_request_services relationship, not a copy: ns_jobs.request_id ->
+  // quote_requests -> quote_request_services. Nothing is duplicated onto the
+  // job, so the request's history can't be overwritten by later quoting --
+  // "what they asked for" and "what we're quoting" stay separate records.
+  return unwrap(await supabase.from('ns_jobs')
+    .select('*, customers(*), properties(*), ' +
+            'quote_requests(id,submitted_at,customer_message,preferred_schedule,' +
+            'quote_request_services(other_label, services(id,name,key)))')
     .eq('id', id).single());
+}
+
+/** Sets or clears the scheduled date/time. Separate from the generic
+ *  updateJob patch so the one field the field console's schedule screen
+ *  depends on has a named, validated entry point.
+ *  `scheduledFor` is an ISO string, or null to clear. */
+export async function scheduleJob(id, scheduledFor) {
+  if (scheduledFor !== null) {
+    const when = new Date(scheduledFor);
+    if (Number.isNaN(when.getTime())) throw new Error('That is not a valid date and time.');
+    scheduledFor = when.toISOString();
+  }
+  return unwrap(await supabase.from('ns_jobs')
+    .update({ scheduled_for: scheduledFor }).eq('id', id).select().single());
+}
+
+/** Marks a job complete, stamping ns_jobs.completed_at.
+ *
+ *  The timestamp is the point of this: completed_at was never written by any
+ *  code path, so it was permanently NULL and the completion report dated
+ *  itself with new Date() -- a report regenerated a week later claimed the
+ *  wrong completion date.
+ *
+ *  `is null` in the WHERE clause makes this idempotent against a double
+ *  submit: the second call matches no row and returns null rather than
+ *  moving the timestamp, so the first completion time is the one that
+ *  stands. */
+export async function completeJob(id) {
+  const rows = unwrap(await supabase.from('ns_jobs')
+    .update({ status: 'completed', completed_at: new Date().toISOString() })
+    .eq('id', id).is('completed_at', null).select());
+  return rows[0] || null;
 }
 
 export async function updateJob(id, patch) {
@@ -259,13 +312,27 @@ export async function listJobFlags(jobId) {
     .select('flag_id,note').eq('job_id', jobId));
 }
 
-export async function setJobFlag(jobId, flagId, on) {
+/** Toggles an inspection flag, optionally recording what was observed.
+ *  job_inspection_flags.note has existed all along and nothing wrote it, so
+ *  a tech could tick "Difficult access" but never say why. The PK is
+ *  (job_id, flag_id), which is what makes the upsert safe to repeat. */
+export async function setJobFlag(jobId, flagId, on, note) {
   if (on) {
+    const row = { job_id: jobId, flag_id: flagId };
+    // Only send `note` when the caller actually supplied one, so toggling a
+    // flag on doesn't blank a note that is already there.
+    if (note !== undefined) row.note = note || null;
     return unwrap(await supabase.from('job_inspection_flags')
-      .upsert({ job_id: jobId, flag_id: flagId }, { onConflict: 'job_id,flag_id' }));
+      .upsert(row, { onConflict: 'job_id,flag_id' }));
   }
   return unwrap(await supabase.from('job_inspection_flags')
     .delete().eq('job_id', jobId).eq('flag_id', flagId));
+}
+
+/** Records an observation against an already-ticked flag. */
+export async function setJobFlagNote(jobId, flagId, note) {
+  return unwrap(await supabase.from('job_inspection_flags')
+    .update({ note: note || null }).eq('job_id', jobId).eq('flag_id', flagId));
 }
 
 /* ----------------------------------------------------------- attachments -- */
@@ -330,9 +397,37 @@ export async function listNotes(jobId) {
     .select('*').eq('job_id', jobId).order('created_at', { ascending: false }));
 }
 
+/** job_notes.visibility is a CHECK of exactly 'internal' | 'customer'.
+ *  'customer' is the existing representation of a customer-facing note --
+ *  completion-report.js already filters on it -- so there is no separate
+ *  customer-notes field to add.
+ *
+ *  author_id references auth.users. admin_users holds only user_id and the
+ *  client cannot read auth.users, so the author is stored but can only be
+ *  rendered as "you" vs "another admin"; there is no name to display. */
 export async function addNote(jobId, body, visibility = 'internal') {
+  const text = (body || '').trim();
+  if (!text) throw new Error('A note needs some text.');
+  if (visibility !== 'internal' && visibility !== 'customer') {
+    throw new Error(`Unknown note visibility: ${visibility}`);
+  }
+  const { data: { session } } = await supabase.auth.getSession();
   return unwrap(await supabase.from('job_notes')
-    .insert({ job_id: jobId, body, visibility }).select().single());
+    .insert({ job_id: jobId, body: text, visibility, author_id: session?.user?.id || null })
+    .select().single());
+}
+
+/** The signed-in admin's auth user id, for telling "your note" from
+ *  "another admin's note". There is no name available: job_notes.author_id
+ *  references auth.users, which the browser client cannot read, and
+ *  admin_users holds only user_id. */
+export async function currentUserId() {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.user?.id || null;
+}
+
+export async function deleteNote(id) {
+  return unwrap(await supabase.from('job_notes').delete().eq('id', id));
 }
 
 /* --------------------------------------------------------------- pricing -- */

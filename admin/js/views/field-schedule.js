@@ -4,12 +4,21 @@ import { money, humanise } from '../../../shared/format.js';
 import { onMyWayLink } from '../lib/messaging.js';
 import { getDevicePosition } from '../lib/native.js';
 import { hasArrived } from '../lib/geofence.js';
+import { describeWriteError } from '../lib/save.js';
 
 function timeOnly(value) {
   if (!value) return null;
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? null
     : d.toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' });
+}
+
+function dayAndTime(value) {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null
+    : d.toLocaleString('en-CA', { weekday: 'short', month: 'short', day: 'numeric',
+                                  hour: 'numeric', minute: '2-digit' });
 }
 
 function latestQuoteTotal(job) {
@@ -21,13 +30,22 @@ function latestQuoteTotal(job) {
 /** Today's Schedule Overview: every job booked for today, each with its own
  *  one-tap action bar. This is the field console's home screen. */
 export async function renderSchedule({ mount, navigate }) {
-  const visits = await api.listTodaysVisits();
+  const [visits, upcoming] = await Promise.all([
+    api.listTodaysVisits(),
+    api.listUpcomingVisits()
+  ]);
   const cardByJobId = new Map();
 
   async function startVisit(job) {
     try {
       if (job.status !== 'in_progress') await api.updateJob(job.id, { status: 'in_progress' });
-    } catch (err) { /* non-fatal -- still open the workspace */ }
+    } catch (err) {
+      // Still open the workspace -- the tech is on site and the work matters
+      // more than the status flag -- but say so rather than swallowing it.
+      // Silently failing here meant the office never saw the job start, and
+      // the arrival banner kept re-offering a visit already under way.
+      toast(`Opened the visit, but could not mark it in progress: ${describeWriteError(err)}`, 'error');
+    }
     navigate(`/visit/${job.id}`);
   }
 
@@ -113,6 +131,21 @@ export async function renderSchedule({ mount, navigate }) {
     }
   }
 
+  /* Upcoming is deliberately a compact list, not another stack of action
+     cards: it answers "what's coming" at a glance. The one-tap action bar
+     belongs to today's work. */
+  function upcomingRow(job) {
+    const when = dayAndTime(job.scheduled_for);
+    const address = [job.properties?.address_line1, job.properties?.city].filter(Boolean).join(', ');
+    return el('div', { class: 'row-item' }, [
+      el('div', { class: 'row-item__main' }, [
+        el('strong', { text: job.customers?.name || 'Unnamed customer' }),
+        el('span', { class: 'row-item__meta', text: [when, address].filter(Boolean).join(' · ') })
+      ]),
+      el('a', { class: 'btn btn--sm', href: `#/visit/${job.id}`, text: 'Open' })
+    ]);
+  }
+
   clear(mount).append(
     el('div', { class: 'page-head', style: 'padding:0 0 10px' }, [
       el('h1', { text: "Today's schedule" }),
@@ -123,7 +156,18 @@ export async function renderSchedule({ mount, navigate }) {
     ]),
     visits.length
       ? el('div', {}, visits.map(visitCard))
-      : el('div', { class: 'empty', text: 'No visits scheduled for today. Set a job’s "Scheduled for" date in the desktop field tool to see it here.' })
+      : el('div', { class: 'empty', text: 'No visits scheduled for today. Set a job’s "Scheduled for" date and time on the job page to see it here.' }),
+    upcoming.length
+      ? el('div', { class: 'card' }, [
+          el('div', { class: 'card__head' }, [
+            el('div', {}, [
+              el('h2', { text: 'Coming up' }),
+              el('p', { text: 'The next 7 days.' })
+            ])
+          ]),
+          el('div', {}, upcoming.map(upcomingRow))
+        ])
+      : null
   );
 
   if (visits.length) checkArrival();

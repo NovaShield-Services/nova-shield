@@ -8,6 +8,7 @@ import * as offlineQueue from '../lib/offline-queue.js';
 import { reviewRequestLink } from '../lib/messaging.js';
 import { isNative, hapticLight, getDevicePosition } from '../lib/native.js';
 import { reviewFlag } from '../components/review-flag.js';
+import { trySave, describeWriteError } from '../lib/save.js';
 
 /* The four action types this console queues offline, per the task:
    Passport/checklist writes, adding a measurement, uploading a photo, and
@@ -287,8 +288,103 @@ export async function renderVisit({ mount, navigate }, jobId) {
 
   const statusSelect = select(
     JOB_STATUSES.map(s => ({ value: s, label: humanise(s) })), job.status,
-    async (e) => { await api.updateJob(job.id, { status: e.target.value }); toast('Status updated'); }
+    async (e) => {
+      const control = e.target;
+      const before = job.status;
+      await trySave(
+        async () => {
+          await api.updateJob(job.id, { status: control.value });
+          job.status = control.value;
+        },
+        { revert: () => { control.value = before; }, success: 'Status updated' }
+      );
+    }
   );
+
+  /* Explicit completion, rather than hunting for 'completed' in a 15-item
+     dropdown. This is the action that stamps ns_jobs.completed_at, which was
+     never written before and which the completion report now dates itself
+     from. api.completeJob only matches a row whose completed_at is still
+     null, so a double-tap cannot move an existing completion time. */
+  const completeBtn = el('button', { class: 'btn btn--primary', text: 'Mark Job Complete' });
+  const completeHint = el('p', { class: 'hint', style: 'margin:6px 0 0' });
+
+  function paintCompletion() {
+    const done = !!job.completed_at;
+    completeBtn.disabled = done;
+    completeBtn.textContent = done ? 'Job Complete' : 'Mark Job Complete';
+    completeHint.textContent = done
+      ? `Completed ${new Date(job.completed_at).toLocaleString('en-CA')}`
+      : 'Stamps the completion time on the job record.';
+  }
+
+  completeBtn.addEventListener('click', async () => {
+    if (job.completed_at) return;
+    if (!confirmAction('Mark this job complete?')) return;
+    completeBtn.disabled = true;
+    completeBtn.textContent = 'Completing…';
+    await trySave(
+      async () => {
+        const saved = await api.completeJob(job.id);
+        if (!saved) throw new Error('This job was already marked complete.');
+        job.completed_at = saved.completed_at;
+        job.status = saved.status;
+        statusSelect.value = saved.status;
+      },
+      { success: 'Job marked complete' }
+    );
+    paintCompletion();
+  });
+
+  /* Notes from the field. job_notes has existed since the core schema and
+     nothing in either console could write it, so what a tech observed only
+     ever reached the office by phone. Deliberately not offline-queueable:
+     the outbox covers four write types by design (see offline-queue.js), and
+     silently queuing a fifth would overstate what it guarantees. */
+  const noteBody = el('textarea', { placeholder: 'What you saw, what you did, what to tell the office…',
+                                    'aria-label': 'Note' });
+  const noteVisibility = select(
+    [{ value: 'internal', label: 'Internal — staff only' },
+     { value: 'customer', label: 'Customer-visible' }],
+    'internal'
+  );
+  const noteBtn = el('button', { class: 'btn', text: 'Save note' });
+  const notesList = el('div', {});
+
+  noteBtn.addEventListener('click', async () => {
+    const text = noteBody.value.trim();
+    if (!text) return toast('Write the note first', 'error');
+    noteBtn.disabled = true;
+    noteBtn.textContent = 'Saving…';
+    const ok = await trySave(
+      () => api.addNote(job.id, text, noteVisibility.value),
+      { success: 'Note saved' }
+    );
+    if (ok) { noteBody.value = ''; await refreshNotes(); }
+    noteBtn.disabled = false;
+    noteBtn.textContent = 'Save note';
+  });
+
+  async function refreshNotes() {
+    try {
+      const notes = await api.listNotes(job.id);
+      clear(notesList).append(
+        notes.length
+          ? el('div', {}, notes.map(n => el('div', { class: 'section-box' }, [
+              el('span', {
+                class: `badge ${n.visibility === 'customer' ? 'badge--warn' : 'badge--muted'}`,
+                text: n.visibility === 'customer' ? 'Customer-visible' : 'Internal'
+              }),
+              el('p', { style: 'margin:8px 0 0;white-space:pre-wrap', text: n.body })
+            ])))
+          : el('div', { class: 'empty', text: 'No notes on this job yet.' })
+      );
+    } catch (err) {
+      clear(notesList).append(
+        el('p', { class: 'error-text', text: `Could not load notes: ${describeWriteError(err)}` })
+      );
+    }
+  }
 
   // Every offline-queued save below (passport, a measurement, a signature)
   // calls this afterward via onChange/onSaved WITHOUT awaiting it -- so
@@ -388,7 +484,11 @@ export async function renderVisit({ mount, navigate }, jobId) {
     el('div', { class: 'card' }, [
       el('div', { class: 'grid grid--2' }, [
         el('label', { class: 'field', style: 'margin:0' }, [el('span', { text: 'Status' }), statusSelect]),
-        el('div', {})
+        el('div', { class: 'field', style: 'margin:0' }, [
+          el('span', { text: 'Completion' }),
+          el('div', { class: 'btn-row' }, [completeBtn]),
+          completeHint
+        ])
       ]),
       el('div', { class: 'btn-row', style: 'margin-top:10px' }, [
         address ? el('a', { class: 'btn', target: '_blank', rel: 'noopener',
@@ -419,8 +519,22 @@ export async function renderVisit({ mount, navigate }, jobId) {
     sectionsHost,
     measurementsPanel.root,
     el('div', { class: 'card' }, [quotePanel.root]),
-    photosPanel.root
+    photosPanel.root,
+    el('div', { class: 'card' }, [
+      el('div', { class: 'card__head' }, [
+        el('div', {}, [
+          el('h2', { text: 'Notes' }),
+          el('p', { text: 'Needs a connection — notes are not part of the offline outbox.' })
+        ])
+      ]),
+      el('label', { class: 'field' }, [el('span', { text: 'New note' }), noteBody]),
+      el('label', { class: 'field' }, [el('span', { text: 'Who can see it' }), noteVisibility]),
+      el('div', { class: 'btn-row', style: 'margin-bottom:12px' }, [noteBtn]),
+      notesList
+    ])
   );
 
+  paintCompletion();
   await reload();
+  await refreshNotes();
 }
