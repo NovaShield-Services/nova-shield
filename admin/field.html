@@ -20,6 +20,12 @@
   .field-topbar {
     position: sticky; top: 0; z-index: 5;
     display: flex; align-items: center; justify-content: space-between;
+    /* Wraps instead of overflowing. With a queue badge ("Offline — 11 saved
+       here"), Sync Now and Sign out all visible, the row measured 452px
+       against a 390px viewport and gave the whole page a horizontal scroll --
+       exactly when a tech is offline in a driveway, which is the situation
+       this console exists for. */
+    flex-wrap: wrap;
     gap: 10px; padding: 12px 16px;
     /* A sticky element sticks to the viewport edge once scrolled, past
        whatever safe-area padding body itself has -- same reasoning as
@@ -58,13 +64,16 @@
   }
   .sync-badge--ok     { background: var(--ok-soft); color: var(--ok); }
   .sync-badge--queued { background: var(--gold-soft); color: var(--gold); }
+  /* Sync failed is its own state: it used to look identical to "pending",
+     so a stuck queue read as a queue that was merely waiting. */
+  .sync-badge--error  { background: var(--danger-soft); color: var(--danger); }
 </style>
 </head>
 <body>
 
 <header class="field-topbar">
   <a class="field-topbar__brand" href="#/">Nova&nbsp;Shield <em>Field</em></a>
-  <div style="display:flex;align-items:center;gap:8px">
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
     <button class="btn btn--sm" id="syncNow" hidden>Sync Now</button>
     <span class="sync-badge sync-badge--ok" id="syncBadge">Online</span>
     <button class="btn btn--sm" id="signOut">Sign out</button>

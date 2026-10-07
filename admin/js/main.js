@@ -1,5 +1,6 @@
 import { supabase, getSession } from '../../shared/supabase.js';
 import { el, clear, toast } from '../../shared/dom.js';
+import { installUnhandledRejectionToast } from './lib/save.js';
 import { renderLogin } from './views/login.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderRequests } from './views/requests.js';
@@ -115,6 +116,13 @@ document.getElementById('signOut')?.addEventListener('click', async () => {
   navigate('/dashboard');
   router();
 });
+
+/* The router's try/catch only covers the initial render. Every post-mutation
+   refresh is invoked un-awaited (quote.js calls onChange() ten times without
+   awaiting it), so a rejected reload used to vanish into the console and leave
+   a success toast sitting over a stale card -- which invites a double-send.
+   This is the last-resort net for anything that escapes trySave(). */
+installUnhandledRejectionToast();
 
 window.addEventListener('hashchange', router);
 router();

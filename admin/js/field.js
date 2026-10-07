@@ -5,8 +5,14 @@ import { renderSchedule } from './views/field-schedule.js';
 import { renderVisit } from './views/field-workspace.js';
 import * as offlineQueue from './lib/offline-queue.js';
 import { setStatusBarTheme } from './lib/native.js';
+import { installUnhandledRejectionToast } from './lib/save.js';
 
 setStatusBarTheme();
+
+/* Same net as the desktop console: the field screens do inline saves from
+   event handlers, and a rejection with no handler used to leave the control
+   showing a value that never reached Supabase. */
+installUnhandledRejectionToast();
 
 /* A small, separate router rather than a mode bolted onto main.js's: the
    field console is a dedicated page by design (different layout, different
@@ -89,21 +95,56 @@ document.getElementById('signOut')?.addEventListener('click', async () => {
 const syncBadge = document.getElementById('syncBadge');
 const syncNowBtn = document.getElementById('syncNow');
 
-function paintBadge(queuedCount) {
-  if (queuedCount > 0) {
-    syncBadge.textContent = `Offline Queue: ${queuedCount} action${queuedCount === 1 ? '' : 's'}`;
+/* Four states the tech must be able to tell apart, because they call for
+   different actions:
+     synced       - nothing outstanding, connection fine
+     offline      - no connection; anything saved is saved HERE, not on the server
+     pending sync - has connection, replay in flight or waiting
+     sync failed  - has connection but replay hit a real error; needs attention
+   These used to collapse into two: a green "Online" and one yellow pill that
+   meant offline, pending and failed all at once. Worse, the 'online' event
+   painted the badge green with a hardcoded count of 0, so a queue that was
+   still full -- or permanently stuck -- read as fully synced. */
+function paintBadge(state) {
+  const { count, online, syncing, lastError } = state;
+  syncNowBtn.hidden = !(count > 0 && online && !syncing);
+
+  if (count === 0) {
+    syncBadge.textContent = online ? 'Synced' : 'Offline';
+    syncBadge.className = online ? 'sync-badge sync-badge--ok' : 'sync-badge sync-badge--queued';
+    return;
+  }
+  const n = `${count} saved here`;
+  if (!online) {
+    syncBadge.textContent = `Offline — ${n}`;
     syncBadge.className = 'sync-badge sync-badge--queued';
-    syncNowBtn.hidden = false;
+  } else if (syncing) {
+    syncBadge.textContent = `Syncing ${count}…`;
+    syncBadge.className = 'sync-badge sync-badge--queued';
+  } else if (lastError) {
+    syncBadge.textContent = `Sync failed — ${n}`;
+    syncBadge.className = 'sync-badge sync-badge--error';
   } else {
-    syncBadge.textContent = navigator.onLine ? 'Online' : 'Offline';
-    syncBadge.className = navigator.onLine ? 'sync-badge sync-badge--ok' : 'sync-badge sync-badge--queued';
-    syncNowBtn.hidden = true;
+    syncBadge.textContent = `Pending sync — ${count}`;
+    syncBadge.className = 'sync-badge sync-badge--queued';
   }
 }
 
 offlineQueue.subscribe(paintBadge);
-window.addEventListener('online', () => paintBadge(0));
-window.addEventListener('offline', () => offlineQueue.count().then(paintBadge));
+
+/* Tapping the badge lists what is actually waiting. The queue has always
+   stored a human label per item; nothing rendered it, so a tech with a stuck
+   queue saw a number and had no way to find out what it was. */
+syncBadge.style.cursor = 'pointer';
+syncBadge.setAttribute('title', 'Tap to see what is waiting to sync');
+syncBadge.addEventListener('click', async () => {
+  const state = offlineQueue.syncState();
+  if (!state.count) return toast(state.online ? 'Everything is synced' : 'Offline — nothing waiting to sync');
+  const items = await offlineQueue.pending();
+  const summary = items.map((i) => i.label || i.type).join(', ');
+  toast(state.lastError ? `Waiting: ${summary} — last error: ${state.lastError}` : `Waiting to sync: ${summary}`,
+        state.lastError ? 'error' : 'info');
+});
 
 syncNowBtn.addEventListener('click', async () => {
   syncNowBtn.disabled = true;

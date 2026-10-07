@@ -56,15 +56,48 @@ export async function updateSetting(key, value) {
 }
 
 export async function updatePricingRule(serviceId, { rate, minimum }) {
-  // close the current rule and open a new one, so quotes already sent keep
-  // the basis they were built on
-  unwrap(await supabase.from('pricing_rules')
-    .update({ effective_to: new Date().toISOString() })
-    .eq('service_id', serviceId).is('effective_to', null));
+  // Close the current rule and open a new one, so quotes already sent keep
+  // the basis they were built on.
+  //
+  // Two things here are load-bearing:
+  //
+  // 1. approval_status is carried forward explicitly. The column defaults to
+  //    'approved' in the database, so inserting without it silently promotes
+  //    a *provisional* rate to approved -- which would let a customer accept
+  //    pricing nobody had signed off, defeating the whole provisional-pricing
+  //    guard. Changing a number is not the same act as approving it.
+  // 2. The close is undone if the insert fails. Otherwise the service is left
+  //    with no open rule at all, and every job reads it as 'unpriced'.
+  const open = unwrap(await supabase.from('pricing_rules')
+    .select('id, approval_status')
+    .eq('service_id', serviceId).is('effective_to', null)
+    .order('effective_from', { ascending: false }));
 
-  return unwrap(await supabase.from('pricing_rules')
-    .insert({ service_id: serviceId, rate, minimum, note: 'Updated from admin settings' })
-    .select().single());
+  const previous = open[0] || null;
+
+  if (previous) {
+    unwrap(await supabase.from('pricing_rules')
+      .update({ effective_to: new Date().toISOString() })
+      .eq('service_id', serviceId).is('effective_to', null));
+  }
+
+  try {
+    return unwrap(await supabase.from('pricing_rules')
+      .insert({
+        service_id: serviceId, rate, minimum,
+        // No prior rule means this service was unpriced; a rate typed into
+        // settings is not an approval, so it starts provisional.
+        approval_status: previous ? previous.approval_status : 'provisional',
+        note: 'Updated from admin settings'
+      })
+      .select().single());
+  } catch (err) {
+    if (previous) {
+      await supabase.from('pricing_rules')
+        .update({ effective_to: null }).eq('id', previous.id);
+    }
+    throw err;
+  }
 }
 
 export async function setServiceActive(serviceId, patch) {
@@ -245,6 +278,18 @@ export async function listAttachments(jobId) {
 /** Private bucket: a short-lived signed URL is minted per view. Defaults to
  *  the customer-upload bucket for existing callers; the field console's own
  *  site photos live in the separate 'job-photos' bucket. */
+/** Which bucket an attachment row's file actually lives in.
+ *
+ *  Customer uploads arrive through attach_request_photo into 'request-photos'
+ *  and keep their request_id even after create_job_from_request reparents them
+ *  onto the job. Staff captures from the field console go to 'job-photos' and
+ *  never set one. Signing against the wrong bucket fails, which is why every
+ *  field-captured photo used to render "Preview unavailable" on the desk job
+ *  screen -- the one place the office actually reviews them. */
+export function attachmentBucket(attachment) {
+  return attachment?.request_id ? 'request-photos' : 'job-photos';
+}
+
 export async function signedPhotoUrl(storagePath, seconds = 900, bucket = 'request-photos') {
   const { data, error } = await supabase.storage
     .from(bucket).createSignedUrl(storagePath, seconds);

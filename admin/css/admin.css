@@ -91,6 +91,21 @@ a { color: var(--accent); }
 /* ------------------------------------------------------------------- nav -- */
 .nav { display: none; background: var(--surface); border-bottom: 1px solid var(--line); }
 .nav.is-open { display: block; }
+/* The drawer has to stick with the topbar that opens it. .topbar is sticky but
+   .nav was a static sibling, so it rendered at its document position: measured
+   at 390px with the page scrolled to 1755px, nav.top was -1678px -- i.e.
+   tapping the hamburger anywhere below the fold did nothing visible, on every
+   list long enough to scroll. Desktop (>=860px) lays the nav out as a sidebar
+   and never had the problem, which is why it survived.
+   Scoped to the mobile drawer only; the min-width:860px block below resets it. */
+.nav.is-open {
+  position: sticky;
+  top: calc(var(--tap) + 16px + env(safe-area-inset-top));
+  z-index: 29;                       /* just under .topbar's 30 */
+  max-height: calc(100vh - var(--tap) - 16px - env(safe-area-inset-top));
+  overflow-y: auto;
+  box-shadow: var(--shadow);
+}
 .nav a {
   display: block; padding: 14px 16px; min-height: var(--tap);
   color: var(--text); text-decoration: none; border-bottom: 1px solid var(--line);
@@ -100,6 +115,11 @@ a { color: var(--accent); }
 @media (min-width: 860px) {
   .topbar__menu { display: none; }
   .nav { display: flex; gap: 4px; padding: 0 12px; }
+  /* Desktop is a horizontal bar, not a drawer -- undo the mobile stickiness
+     so it doesn't float over the page or gain its own scrollbar. */
+  .nav.is-open {
+    position: static; max-height: none; overflow: visible; box-shadow: none;
+  }
   .nav a { border-bottom: 3px solid transparent; padding: 12px 14px; }
   .nav a[aria-current="page"] { background: none; border-bottom-color: var(--accent); }
 }
@@ -130,6 +150,19 @@ h3 { font-size: .95rem; margin: 0; }
   gap: 10px; flex-wrap: wrap; margin-bottom: 12px;
 }
 .card__head p { margin: 2px 0 0; color: var(--muted); font-size: .85rem; }
+
+/* Long unbreakable strings must not widen the page. Grid and flex items
+   default to min-width:auto, so a real 49-char customer email in the job
+   contact card measured 458px against a 364px content box and gave the whole
+   job screen -- the most-used admin page -- a horizontal scroll. It persisted
+   in single-column mode, so the grid track was never the cause: the text run
+   itself is. Applied to the places that carry user-supplied strings. */
+.field, .field p, .row-item, .row-item__main, .row-item__meta, .card, .qline {
+  min-width: 0;
+}
+.field p, .row-item__meta, .card__head p, .hint {
+  overflow-wrap: anywhere;
+}
 
 /* ----------------------------------------------------------------- forms -- */
 .field { display: block; margin-bottom: 12px; }
@@ -246,7 +279,18 @@ input[inputmode="decimal"], input[type="number"] {
 
 /* ----------------------------------------------------------------- toast -- */
 .toast {
-  position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+  /* left:50% + translateX(-50%) with no width meant shrink-to-fit only saw
+     the space from the midpoint to the right edge, so max-width was
+     unreachable and every toast was capped at exactly half the viewport --
+     the standard offline message rendered as a 195px four-line box on a
+     phone. Insetting both sides and centring with margin lets it use the
+     width it was always meant to have.
+     bottom also respects the safe-area inset now; it was the only
+     fixed-position element in the file that didn't, so on a notched iPhone
+     the app's entire feedback channel sat under the home indicator. */
+  position: fixed; left: 12px; right: 12px; transform: none;
+  bottom: max(20px, calc(12px + env(safe-area-inset-bottom)));
+  width: fit-content; margin-inline: auto;
   z-index: 60; max-width: min(520px, calc(100% - 24px));
   padding: 12px 16px; border-radius: var(--radius);
   background: var(--text); color: var(--bg);

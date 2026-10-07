@@ -4,6 +4,7 @@ import { money, date, humanise } from '../../../shared/format.js';
 import { createMeasurementsPanel } from './measurements.js';
 import { createQuotePanel } from './quote.js';
 import { reviewFlag } from '../components/review-flag.js';
+import { trySave } from '../lib/save.js';
 
 const JOB_STATUSES = ['new','reviewing','estimate_drafted','site_visit_scheduled','assessed',
   'quote_sent','accepted','declined','scheduled','in_progress','completed','invoiced','paid',
@@ -90,9 +91,19 @@ export async function renderJob({ mount }, jobId) {
     const rows = refs.sections.map(section => {
       function patch(field) {
         return async e => {
-          await api.updateSection(section.id, { [field]: e.target.value });
-          section[field] = e.target.value;
-          refreshPricing();
+          const control = e.target;
+          const before = section[field];
+          // Full reload, not refreshPricing(): height and access feed the
+          // per-service totals rendered by the measurements panel as well as
+          // the subtotal card, so repainting only the latter left the service
+          // cards showing the old money next to a new total.
+          await trySave(
+            async () => {
+              await api.updateSection(section.id, { [field]: control.value });
+              section[field] = control.value;
+            },
+            { revert: () => { control.value = before; }, after: reload }
+          );
         };
       }
 
@@ -101,17 +112,26 @@ export async function renderJob({ mount }, jobId) {
           el('input', {
             value: section.name, 'aria-label': 'Section name', style: 'max-width:240px',
             onChange: async e => {
-              const name = e.target.value.trim() || 'Section';
-              await api.updateSection(section.id, { name });
-              section.name = name;
+              const control = e.target;
+              const before = section.name;
+              const name = control.value.trim() || 'Section';
+              await trySave(
+                async () => {
+                  await api.updateSection(section.id, { name });
+                  section.name = name;
+                },
+                { revert: () => { control.value = before; } }
+              );
             }
           }),
           el('button', {
             class: 'btn btn--sm btn--danger', text: 'Remove',
-            onClick: async () => {
+            onClick: async (e) => {
               if (!confirmAction(`Remove "${section.name}"? Measurements using it will lose their section.`)) return;
-              await api.deleteSection(section.id);
-              await reload();
+              const btn = e.target;
+              btn.disabled = true;
+              await trySave(() => api.deleteSection(section.id), { after: reload });
+              btn.disabled = false;
             }
           })
         ]),
@@ -147,13 +167,20 @@ export async function renderJob({ mount }, jobId) {
           ]),
           el('button', {
             class: 'btn btn--sm', text: '+ Add section',
-            onClick: async () => {
+            onClick: async (e) => {
+              // Disabled during the write: a double-tap used to create two
+              // sections, and there is no undo.
+              const btn = e.target;
+              btn.disabled = true;
               const names = ['Front','Rear','Left side','Right side','Garage','Addition'];
-              await api.createSection(job.id, {
-                name: names[refs.sections.length] || 'Other',
-                sort_order: refs.sections.length + 1
-              });
-              await reload();
+              await trySave(
+                () => api.createSection(job.id, {
+                  name: names[refs.sections.length] || 'Other',
+                  sort_order: refs.sections.length + 1
+                }),
+                { after: reload }
+              );
+              btn.disabled = false;
             }
           })
         ]),
@@ -203,10 +230,10 @@ export async function renderJob({ mount }, jobId) {
       });
       grid.append(tile);
       try {
-        const url = await api.signedPhotoUrl(a.storage_path);
+        const url = await api.signedPhotoUrl(a.storage_path, 900, api.attachmentBucket(a));
         clear(tile).append(el('a', { href: url, target: '_blank', rel: 'noopener',
           style: 'display:block;width:100%;height:100%' }, [
-          el('img', { src: url, alt: a.caption || 'Customer photo',
+          el('img', { src: url, alt: a.caption || `${humanise(a.kind)} photo`,
                       style: 'width:100%;height:100%;object-fit:cover;display:block' })
         ]));
       } catch (err) {
@@ -232,8 +259,11 @@ export async function renderJob({ mount }, jobId) {
         box, el('span', { text: flag.name })
       ]);
       box.addEventListener('change', async () => {
-        await api.setJobFlag(job.id, flag.id, box.checked);
-        await reload();
+        const before = !box.checked;
+        await trySave(
+          () => api.setJobFlag(job.id, flag.id, box.checked),
+          { revert: () => { box.checked = before; }, after: reload }
+        );
       });
       return label;
     });
@@ -331,8 +361,15 @@ export async function renderJob({ mount }, jobId) {
     JOB_STATUSES.map(s => ({ value: s, label: humanise(s) })),
     job.status,
     async e => {
-      await api.updateJob(job.id, { status: e.target.value });
-      toast('Status updated');
+      const control = e.target;
+      const before = job.status;
+      await trySave(
+        async () => {
+          await api.updateJob(job.id, { status: control.value });
+          job.status = control.value;
+        },
+        { revert: () => { control.value = before; }, success: 'Status updated' }
+      );
     }
   );
 

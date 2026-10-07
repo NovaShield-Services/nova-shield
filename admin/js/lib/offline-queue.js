@@ -79,21 +79,56 @@ const HANDLERS = {
 };
 
 const listeners = new Set();
-function notify(count) { for (const cb of listeners) cb(count); }
+
+/* Observable sync state, not just a count. The field console has to be able
+   to tell four situations apart -- saved locally, pending sync, synced, sync
+   failed -- and a bare number collapses three of them into one. `lastError`
+   is kept here rather than discarded because auto-flush (the 'online'
+   listener below) has no caller to return it to, so a failed background
+   replay used to leave no trace anywhere in the UI. */
+let flushInFlight = null;
+let lastError = null;
+let queued = 0;
+
+export function syncState() {
+  return {
+    count: queued,
+    online: typeof navigator === 'undefined' ? true : navigator.onLine,
+    syncing: flushInFlight !== null,
+    lastError
+  };
+}
+
+function notify(nextCount) {
+  if (typeof nextCount === 'number') queued = nextCount;
+  const snapshot = syncState();
+  for (const cb of listeners) cb(snapshot);
+}
 
 export function subscribe(cb) {
   listeners.add(cb);
-  count().then(cb);
+  count().then((n) => { queued = n; cb(syncState()); });
   return () => listeners.delete(cb);
 }
 
 export async function count() {
-  return withStore('readonly', (store) => reqToPromise(store.count()));
+  const n = await withStore('readonly', (store) => reqToPromise(store.count()));
+  queued = n;
+  return n;
 }
 
 async function enqueue(type, args, label) {
   await withStore('readwrite', (store) => store.add({ type, args, label, createdAt: Date.now() }));
   notify(await count());
+}
+
+/** What is currently waiting to sync, oldest first. The queue already stores
+ *  a human label per item ("Photo upload", "Customer signature"); nothing
+ *  rendered it, so a tech with a stuck queue could see a count and had no way
+ *  to find out what it was. */
+export async function pending() {
+  const items = await withStore('readonly', (store) => reqToPromise(store.getAll()));
+  return (items || []).map((i) => ({ id: i.id, label: i.label, type: i.type, createdAt: i.createdAt }));
 }
 
 /** True if this looks like "the network isn't there" rather than a real
@@ -138,10 +173,25 @@ export async function callOrQueue(type, args, label) {
 /** Replays the queue in order, stopping at the first failure. Safe to call
  *  whenever (on 'online', on a manual Sync Now tap, on page load) -- an
  *  empty queue is a cheap no-op. */
-export async function flush() {
+export function flush() {
+  // Re-entrancy guard. Four separate triggers can call this -- the 'online'
+  // listener, the load-time attempt, a manual Sync Now tap, and a caller
+  // after a queued write -- and each loop iteration reads the head record in
+  // its own short read-only transaction. Two overlapping flushes therefore
+  // read the SAME head record and both run its handler, which is a
+  // deterministic double-execution of every queued write, not the narrow
+  // lost-response window this module's guarantee accepts. Concurrent callers
+  // now join the flush already in progress instead of starting a second one.
+  if (flushInFlight) return flushInFlight;
+  flushInFlight = runFlush().finally(() => { flushInFlight = null; notify(); });
+  notify();                      // repaint as "syncing" while it runs
+  return flushInFlight;
+}
+
+async function runFlush() {
   const flushedLabels = [];
   let remaining = 0;
-  let lastError = null;
+  lastError = null;
 
   // One record at a time: open+read, call its handler, then open+delete --
   // never a long-lived transaction spanning an await, which IndexedDB
@@ -156,18 +206,26 @@ export async function flush() {
       await withStore('readwrite', (store) => store.delete(next.id));
       flushedLabels.push(next.value.label);
     } catch (err) {
-      lastError = err;
+      // Stored as a message string, not the Error: syncState() is a snapshot
+      // the badge renders as text, and an Error object there both reads as
+      // "[object Error]" and serialises to {}.
+      lastError = err?.message || String(err);
       break;
     }
   }
 
   remaining = await count();
   notify(remaining);
-  return { flushed: flushedLabels, remaining, error: lastError?.message || null };
+  return { flushed: flushedLabels, remaining, error: lastError };
 }
 
 if (typeof window !== 'undefined') {
-  window.addEventListener('online', () => { flush().catch(() => {}); });
+  // Repaint on connectivity changes so the badge reflects online/offline even
+  // when the queue count has not moved. The flush itself reports its own
+  // outcome through notify(); errors are held in `lastError` rather than
+  // swallowed, so a failed background replay is visible in the badge.
+  window.addEventListener('online', () => { notify(); flush().catch(() => {}); });
+  window.addEventListener('offline', () => { notify(); });
   // Covers the case where items were queued and the page was closed before
   // ever coming back online -- next load, while already online, tries once.
   if (navigator.onLine) flush().catch(() => {});

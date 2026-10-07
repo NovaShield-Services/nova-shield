@@ -3,6 +3,7 @@ import { el, clear, toast, select, numberInput, confirmAction } from '../../../s
 import { unitLabel, money, num } from '../../../shared/format.js';
 import { reviewFlag } from '../components/review-flag.js';
 import { modifierGroupsFor } from '../components/modifier-groups.js';
+import { trySave } from '../lib/save.js';
 import { createHeatingWireCalculator } from '../components/heating-wire-calculator.js';
 import { createSidingCalculator } from '../components/siding-calculator.js';
 import { createGutterBrighteningCalculator } from '../components/gutter-brightening-calculator.js';
@@ -43,8 +44,15 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
     const selectedIds = new Set((measurement.measurement_modifiers || []).map(r => r.modifier_id));
 
     const qtyInput = numberInput(measurement.quantity, async e => {
-      await api.updateMeasurement(measurement.id, { quantity: num(e.target.value) });
-      onChange();
+      const control = e.target;
+      const before = measurement.quantity;
+      await trySave(
+        async () => {
+          await api.updateMeasurement(measurement.id, { quantity: num(control.value) });
+          measurement.quantity = num(control.value);
+        },
+        { revert: () => { control.value = before; }, after: onChange }
+      );
     }, { step: service.unit === 'each' ? '1' : '10', 'aria-label': 'Quantity' });
 
     const sectionSelect = select(
@@ -52,8 +60,15 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
        ...refs.sections.map(s => ({ value: s.id, label: s.name }))],
       measurement.section_id || '',
       async e => {
-        await api.updateMeasurement(measurement.id, { section_id: e.target.value || null });
-        onChange();
+        const control = e.target;
+        const before = measurement.section_id || '';
+        await trySave(
+          async () => {
+            await api.updateMeasurement(measurement.id, { section_id: control.value || null });
+            measurement.section_id = control.value || null;
+          },
+          { revert: () => { control.value = before; }, after: onChange }
+        );
       }
     );
 
@@ -73,8 +88,12 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
           })),
           current?.id || defaultOpt?.id || '',
           async e => {
-            await api.setMeasurementModifier(measurement.id, groupIds, e.target.value);
-            onChange();
+            const control = e.target;
+            const before = current?.id || defaultOpt?.id || '';
+            await trySave(
+              () => api.setMeasurementModifier(measurement.id, groupIds, control.value),
+              { revert: () => { control.value = before; }, after: onChange }
+            );
           }
         )
       ]);
@@ -95,7 +114,12 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
         ]),
         el('button', {
           class: 'btn btn--sm btn--danger', text: 'Remove',
-          onClick: async () => { await api.deleteMeasurementAddon(a.id); onChange(); }
+          onClick: async (e) => {
+            const btn = e.target;
+            btn.disabled = true;
+            await trySave(() => api.deleteMeasurementAddon(a.id), { after: onChange });
+            btn.disabled = false;
+          }
         })
       ]));
 
@@ -106,15 +130,26 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
           'aria-label': 'Measurement label',
           style: 'max-width:260px',
           onChange: async e => {
-            await api.updateMeasurement(measurement.id, { label: e.target.value.trim() || null });
+            const control = e.target;
+            const before = measurement.label || '';
+            await trySave(
+              async () => {
+                const label = control.value.trim() || null;
+                await api.updateMeasurement(measurement.id, { label });
+                measurement.label = label;
+              },
+              { revert: () => { control.value = before; } }
+            );
           }
         }),
         el('button', {
           class: 'btn btn--sm btn--danger', text: 'Remove',
-          onClick: async () => {
+          onClick: async (e) => {
             if (!confirmAction('Remove this measurement?')) return;
-            await api.deleteMeasurement(measurement.id);
-            onChange();
+            const btn = e.target;
+            btn.disabled = true;
+            await trySave(() => api.deleteMeasurement(measurement.id), { after: onChange });
+            btn.disabled = false;
           }
         })
       ]),
@@ -147,12 +182,14 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
     const amount = num(raw, NaN);
     if (!Number.isFinite(amount)) return toast('That was not a number', 'error');
     const perUnit = window.confirm('OK = charge per unit (per window/sq ft). Cancel = one flat charge.');
-    await api.addMeasurementAddon(measurement.id, {
-      label: label.trim().slice(0, 80),
-      kind: perUnit ? 'per_unit' : 'flat',
-      amount
-    });
-    onChange();
+    await trySave(
+      () => api.addMeasurementAddon(measurement.id, {
+        label: label.trim().slice(0, 80),
+        kind: perUnit ? 'per_unit' : 'flat',
+        amount
+      }),
+      { after: onChange }
+    );
   }
 
   /** Service-specific calculators swap in here, keyed by the PARENT
@@ -223,15 +260,22 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
             el('div', { class: 'btn-row' }, [
               el('button', {
                 class: 'btn btn--sm', text: '+ Add area',
-                onClick: async () => {
-                  await createMeasurement(job.id, {
-                    service_id: service.id,
-                    section_id: refs.sections[0]?.id || null,
-                    unit: service.unit,
-                    quantity: 0,
-                    sort_order: measurements.length + 1
-                  });
-                  onChange();
+                onClick: async (e) => {
+                  // Disabled during the write: a double-tap on a laggy LTE
+                  // connection used to insert two measurements.
+                  const btn = e.target;
+                  btn.disabled = true;
+                  await trySave(
+                    () => createMeasurement(job.id, {
+                      service_id: service.id,
+                      section_id: refs.sections[0]?.id || null,
+                      unit: service.unit,
+                      quantity: 0,
+                      sort_order: measurements.length + 1
+                    }),
+                    { after: onChange }
+                  );
+                  btn.disabled = false;
                 }
               })
             ])
@@ -301,27 +345,39 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
               '',
               async e => {
                 if (!e.target.value) return;
-                const service = refs.services.find(s => s.id === e.target.value);
-                const created = await createMeasurement(job.id, {
-                  service_id: service.id,
-                  section_id: refs.sections[0]?.id || null,
-                  unit: service.unit,
-                  quantity: 0,
-                  sort_order: 1
-                });
-                // created is null when the field console queued this offline
-                // instead of creating it -- there is no row id yet to attach
-                // defaults to, so that step is skipped until it actually
-                // syncs (nothing is lost; the measurement itself still has
-                // the service's own default pricing, just without these
-                // extra modifier selections pre-applied).
-                if (created) {
-                  for (const group of modifierGroupsFor(refs.modifiers, service.id)) {
-                    const def = group.options.find(o => o.is_default);
-                    if (def) await api.setMeasurementModifier(created.id, [], def.id);
-                  }
-                }
-                onChange();
+                const control = e.target;
+                const service = refs.services.find(s => s.id === control.value);
+                // Reset the picker before the write so a failed add doesn't
+                // leave the select showing a service that isn't on the job,
+                // and a second change event can't fire mid-write.
+                control.disabled = true;
+                control.value = '';
+                await trySave(
+                  async () => {
+                    const created = await createMeasurement(job.id, {
+                      service_id: service.id,
+                      section_id: refs.sections[0]?.id || null,
+                      unit: service.unit,
+                      quantity: 0,
+                      sort_order: 1
+                    });
+                    // created is null when the field console queued this
+                    // offline instead of creating it -- there is no row id
+                    // yet to attach defaults to, so that step is skipped
+                    // until it actually syncs (nothing is lost; the
+                    // measurement itself still has the service's own default
+                    // pricing, just without these extra modifier selections
+                    // pre-applied).
+                    if (created) {
+                      for (const group of modifierGroupsFor(refs.modifiers, service.id)) {
+                        const def = group.options.find(o => o.is_default);
+                        if (def) await api.setMeasurementModifier(created.id, [], def.id);
+                      }
+                    }
+                  },
+                  { after: onChange }
+                );
+                control.disabled = false;
               }
             )
           ])
