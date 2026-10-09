@@ -1,0 +1,47 @@
+-- Batch 7.1: remove anonymous write access to the three legacy tables.
+--
+-- This migration deliberately does NOT drop anything. ARCHITECTURE.md
+-- finding 5 reserves retirement for the owner ("that is destructive and
+-- should be your call"), and "legacy" is an assessment, not a fact about
+-- usage. What is safe to do now is close the write path while leaving the
+-- tables, their data and their structure exactly as they are.
+--
+-- Evidence gathered before writing this, read-only:
+--
+--   rows            job_requests 0, jobs 0, quotes 0   (all three empty)
+--   dependent views none
+--   inbound FKs     1 (see BLOCKER below)
+--   code references none. grep over admin/, site/, shared/ and
+--                   supabase/ for job_requests, from('jobs') and
+--                   from('quotes') returns nothing. This corroborates
+--                   finding 5 from the application side.
+--
+-- BLOCKER, stated plainly: pg_constraint reported one foreign key still
+-- pointing AT one of these tables, but the follow-up query naming it was
+-- refused by the tooling approval gate three times, so the constraint is
+-- NOT identified here. That matters for a DROP, which is why no DROP is
+-- proposed. It does not affect this migration: revoking a privilege cannot
+-- violate a foreign key. The owner should identify it before any retirement
+-- decision; the query is in docs/batch7-1-findings.md.
+--
+-- Scope: anonymous write only.
+--   * INSERT is the privilege ARCHITECTURE finding 5 specifically calls out
+--     ("still hold the old anon INSERT grant"). UPDATE and DELETE are
+--     revoked alongside it because an anonymous writer should have none of
+--     the three, and because leaving two of three closed is the kind of
+--     half-measure that reads as deliberate later.
+--   * SELECT is left alone. It is not a write, no code reads these tables,
+--     and removing a read is the more likely of the two to surprise
+--     something undiscovered. Revisit it with the retirement decision.
+--   * authenticated and service_role are untouched.
+--
+-- REVOKE on a privilege that is not held is a no-op, so this is safe to
+-- apply whether or not the inherited grant is still exactly as finding 5
+-- recorded it. The live grant state could not be re-confirmed directly --
+-- the has_table_privilege query was also refused by the approval gate -- so
+-- this migration is written to be correct either way rather than asserting
+-- a privilege state it could not read.
+
+revoke insert, update, delete on table public.job_requests from anon;
+revoke insert, update, delete on table public.jobs         from anon;
+revoke insert, update, delete on table public.quotes       from anon;
