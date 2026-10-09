@@ -29,6 +29,7 @@ import * as api from './api.js';
 const DB_NAME = 'ns-field-outbox';
 const STORE = 'queue';
 const DB_VERSION = 1;
+let storageError = null;
 
 function openDb() {
   return new Promise((resolve, reject) => {
@@ -42,9 +43,10 @@ function openDb() {
 }
 
 async function withStore(mode, fn) {
-  const db = await openDb();
+  let db;
   try {
-    return await new Promise((resolve, reject) => {
+    db = await openDb();
+    const result = await new Promise((resolve, reject) => {
       const tx = db.transaction(STORE, mode);
       const store = tx.objectStore(STORE);
       const result = fn(store);
@@ -52,8 +54,14 @@ async function withStore(mode, fn) {
       tx.onerror = () => reject(tx.error);
       tx.onabort = () => reject(tx.error);
     });
+    if (storageError) { storageError = null; notify(); }
+    return result;
+  } catch (err) {
+    const message = err?.message || 'Device storage is unavailable.';
+    if (storageError !== message) { storageError = message; notify(); }
+    throw err;
   } finally {
-    db.close();
+    db?.close();
   }
 }
 
@@ -87,6 +95,7 @@ const listeners = new Set();
    listener below) has no caller to return it to, so a failed background
    replay used to leave no trace anywhere in the UI. */
 let flushInFlight = null;
+let discardInFlight = null;
 let lastError = null;
 let queued = 0;
 
@@ -95,7 +104,9 @@ export function syncState() {
     count: queued,
     online: typeof navigator === 'undefined' ? true : navigator.onLine,
     syncing: flushInFlight !== null,
-    lastError
+    discarding: discardInFlight !== null,
+    lastError,
+    storageError
   };
 }
 
@@ -107,7 +118,7 @@ function notify(nextCount) {
 
 export function subscribe(cb) {
   listeners.add(cb);
-  count().then((n) => { queued = n; cb(syncState()); });
+  count().then((n) => { queued = n; cb(syncState()); }).catch(() => cb(syncState()));
   return () => listeners.delete(cb);
 }
 
@@ -128,7 +139,24 @@ async function enqueue(type, args, label) {
  *  to find out what it was. */
 export async function pending() {
   const items = await withStore('readonly', (store) => reqToPromise(store.getAll()));
-  return (items || []).map((i) => ({ id: i.id, label: i.label, type: i.type, createdAt: i.createdAt }));
+  return (items || []).map((i) => ({ id: i.id, label: i.label, type: i.type, createdAt: i.createdAt,
+    lastError: i.lastError || null, attemptedAt: i.attemptedAt || null }));
+}
+
+/** A deliberate local discard, never a rollback of a server write. The UI
+ * confirms first. A replay owns its head item until it has finished, so
+ * discarding during replay is refused. Replay waits for an earlier discard. */
+export function discard(id) {
+  if (flushInFlight) return Promise.reject(new Error('Wait for sync to finish before discarding an action.'));
+  if (discardInFlight) return Promise.reject(new Error('Another discard is still in progress.'));
+  discardInFlight = (async () => {
+    await withStore('readwrite', store => store.delete(id));
+    const items = await pending();
+    lastError = items[0]?.lastError || null;
+    notify(items.length);
+  })().finally(() => { discardInFlight = null; notify(); });
+  notify();
+  return discardInFlight;
 }
 
 /** True if this looks like "the network isn't there" rather than a real
@@ -183,7 +211,10 @@ export function flush() {
   // lost-response window this module's guarantee accepts. Concurrent callers
   // now join the flush already in progress instead of starting a second one.
   if (flushInFlight) return flushInFlight;
-  flushInFlight = runFlush().finally(() => { flushInFlight = null; notify(); });
+  flushInFlight = (async () => {
+    if (discardInFlight) await discardInFlight;
+    return runFlush();
+  })().finally(() => { flushInFlight = null; notify(); });
   notify();                      // repaint as "syncing" while it runs
   return flushInFlight;
 }
@@ -197,6 +228,7 @@ async function runFlush() {
   // never a long-lived transaction spanning an await, which IndexedDB
   // transactions auto-close on.
   for (;;) {
+    if (!navigator.onLine) break;
     const next = await withStore('readonly', (store) => reqToPromise(store.openCursor()))
       .then((cursor) => (cursor ? { id: cursor.key, value: cursor.value } : null));
     if (!next) break;
@@ -210,6 +242,8 @@ async function runFlush() {
       // the badge renders as text, and an Error object there both reads as
       // "[object Error]" and serialises to {}.
       lastError = err?.message || String(err);
+      await withStore('readwrite', store => store.put({ ...next.value,
+        lastError, attemptedAt: Date.now() }));
       break;
     }
   }

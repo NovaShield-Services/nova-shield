@@ -18,6 +18,11 @@ function queueToast(queued, okMessage) {
   toast(queued ? 'Offline — saved locally, will sync automatically' : okMessage);
 }
 
+function readError(err) {
+  return offlineQueue.looksOffline(err) ? 'No connection — reconnect and retry.'
+    : err?.message || 'The data could not be read.';
+}
+
 const JOB_STATUSES = ['new', 'reviewing', 'estimate_drafted', 'site_visit_scheduled', 'assessed',
   'quote_sent', 'accepted', 'declined', 'scheduled', 'in_progress', 'completed', 'invoiced', 'paid',
   'closed', 'lost'];
@@ -51,8 +56,11 @@ function passportPanel(property, onSaved) {
     rows: '2', placeholder: 'e.g. "Avoid east flower beds", "Rear gate code: 1234"'
   });
   preferencesInput.value = p.preferences || '';
+  const contents = () => JSON.stringify([Object.values(fields).map(read => read()), preferencesInput.value.trim()]);
+  let savedContents;
+  let saving = false;
 
-  return el('div', { class: 'card' }, [
+  const root = el('div', { class: 'card' }, [
     el('div', { class: 'card__head' }, [
       el('div', {}, [
         el('h2', { text: 'Property Passport' }),
@@ -97,7 +105,13 @@ function passportPanel(property, onSaved) {
     el('div', { class: 'btn-row', style: 'margin-top:14px' }, [
       el('button', {
         class: 'btn btn--primary', text: 'Save passport',
-        onClick: async () => {
+        onClick: async (event) => {
+          const button = event.currentTarget;
+          if (button.disabled) return;
+          saving = true;
+          button.disabled = true;
+          button.textContent = 'Saving passport…';
+          const submittedContents = contents();
           // Re-read property.passport rather than the `p` this card was
           // built from: a checklist toggle (which writes straight through,
           // for an instant-feeling tap) can have changed it in place since
@@ -106,11 +120,11 @@ function passportPanel(property, onSaved) {
           const latest = property.passport && typeof property.passport === 'object' ? property.passport : {};
           const passport = {
             ...latest,
-            siding:  { ...siding, material: fields['siding.material'](), color: fields['siding.color'](),
+            siding:  { ...(latest.siding || {}), material: fields['siding.material'](), color: fields['siding.color'](),
                        elevations_note: fields['siding.elevations_note'](), heavy_algae_sides: fields['siding.heavy_algae_sides']() },
-            roof:    { ...roof, shingle_type: fields['roof.shingle_type'](), pitch: fields['roof.pitch'](),
+            roof:    { ...(latest.roof || {}), shingle_type: fields['roof.shingle_type'](), pitch: fields['roof.pitch'](),
                        moss_severity: fields['roof.moss_severity']() },
-            access:  { ...access, water_tap_location: fields['access.water_tap_location'](),
+            access:  { ...(latest.access || {}), water_tap_location: fields['access.water_tap_location'](),
                        electrical_receptacle_location: fields['access.electrical_receptacle_location'](),
                        gate_width: fields['access.gate_width'](), ladder_access_restrictions: fields['access.ladder_access_restrictions']() },
             preferences: preferencesInput.value.trim()
@@ -119,15 +133,22 @@ function passportPanel(property, onSaved) {
             const { queued } = await offlineQueue.callOrQueue(
               'updateProperty', { id: property.id, patch: { passport } }, 'Save Property Passport');
             property.passport = passport;
+            savedContents = submittedContents;
             queueToast(queued, 'Property Passport saved');
-            onSaved?.(passport);
+            await onSaved?.();
           } catch (err) {
             toast(err.message, 'error');
+          } finally {
+            saving = false;
+            button.disabled = false;
+            button.textContent = 'Save passport';
           }
         }
       })
     ])
   ]);
+  savedContents = contents();
+  return { root, hasDraft: () => saving || contents() !== savedContents };
 }
 
 /** On-site checklist: quick, instant-save toggles. Stored inside the same
@@ -285,6 +306,7 @@ export async function renderVisit({ mount, navigate }, jobId) {
 
   const sectionsHost = el('div', {});
   const passportHost = el('div', {});
+  let passportView;
   const checklistHost = el('div', {});
 
   const statusSelect = select(
@@ -351,6 +373,8 @@ export async function renderVisit({ mount, navigate }, jobId) {
   );
   const noteBtn = el('button', { class: 'btn', text: 'Save note' });
   const notesList = el('div', {});
+  const notesStatus = el('div', {});
+  let notesAttempt = 0;
 
   noteBtn.addEventListener('click', async () => {
     const text = noteBody.value.trim();
@@ -361,14 +385,21 @@ export async function renderVisit({ mount, navigate }, jobId) {
       () => api.addNote(job.id, text, noteVisibility.value),
       { success: 'Note saved' }
     );
-    if (ok) { noteBody.value = ''; await refreshNotes(); }
+    if (ok) {
+      if (noteBody.value.trim() === text) noteBody.value = '';
+      await refreshNotes();
+    }
     noteBtn.disabled = false;
     noteBtn.textContent = 'Save note';
   });
 
   async function refreshNotes() {
+    const attempt = ++notesAttempt;
+    clear(notesStatus).append(el('p', { class: 'hint', role: 'status', text: 'Loading notes…' }));
     try {
       const notes = await api.listNotes(job.id);
+      if (attempt !== notesAttempt || !notesList.isConnected) return;
+      clear(notesStatus);
       clear(notesList).append(
         notes.length
           ? el('div', {}, notes.map(n => el('div', { class: 'section-box' }, [
@@ -381,28 +412,37 @@ export async function renderVisit({ mount, navigate }, jobId) {
           : el('div', { class: 'empty', text: 'No notes on this job yet.' })
       );
     } catch (err) {
-      clear(notesList).append(
-        el('p', { class: 'error-text', text: `Could not load notes: ${describeWriteError(err)}` })
+      if (attempt !== notesAttempt || !notesList.isConnected) return;
+      clear(notesStatus).append(
+        el('p', { class: 'error-text', text: `Could not load notes: ${readError(err)}` }),
+        el('button', { class: 'btn btn--sm', text: 'Retry notes', onClick: () => refreshNotes() })
       );
     }
   }
 
-  // Every offline-queued save below (passport, a measurement, a signature)
-  // calls this afterward via onChange/onSaved WITHOUT awaiting it -- so
-  // until this fix, a live refresh failing offline became an invisible
-  // unhandled promise rejection: the save itself queued correctly, but
-  // reload() silently never got to repaint anything. These hold the last
-  // successful fetch so an offline repaint has real data to show instead
-  // of nothing; measurementsPanel/quotePanel take their data as render()
-  // params rather than reading job/refs directly, so they need an explicit
-  // cache -- sectionsPanel/passportPanel/checklistPanel don't, since they
-  // read job/refs, which the caller already mutated locally before this runs.
+  // Refresh the loaded visit after writes. Failed refreshes keep its controls
+  // and explicitly label the last successful data. This is not a persistent
+  // read cache: opening another visit or restarting still needs a connection.
   let lastMeasurements = [];
   let lastPricing = null;
   let lastQuotes = [];
+  let hasVisitData = false;
+  const refreshStatus = el('div', { role: 'status' });
 
-  async function reload() {
+  function showRefreshError(err) {
+    toast(`Could not refresh visit data — showing last loaded data. ${readError(err)}`, 'error');
+    clear(refreshStatus).append(el('div', { class: 'warn' }, [
+      el('strong', { text: 'Could not refresh visit data' }),
+      el('p', { text: 'Showing the last loaded measurements, pricing and quotes. ' + readError(err) }),
+      el('button', { class: 'btn btn--sm', text: 'Retry visit data', onClick: async () => {
+        if (await measurementsPanel.flush()) await reload();
+      } })
+    ]));
+  }
+
+  async function reload({ initial = false } = {}) {
     const refresh = measurementsPanel.refreshToken();
+    clear(refreshStatus).append(el('p', { class: 'hint', text: 'Loading visit data…' }));
     let sections = refs.sections, measurements = lastMeasurements, pricing = lastPricing, quotes = lastQuotes;
     try {
       const [fresh, freshSections, freshMeasurements, jobFlags, freshPricing, freshQuotes] = await Promise.all([
@@ -411,24 +451,31 @@ export async function renderVisit({ mount, navigate }, jobId) {
       ]);
       if (!measurementsPanel.isCurrent(refresh)) return;
       job.status = fresh.status;
-      job.properties = fresh.properties;
+      Object.assign(job.properties, fresh.properties);
       if (statusSelect.value !== fresh.status) statusSelect.value = fresh.status;
       sections = freshSections; measurements = freshMeasurements; pricing = freshPricing; quotes = freshQuotes;
       refs.sections = sections;
       lastMeasurements = measurements; lastPricing = pricing; lastQuotes = quotes;
+      hasVisitData = true;
     } catch (err) {
-      // A queued offline save already landed locally -- job/refs were
-      // mutated by the caller before reload() ran, so there is nothing
-      // fresher to fetch until this actually syncs. Repaint with what's
-      // already in memory rather than letting this bubble up: a real error
-      // (bad input, RLS denial) still isn't swallowed, only a looks-offline
-      // failure takes this path.
-      if (!offlineQueue.looksOffline(err)) throw err;
+      if (!measurementsPanel.isCurrent(refresh)) return;
+      // Initial reads have no snapshot to fall back to. Later failures keep
+      // the existing controls and drafts, and explicitly label stale data.
+      // A permission failure is an error too; never call it an offline save.
+      if (initial || !hasVisitData) throw err;
+      showRefreshError(err);
+      return;
     }
 
     if (!measurementsPanel.isCurrent(refresh)) return;
+    clear(refreshStatus);
     clear(sectionsHost).append(sectionsPanel(job, refs, reload));
-    clear(passportHost).append(passportPanel(job.properties, reload));
+    // Do not replace an editable passport after an unrelated refresh or a
+    // slow save: the tech may already be typing their next change.
+    if (!passportView || (!passportView.hasDraft() && offlineQueue.syncState().count === 0)) {
+      passportView = passportPanel(job.properties, reload);
+      clear(passportHost).append(passportView.root);
+    }
     clear(checklistHost).append(checklistPanel(job.properties));
     measurementsPanel.render({ measurements, pricing });
     quotePanel.render({ quotes });
@@ -439,7 +486,9 @@ export async function renderVisit({ mount, navigate }, jobId) {
       // offline save (e.g. the passport), so the same guard is needed here.
       await photosPanel.render();
     } catch (err) {
-      if (!offlineQueue.looksOffline(err)) throw err;
+      if (!measurementsPanel.isCurrent(refresh)) return;
+      if (initial && !offlineQueue.looksOffline(err)) throw err;
+      showRefreshError(err);
     }
   }
 
@@ -518,6 +567,7 @@ export async function renderVisit({ mount, navigate }, jobId) {
         text: 'No Google review link on file yet — add one under app_settings.company.google_review_url ' +
               'to include it automatically.' }) : null
     ]),
+    refreshStatus,
     passportHost,
     checklistHost,
     sectionsHost,
@@ -534,11 +584,11 @@ export async function renderVisit({ mount, navigate }, jobId) {
       el('label', { class: 'field' }, [el('span', { text: 'New note' }), noteBody]),
       el('label', { class: 'field' }, [el('span', { text: 'Who can see it' }), noteVisibility]),
       el('div', { class: 'btn-row', style: 'margin-bottom:12px' }, [noteBtn]),
-      notesList
+      notesStatus, notesList
     ])
   );
 
   paintCompletion();
-  await reload();
+  await reload({ initial: true });
   await refreshNotes();
 }

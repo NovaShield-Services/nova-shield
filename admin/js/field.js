@@ -7,7 +7,7 @@ import { renderVisit } from './views/field-workspace.js';
 import * as offlineQueue from './lib/offline-queue.js';
 import { setStatusBarTheme, isNative, loadAppPlugin } from './lib/native.js';
 import { installUnhandledRejectionToast } from './lib/save.js';
-import { installBackHandler, installEscapeHandler, fieldParentOf } from './lib/navigation.js';
+import { installBackHandler, installEscapeHandler, fieldParentOf, pushOverlay } from './lib/navigation.js';
 
 setStatusBarTheme();
 
@@ -53,8 +53,8 @@ function syncNavDepth() {
   } catch { /* see main.js */ }
 }
 
-function showMessage(title, body, action) {
-  clear(viewEl).append(
+function showMessage(title, body, action, mount = viewEl) {
+  clear(mount).append(
     el('div', { class: 'card' }, [
       el('h1', { text: title }),
       el('p', { class: 'hint', text: body }),
@@ -68,35 +68,43 @@ async function router() {
   const attempt = ++measurementRouteAttempt;
   if (!await flushMeasurementEdits() || attempt !== measurementRouteAttempt) return;
   syncNavDepth();
-  const { session, isAdmin } = await getSession();
-
-  if (!session) return renderLogin({ mount: viewEl, onSignedIn: router });
-
-  if (!isAdmin) {
-    return showMessage(
-      'Account not authorised',
-      'You are signed in, but this account has not been granted field access.',
-      el('button', { class: 'btn', text: 'Sign out',
-        onClick: async () => { await supabase.auth.signOut(); router(); } })
-    );
-  }
-
-  const path = currentPath();
-  const match = routes.map(r => ({ r, m: path.match(r.pattern) })).find(x => x.m);
-
-  if (!match) {
-    window.location.hash = '/';
-    return;
-  }
-
-  clear(viewEl).append(el('div', { class: 'loading', text: 'Loading…' }));
-
+  // Each attempt owns its mount. A late response may finish its detached
+  // view, but cannot clear or replace a newer route's visible controls.
+  const mount = el('div', {});
+  clear(viewEl).append(mount);
+  mount.append(el('div', { class: 'loading', text: 'Checking access…' }));
   try {
-    await match.r.render({ mount: viewEl, navigate }, match.m[1]);
+    const { session, isAdmin } = await getSession();
+    if (attempt !== measurementRouteAttempt) return;
+
+    if (!session) return renderLogin({ mount, onSignedIn: router });
+
+    if (!isAdmin) {
+      return showMessage(
+        'Account not authorised',
+        'You are signed in, but this account has not been granted field access.',
+        el('button', { class: 'btn', text: 'Sign out',
+          onClick: async () => { await supabase.auth.signOut(); router(); } }), mount
+      );
+    }
+
+    const path = currentPath();
+    const match = routes.map(r => ({ r, m: path.match(r.pattern) })).find(x => x.m);
+
+    if (!match) {
+      window.location.hash = '/';
+      return;
+    }
+
+    clear(mount).append(el('div', { class: 'loading', text: 'Loading…' }));
+
+    await match.r.render({ mount, navigate }, match.m[1]);
   } catch (err) {
+    if (attempt !== measurementRouteAttempt) return;
     console.error(err);
-    showMessage('Something went wrong', err.message,
-      el('button', { class: 'btn', text: 'Retry', onClick: () => router() }));
+    showMessage('Could not load this screen', offlineQueue.looksOffline(err)
+      ? 'No connection — reconnect and retry.' : err.message || 'The screen could not be read.',
+      el('button', { class: 'btn', text: 'Retry', onClick: () => router() }), mount);
   }
 }
 
@@ -148,8 +156,14 @@ const syncNowBtn = document.getElementById('syncNow');
    painted the badge green with a hardcoded count of 0, so a queue that was
    still full -- or permanently stuck -- read as fully synced. */
 function paintBadge(state) {
-  const { count, online, syncing, lastError } = state;
-  syncNowBtn.hidden = !(count > 0 && online && !syncing);
+  const { count, online, syncing, discarding, lastError, storageError } = state;
+  syncNowBtn.hidden = !((count > 0 || storageError) && online && !syncing && !discarding);
+
+  if (storageError) {
+    syncBadge.textContent = 'Device storage unavailable';
+    syncBadge.className = 'sync-badge sync-badge--error';
+    return;
+  }
 
   if (count === 0) {
     syncBadge.textContent = online ? 'Synced' : 'Offline';
@@ -179,24 +193,88 @@ offlineQueue.subscribe(paintBadge);
    queue saw a number and had no way to find out what it was. */
 syncBadge.style.cursor = 'pointer';
 syncBadge.setAttribute('title', 'Tap to see what is waiting to sync');
-syncBadge.addEventListener('click', async () => {
+syncBadge.setAttribute('role', 'button');
+syncBadge.setAttribute('tabindex', '0');
+syncBadge.setAttribute('aria-haspopup', 'dialog');
+let outboxDialog;
+function openOutbox() {
+  if (outboxDialog) return outboxDialog.focus();
   const state = offlineQueue.syncState();
-  if (!state.count) return toast(state.online ? 'Everything is synced' : 'Offline — nothing waiting to sync');
-  const items = await offlineQueue.pending();
-  const summary = items.map((i) => i.label || i.type).join(', ');
-  toast(state.lastError ? `Waiting: ${summary} — last error: ${state.lastError}` : `Waiting to sync: ${summary}`,
-        state.lastError ? 'error' : 'info');
+  if (!state.count && !state.storageError) return toast(state.online ? 'Everything is synced' : 'Offline — nothing waiting to sync');
+  const list = el('div', { class: 'outbox-items' }, [el('p', { class: 'hint', text: 'Loading saved actions…' })]);
+  const summary = el('p', { class: 'hint', role: 'status' });
+  const retry = el('button', { class: 'btn', text: 'Retry sync', onClick: () => syncNowBtn.click() });
+  const closeButton = el('button', { class: 'btn btn--sm', text: 'Close', onClick: () => close() });
+  const dialog = el('dialog', { class: 'outbox-dialog', 'aria-labelledby': 'outbox-title' }, [
+    el('div', { class: 'card__head' }, [el('h2', { id: 'outbox-title', text: 'Saved on this device' }), closeButton]),
+    summary, el('p', { class: 'hint', text: 'Actions sync in order. A failed action holds up the ones after it. ' +
+      'Discard removes only the local action; a server change already received cannot be undone here.' }),
+    list, el('div', { class: 'btn-row' }, [retry])
+  ]);
+  let sequence = 0;
+  let unsubscribe;
+  const unregister = pushOverlay(close);
+  function close() {
+    sequence++;
+    unsubscribe?.(); unregister();
+    dialog.close(); dialog.remove(); outboxDialog = null;
+    syncBadge.focus();
+  }
+  dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
+  async function refresh() {
+    const attempt = ++sequence;
+    const current = offlineQueue.syncState();
+    retry.disabled = !current.online || current.syncing || current.discarding;
+    summary.textContent = current.syncing ? 'Syncing…' : current.online
+      ? 'Waiting to sync with the server.' : 'Offline — these actions are saved here.';
+    try {
+      const items = await offlineQueue.pending();
+      if (attempt !== sequence || !dialog.isConnected) return;
+      clear(list).append(...items.map((item, index) => el('div', { class: 'section-box' }, [
+        el('strong', { text: item.label || item.type }),
+        el('p', { class: 'hint', text: `Saved ${new Date(item.createdAt).toLocaleString()}` }),
+        el('p', { class: item.lastError ? 'error-text' : 'hint',
+          text: item.lastError ? `Last sync failed: ${item.lastError}` : index ? 'Waiting behind earlier actions.' : 'Waiting to sync.' }),
+        el('button', { class: 'btn btn--sm btn--danger', text: 'Discard',
+          'aria-label': `Discard ${item.label || item.type}`, disabled: current.syncing || current.discarding,
+          onClick: async () => {
+            if (!window.confirm(`Discard "${item.label || item.type}" from this device? It will not be retried. ` +
+              'This cannot undo a server change already received.')) return;
+            try { await offlineQueue.discard(item.id); }
+            catch (err) { toast(err.message, 'error'); }
+          }
+        })
+      ])));
+      if (!items.length) list.append(el('p', { class: 'empty', text: 'Nothing waiting to sync.' }));
+    } catch (err) {
+      if (attempt !== sequence || !dialog.isConnected) return;
+      clear(list).append(el('p', { class: 'error-text', text: `Could not read saved actions: ${err.message}` }));
+    }
+  }
+  document.body.append(dialog);
+  outboxDialog = dialog;
+  dialog.showModal();
+  unsubscribe = offlineQueue.subscribe(() => { void refresh(); });
+}
+syncBadge.addEventListener('click', openOutbox);
+syncBadge.addEventListener('keydown', event => {
+  if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openOutbox(); }
 });
 
 syncNowBtn.addEventListener('click', async () => {
   syncNowBtn.disabled = true;
   syncNowBtn.textContent = 'Syncing…';
-  const { flushed, remaining, error } = await offlineQueue.flush();
-  syncNowBtn.disabled = false;
-  syncNowBtn.textContent = 'Sync Now';
-  if (flushed.length) toast(`Synced ${flushed.length} queued action${flushed.length === 1 ? '' : 's'}`);
-  if (remaining > 0) toast(error ? `Sync stopped: ${error}` : `${remaining} action(s) still queued`, 'error');
-  if (!flushed.length && !remaining) toast('Nothing to sync');
+  try {
+    const { flushed, remaining, error } = await offlineQueue.flush();
+    if (flushed.length) toast(`Synced ${flushed.length} queued action${flushed.length === 1 ? '' : 's'}`);
+    if (remaining > 0) toast(error ? `Sync stopped: ${error}` : `${remaining} action(s) still queued`, 'error');
+    if (!flushed.length && !remaining) toast('Nothing to sync');
+  } catch (err) {
+    toast(`Could not sync saved actions: ${err.message}`, 'error');
+  } finally {
+    syncNowBtn.disabled = false;
+    syncNowBtn.textContent = 'Sync Now';
+  }
 });
 
 window.addEventListener('hashchange', router);

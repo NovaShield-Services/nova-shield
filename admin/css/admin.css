@@ -204,12 +204,28 @@ input[inputmode="decimal"], input[type="number"] {
 }
 .btn:hover { background: var(--surface-2); }
 .btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.btn--primary:hover { filter: brightness(1.08); }
+.btn--primary:hover { background: var(--accent); filter: brightness(1.08); }
 .btn--danger { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
 .btn--sm { min-height: var(--tap); min-width: var(--tap); padding: 4px 10px; font-size: .85rem; }
 /* field.html has an inline 40px override. Keep its compact controls at the
    same minimum tap size without changing that page's owned markup. */
 .field-view .btn.btn--sm { min-height: var(--tap); }
+/* Long customer/service names must wrap inside the phone's card/header. */
+.field-view h1, .field-view h2, .field-view .card__head > div {
+  min-width: 0; overflow-wrap: anywhere;
+}
+.field-topbar .sync-badge {
+  display: inline-flex; align-items: center; min-height: var(--tap); min-width: var(--tap);
+  white-space: normal; overflow-wrap: anywhere;
+}
+.outbox-dialog {
+  width: min(560px, calc(100% - 28px)); max-height: calc(100dvh - 40px);
+  overflow-y: auto; padding: 18px; border: 1px solid var(--line);
+  border-radius: var(--radius); background: var(--surface); color: var(--text);
+}
+.outbox-dialog::backdrop { background: rgb(0 0 0 / .45); }
+.outbox-dialog p, .outbox-dialog strong { overflow-wrap: anywhere; }
+.outbox-dialog .section-box { min-width: 0; }
 .btn[disabled] { opacity: .55; cursor: not-allowed; }
 .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
 
