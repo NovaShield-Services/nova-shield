@@ -1,5 +1,5 @@
 import * as api from '../lib/api.js';
-import { el, select, numberInput, confirmAction, toast } from '../../../shared/dom.js';
+import { el, select, confirmAction, toast } from '../../../shared/dom.js';
 import { qty, unitLabel } from '../../../shared/format.js';
 import { reviewFlag } from './review-flag.js';
 import { modifierGroupsFor } from './modifier-groups.js';
@@ -52,7 +52,7 @@ import { modifierGroupsFor } from './modifier-groups.js';
  *  square footage, and modifier selections (Coverage/Surface/Follow-up);
  *  never review_required/review_reason/notes. */
 
-export function createMossRemovalCalculator({ job, service, refs, measurements, onChange, createMeasurement }) {
+export function createMossRemovalCalculator({ job, service, refs, measurements, onChange, createMeasurement, quantityInput }) {
   const rows = measurements.filter((m) => m.service_id === service.id);
 
   const allGroups = modifierGroupsFor(refs.modifiers, service.id);
@@ -127,10 +127,7 @@ export function createMossRemovalCalculator({ job, service, refs, measurements, 
 
   function affectedAreaRow(measurement) {
     const section = refs.sections.find((s) => s.id === measurement.section_id);
-    const qtyInput = numberInput(measurement.quantity, async (e) => {
-      await api.updateMeasurement(measurement.id, { quantity: Number(e.target.value) || 0 });
-      onChange();
-    }, { step: '1', 'aria-label': 'Affected area (sq ft)' });
+    const qtyInput = quantityInput(measurement, { step: '1', 'aria-label': 'Affected area (sq ft)' });
 
     const selectedIds = new Set((measurement.measurement_modifiers || []).map((r) => r.modifier_id));
     const modifierControls = rowGroups.map((group) => {

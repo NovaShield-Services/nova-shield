@@ -1,9 +1,10 @@
 import * as api from '../lib/api.js';
-import { el, clear, toast, select, numberInput, confirmAction } from '../../../shared/dom.js';
+import { el, clear, toast, select, confirmAction } from '../../../shared/dom.js';
 import { unitLabel, money, num } from '../../../shared/format.js';
 import { reviewFlag } from '../components/review-flag.js';
 import { modifierGroupsFor } from '../components/modifier-groups.js';
 import { trySave } from '../lib/save.js';
+import { createMeasurementEditor } from '../lib/measurement-entry.js';
 import { createHeatingWireCalculator } from '../components/heating-wire-calculator.js';
 import { createSidingCalculator } from '../components/siding-calculator.js';
 import { createGutterBrighteningCalculator } from '../components/gutter-brightening-calculator.js';
@@ -20,6 +21,8 @@ import { createWinterPropertyCareCalculator } from '../components/winter-propert
 
 export function createMeasurementsPanel({ job, refs, onChange, createMeasurementFn }) {
   const root = el('div', {});
+  const editor = createMeasurementEditor({ root, save: api.updateMeasurement, onChange });
+  const { quantityInput, saveQuantity, changeQuantity } = editor;
   // Desktop calls api.createMeasurement directly (always online). The field
   // console passes a wrapped version that goes through its offline outbox
   // instead -- this component stays unaware of that distinction either way.
@@ -43,17 +46,7 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
   function renderMeasurement(measurement, service) {
     const selectedIds = new Set((measurement.measurement_modifiers || []).map(r => r.modifier_id));
 
-    const qtyInput = numberInput(measurement.quantity, async e => {
-      const control = e.target;
-      const before = measurement.quantity;
-      await trySave(
-        async () => {
-          await api.updateMeasurement(measurement.id, { quantity: num(control.value) });
-          measurement.quantity = num(control.value);
-        },
-        { revert: () => { control.value = before; }, after: onChange }
-      );
-    }, { step: service.unit === 'each' ? '1' : '10', 'aria-label': 'Quantity' });
+    const qtyInput = quantityInput(measurement, { step: service.unit === 'each' ? '1' : '10', 'aria-label': 'Quantity' });
 
     const sectionSelect = select(
       [{ value: '', label: 'No section' },
@@ -254,7 +247,7 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
       hint ? el('p', { class: 'hint', style: 'margin:-4px 0 10px', text: hint }) : null,
 
       specialized
-        ? specialized({ job, service, refs, measurements, pricedRows, onChange, createMeasurement })
+        ? specialized({ job, service, refs, measurements, pricedRows, onChange, createMeasurement, quantityInput, saveQuantity, changeQuantity })
         : el('div', {}, [
             ...measurements.map(m => renderMeasurement(m, resolveService(m.service_id) || service)),
             el('div', { class: 'btn-row' }, [
@@ -296,6 +289,8 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
   }
 
   function render({ measurements, pricing }) {
+    if (!editor.canRender()) return;
+    editor.reset();
     const byGroup = new Map();
     for (const m of measurements) {
       const svc = resolveService(m.service_id);
@@ -406,5 +401,6 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
     ].filter(Boolean));
   }
 
-  return { root, render };
+  return { root, render, flush: editor.flush, guardActions: editor.guardActions,
+    refreshToken: editor.refreshToken, isCurrent: editor.isCurrent };
 }

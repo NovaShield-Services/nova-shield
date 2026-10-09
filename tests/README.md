@@ -21,6 +21,14 @@ This starts a static file server on :8743, runs every `phase*.test.mjs`
 `geofence.test.mjs` / `native-wrapper.test.mjs` / `reload-offline.test.mjs`
 (the native-wrapper/offline suite), and stops the server on exit.
 
+It also runs `measurement-entry.test.mjs`: delayed and failed quantity
+writes, rapid typing, blank/incomplete input, focus preservation, reversed
+refresh responses, and saving before delete, quote creation, navigation,
+or sign-out. It exercises both the desktop and field screens with mocked
+API calls, without writing to Supabase. Typed quantities intentionally
+debounce; calculator tests wait for the expected persisted-value call
+rather than assuming a write on each keystroke.
+
 ## What these do and don't cover
 
 Every test here mocks `admin/js/lib/api.js` and asserts against the

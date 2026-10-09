@@ -27,7 +27,7 @@ done
 FAILED=0
 for f in phase2 phase3 phase4 phase5 phase6 phase7 phase8 phase9 phase10 phase10-5 \
          phase11 phase12 phase13 phase14 phase15 phase16 phase17 phase18 phase19 phase20 \
-         geofence native-wrapper reload-offline; do
+         geofence native-wrapper reload-offline measurement-entry; do
   echo "===== $f ====="
   if ! node "tests/$f.test.mjs"; then FAILED=1; fi
   echo

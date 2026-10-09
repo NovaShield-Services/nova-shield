@@ -273,6 +273,7 @@ export async function renderVisit({ mount, navigate }, jobId) {
     saveSignatureFn: async (jobId, quoteId, pngBlob, signerName) =>
       offlineQueue.callOrQueue('saveSignature', { jobId, quoteId, pngBlob, signerName }, 'Customer signature')
   });
+  measurementsPanel.guardActions(quotePanel.root);
   const photosPanel = createPhotosPanel({
     jobId: job.id,
     uploadFn: async (jobId, file, opts) => {
@@ -401,12 +402,14 @@ export async function renderVisit({ mount, navigate }, jobId) {
   let lastQuotes = [];
 
   async function reload() {
+    const refresh = measurementsPanel.refreshToken();
     let sections = refs.sections, measurements = lastMeasurements, pricing = lastPricing, quotes = lastQuotes;
     try {
       const [fresh, freshSections, freshMeasurements, jobFlags, freshPricing, freshQuotes] = await Promise.all([
         api.getJob(job.id), api.listSections(job.id), api.listMeasurements(job.id),
         api.listJobFlags(job.id), api.calculatePricing(job.id), api.listQuotes(job.id)
       ]);
+      if (!measurementsPanel.isCurrent(refresh)) return;
       job.status = fresh.status;
       job.properties = fresh.properties;
       if (statusSelect.value !== fresh.status) statusSelect.value = fresh.status;
@@ -423,6 +426,7 @@ export async function renderVisit({ mount, navigate }, jobId) {
       if (!offlineQueue.looksOffline(err)) throw err;
     }
 
+    if (!measurementsPanel.isCurrent(refresh)) return;
     clear(sectionsHost).append(sectionsPanel(job, refs, reload));
     clear(passportHost).append(passportPanel(job.properties, reload));
     clear(checklistHost).append(checklistPanel(job.properties));

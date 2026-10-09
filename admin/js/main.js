@@ -1,3 +1,4 @@
+import { flushMeasurementEdits } from './lib/measurement-entry.js';
 import { supabase, getSession } from '../../shared/supabase.js';
 import { el, clear, toast } from '../../shared/dom.js';
 import { installUnhandledRejectionToast } from './lib/save.js';
@@ -140,7 +141,10 @@ function showMessage(title, body, action) {
   );
 }
 
+let measurementRouteAttempt = 0;
 async function router() {
+  const attempt = ++measurementRouteAttempt;
+  if (!await flushMeasurementEdits() || attempt !== measurementRouteAttempt) return;
   syncNavDepth();
   contextParentPath = null;
   const { session, isAdmin } = await getSession();
@@ -214,6 +218,7 @@ navEl.addEventListener('click', e => {
 });
 
 document.getElementById('signOut')?.addEventListener('click', async () => {
+  if (!await flushMeasurementEdits()) return;
   await supabase.auth.signOut();
   toast('Signed out');
   navigate('/dashboard');

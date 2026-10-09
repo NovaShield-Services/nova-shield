@@ -39,7 +39,7 @@ import { modifierGroupsFor } from './modifier-groups.js';
  *  wouldn't save real work, it would just be a wrong number sitting
  *  there until someone notices. Count from zero every time. */
 
-export function createWindowCleaningCalculator({ job, service, refs, measurements, onChange, createMeasurement }) {
+export function createWindowCleaningCalculator({ job, service, refs, measurements, onChange, createMeasurement, saveQuantity }) {
   const rows = measurements.filter((m) => m.service_id === service.id);
 
   const allGroups = modifierGroupsFor(refs.modifiers, service.id);
@@ -153,8 +153,11 @@ export function createWindowCleaningCalculator({ job, service, refs, measurement
       count = next; // close over the last value, not the stale initial one -- see heating wire's stepper for why this matters
       countLabel.textContent = String(next);
       minus.disabled = true; plus.disabled = true;
-      try { await api.updateMeasurement(measurement.id, { quantity: next }); }
-      finally { minus.disabled = false; plus.disabled = false; onChange(); }
+      if (!await saveQuantity(measurement, next)) {
+        count = measurement.quantity || 0;
+        countLabel.textContent = String(count);
+      }
+      minus.disabled = false; plus.disabled = false;
     }
     minus.addEventListener('click', () => apply(count - 1));
     plus.addEventListener('click', () => apply(count + 1));

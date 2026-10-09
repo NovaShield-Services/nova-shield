@@ -1,3 +1,4 @@
+import { flushMeasurementEdits } from './lib/measurement-entry.js';
 import { supabase, getSession } from '../../shared/supabase.js';
 import { el, clear, toast } from '../../shared/dom.js';
 import { renderLogin } from './views/login.js';
@@ -62,7 +63,10 @@ function showMessage(title, body, action) {
   );
 }
 
+let measurementRouteAttempt = 0;
 async function router() {
+  const attempt = ++measurementRouteAttempt;
+  if (!await flushMeasurementEdits() || attempt !== measurementRouteAttempt) return;
   syncNavDepth();
   const { session, isAdmin } = await getSession();
 
@@ -102,6 +106,7 @@ export function navigate(path) {
 }
 
 document.getElementById('signOut')?.addEventListener('click', async () => {
+  if (!await flushMeasurementEdits()) return;
   await supabase.auth.signOut();
   toast('Signed out');
   navigate('/');

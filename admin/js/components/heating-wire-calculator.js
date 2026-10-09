@@ -1,5 +1,5 @@
 import * as api from '../lib/api.js';
-import { el, select, numberInput, confirmAction, toast } from '../../../shared/dom.js';
+import { el, select, confirmAction, toast } from '../../../shared/dom.js';
 import { money } from '../../../shared/format.js';
 import { reviewFlag } from './review-flag.js';
 import { modifierGroupsFor } from './modifier-groups.js';
@@ -30,7 +30,7 @@ const CHILD_KEYS = {
   corner2nd: 'winter_deicing_cables_corner_2nd'
 };
 
-export function createHeatingWireCalculator({ job, service, refs, measurements, pricedRows, onChange, createMeasurement }) {
+export function createHeatingWireCalculator({ job, service, refs, measurements, pricedRows, onChange, createMeasurement, quantityInput, changeQuantity }) {
   const pricedByService = new Map(pricedRows.map(p => [p.service_id, p]));
   const childIds = Object.fromEntries(
     Object.entries(CHILD_KEYS).map(([k, key]) => [k, refs.services.find(s => s.key === key)?.id])
@@ -76,10 +76,7 @@ export function createHeatingWireCalculator({ job, service, refs, measurements, 
 
   function cableRunRow(measurement, { removable = true } = {}) {
     const section = refs.sections.find(s => s.id === measurement.section_id);
-    const qtyInput = numberInput(measurement.quantity, async (e) => {
-      await api.updateMeasurement(measurement.id, { quantity: Number(e.target.value) || 0 });
-      onChange();
-    }, { step: '1', 'aria-label': 'Feet' });
+    const qtyInput = quantityInput(measurement, { step: '1', 'aria-label': 'Feet' });
 
     const selectedIds = new Set((measurement.measurement_modifiers || []).map(r => r.modifier_id));
     const modifierControls = modifierGroupsFor(refs.modifiers, service.id).map((group) => {
@@ -181,6 +178,7 @@ export function createHeatingWireCalculator({ job, service, refs, measurements, 
 
     async function apply(next) {
       next = Math.max(0, next);
+      const before = count;
       count = next; // the +/- handlers below close over `count`, not `next` -- without this every click recomputes from the original value instead of the last one
       countLabel.textContent = String(next);
       // Disabled for the round trip, not just visually mid-count: a second
@@ -191,12 +189,13 @@ export function createHeatingWireCalculator({ job, service, refs, measurements, 
       // offline tap before the first ever syncs still creates a second
       // row) -- a real, narrow, documented limitation, not solved here.
       minus.disabled = true; plus.disabled = true;
-      try {
+      const saved = await changeQuantity(async () => {
         if (next === 0 && existing) {
           await api.deleteMeasurement(existing.id);
           existing = null;
         } else if (existing) {
           await api.updateMeasurement(existing.id, { quantity: next });
+          existing.quantity = next;
         } else if (next > 0) {
           const created = await createMeasurement(job.id, {
             service_id: childId, section_id: null, unit: 'each', quantity: next,
@@ -212,10 +211,9 @@ export function createHeatingWireCalculator({ job, service, refs, measurements, 
           if (created) existing = created;
           else toast('Offline — saved locally, will sync automatically');
         }
-      } finally {
-        minus.disabled = false; plus.disabled = false;
-        onChange();
-      }
+      });
+      if (!saved) { count = before; countLabel.textContent = String(before); }
+      minus.disabled = false; plus.disabled = false;
     }
 
     minus.addEventListener('click', () => apply(count - 1));

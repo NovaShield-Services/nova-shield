@@ -132,7 +132,7 @@ async function main() {
       input.value = '60';
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    await page.waitForTimeout(60);
+    await page.waitForFunction(() => (globalThis.__updateMeasurementCalls || []).some(c => c.id === 'mj' && c.patch.quantity === 60));
     const calls = await page.evaluate(() => globalThis.__updateMeasurementCalls);
     assert.ok(calls.some(c => c.id === 'mj' && c.patch.quantity === 60));
   });
@@ -199,7 +199,7 @@ async function main() {
       qtyInput.value = '80';
       qtyInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    await page.waitForTimeout(60);
+    await page.waitForFunction(() => (globalThis.__updateMeasurementCalls || []).some(c => c.patch.quantity === 80));
     const calls = await page.evaluate(() => globalThis.__updateMeasurementCalls);
     assert.ok(calls.some(c => c.patch.label === 'Front roofline, east side'));
     assert.ok(calls.some(c => c.patch.quantity === 80));

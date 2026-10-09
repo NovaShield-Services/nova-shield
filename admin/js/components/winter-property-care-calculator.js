@@ -66,7 +66,7 @@ import { modifierGroupsFor } from './modifier-groups.js';
  *  "Front entrance" as a starting point for "Side entrance"); never
  *  copies review state or notes. */
 
-export function createWinterPropertyCareCalculator({ job, service, refs, measurements, onChange, createMeasurement }) {
+export function createWinterPropertyCareCalculator({ job, service, refs, measurements, onChange, createMeasurement, saveQuantity }) {
   const rows = measurements.filter((m) => m.service_id === service.id);
   const rowGroups = modifierGroupsFor(refs.modifiers, service.id);
 
@@ -116,12 +116,11 @@ export function createWinterPropertyCareCalculator({ job, service, refs, measure
       count = next;
       countLabel.textContent = String(next);
       minus.disabled = true; plus.disabled = true;
-      try {
-        await api.updateMeasurement(measurement.id, { quantity: next });
-      } finally {
-        minus.disabled = false; plus.disabled = false;
-        onChange();
+      if (!await saveQuantity(measurement, next)) {
+        count = measurement.quantity || 0;
+        countLabel.textContent = String(count);
       }
+      minus.disabled = false; plus.disabled = false;
     }
     minus.addEventListener('click', () => applyCount(count - 1));
     plus.addEventListener('click', () => applyCount(count + 1));

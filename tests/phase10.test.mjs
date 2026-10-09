@@ -222,7 +222,7 @@ async function main() {
       qtyInput.value = '85';
       qtyInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    await page.waitForTimeout(60);
+    await page.waitForFunction(() => (globalThis.__updateMeasurementCalls || []).some(c => c.patch.quantity === 85));
     const calls = await page.evaluate(() => globalThis.__updateMeasurementCalls);
     assert.ok(calls.some(c => c.patch.label === 'Main Front Fence'));
     assert.ok(calls.some(c => c.patch.quantity === 85));

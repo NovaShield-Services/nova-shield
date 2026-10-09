@@ -315,6 +315,7 @@ export async function renderJob({ mount }, jobId) {
   const activityHost = el('div', {});
   const measurementsPanel = createMeasurementsPanel({ job, refs, onChange: reload });
   const quotePanel = createQuotePanel({ job, onChange: reload });
+  measurementsPanel.guardActions(quotePanel.root);
 
   /* ------------------------------------------------------------ sections -- */
 
@@ -908,6 +909,7 @@ export async function renderJob({ mount }, jobId) {
   /* -------------------------------------------------------------- reload -- */
 
   async function reload() {
+    const refresh = measurementsPanel.refreshToken();
     const [fresh, sections, measurements, jobFlags, pricing, quotes, attachments, notes] =
       await Promise.all([
         api.getJob(job.id),
@@ -919,6 +921,8 @@ export async function renderJob({ mount }, jobId) {
         api.listAttachments(job.id),
         api.listNotes(job.id)
       ]);
+
+    if (!measurementsPanel.isCurrent(refresh)) return;
 
     // sending a quote advances the job server-side, so re-sync the header
     // rather than leaving a stale status in the dropdown. scheduled_for and

@@ -190,7 +190,7 @@ async function main() {
       qtyInput.value = '135';
       qtyInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    await page.waitForTimeout(60);
+    await page.waitForFunction(() => (globalThis.__updateMeasurementCalls || []).some(c => c.patch.quantity === 135));
     const calls = await page.evaluate(() => globalThis.__updateMeasurementCalls);
     assert.ok(calls.some(c => c.patch.label === 'Front wall, east section'));
     assert.ok(calls.some(c => c.patch.quantity === 135));

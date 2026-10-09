@@ -171,7 +171,7 @@ async function main() {
       qtyInput.value = '1350';
       qtyInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    await page.waitForTimeout(60);
+    await page.waitForFunction(() => (globalThis.__updateMeasurementCalls || []).some(c => c.patch.quantity === 1350));
     const calls = await page.evaluate(() => globalThis.__updateMeasurementCalls);
     assert.ok(calls.some(c => c.patch.label === 'Main Driveway'));
     assert.ok(calls.some(c => c.patch.quantity === 1350));

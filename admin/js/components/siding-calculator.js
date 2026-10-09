@@ -1,5 +1,5 @@
 import * as api from '../lib/api.js';
-import { el, select, numberInput, confirmAction, toast } from '../../../shared/dom.js';
+import { el, select, confirmAction, toast } from '../../../shared/dom.js';
 import { qty, unitLabel } from '../../../shared/format.js';
 import { reviewFlag } from './review-flag.js';
 import { modifierGroupsFor } from './modifier-groups.js';
@@ -18,7 +18,7 @@ import { modifierGroupsFor } from './modifier-groups.js';
  *  figure: the card showing this component already got its total from
  *  calculate_job_pricing before this ever renders. */
 
-export function createSidingCalculator({ job, service, refs, measurements, onChange, createMeasurement }) {
+export function createSidingCalculator({ job, service, refs, measurements, onChange, createMeasurement, quantityInput }) {
   const rows = measurements.filter((m) => m.service_id === service.id);
 
   async function pickOrCreateSection(currentId) {
@@ -57,10 +57,7 @@ export function createSidingCalculator({ job, service, refs, measurements, onCha
 
   function wallRow(measurement) {
     const section = refs.sections.find((s) => s.id === measurement.section_id);
-    const qtyInput = numberInput(measurement.quantity, async (e) => {
-      await api.updateMeasurement(measurement.id, { quantity: Number(e.target.value) || 0 });
-      onChange();
-    }, { step: '1', 'aria-label': 'Square feet' });
+    const qtyInput = quantityInput(measurement, { step: '1', 'aria-label': 'Square feet' });
 
     const selectedIds = new Set((measurement.measurement_modifiers || []).map((r) => r.modifier_id));
     const modifierControls = modifierGroupsFor(refs.modifiers, service.id).map((group) => {

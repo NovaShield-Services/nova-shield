@@ -1,5 +1,5 @@
 import * as api from '../lib/api.js';
-import { el, select, numberInput, confirmAction, toast } from '../../../shared/dom.js';
+import { el, select, confirmAction, toast } from '../../../shared/dom.js';
 import { qty, money } from '../../../shared/format.js';
 import { reviewFlag } from './review-flag.js';
 import { modifierGroupsFor } from './modifier-groups.js';
@@ -38,7 +38,7 @@ import { modifierGroupsFor } from './modifier-groups.js';
  *  review_reason/notes, which describe something found on THIS physical
  *  zone, not a safe default for an uninspected copy. */
 
-export function createConcreteCleaningCalculator({ job, service, refs, measurements, onChange, createMeasurement }) {
+export function createConcreteCleaningCalculator({ job, service, refs, measurements, onChange, createMeasurement, quantityInput }) {
   const rows = measurements.filter((m) => m.service_id === service.id);
   const allGroups = modifierGroupsFor(refs.modifiers, service.id);
 
@@ -78,10 +78,7 @@ export function createConcreteCleaningCalculator({ job, service, refs, measureme
 
   function zoneRow(measurement) {
     const section = refs.sections.find((s) => s.id === measurement.section_id);
-    const qtyInput = numberInput(measurement.quantity, async (e) => {
-      await api.updateMeasurement(measurement.id, { quantity: Number(e.target.value) || 0 });
-      onChange();
-    }, { step: '1', 'aria-label': 'Square feet' });
+    const qtyInput = quantityInput(measurement, { step: '1', 'aria-label': 'Square feet' });
 
     const selectedIds = new Set((measurement.measurement_modifiers || []).map((r) => r.modifier_id));
     const modifierControls = allGroups.map((group) => {

@@ -1,5 +1,5 @@
 import * as api from '../lib/api.js';
-import { el, select, numberInput, confirmAction, toast } from '../../../shared/dom.js';
+import { el, select, confirmAction, toast } from '../../../shared/dom.js';
 import { qty, money, unitLabel } from '../../../shared/format.js';
 import { reviewFlag } from './review-flag.js';
 import { modifierGroupsFor } from './modifier-groups.js';
@@ -44,7 +44,7 @@ import { modifierGroupsFor } from './modifier-groups.js';
  *  a single job-wide row, added/edited/removed directly, same reasoning
  *  as Permanent Lighting's. */
 
-export function createChristmasLightingCalculator({ job, service, refs, measurements, pricedRows, onChange, createMeasurement }) {
+export function createChristmasLightingCalculator({ job, service, refs, measurements, pricedRows, onChange, createMeasurement, quantityInput }) {
   const jumpService = refs.services.find((s) => s.key === 'christmas_lighting_jump');
   const mainRuns = measurements.filter((m) => m.service_id === service.id);
   const jumpRow = jumpService ? measurements.find((m) => m.service_id === jumpService.id) : null;
@@ -88,10 +88,7 @@ export function createChristmasLightingCalculator({ job, service, refs, measurem
 
   function lightingRunRow(measurement) {
     const section = refs.sections.find((s) => s.id === measurement.section_id);
-    const qtyInput = numberInput(measurement.quantity, async (e) => {
-      await api.updateMeasurement(measurement.id, { quantity: Number(e.target.value) || 0 });
-      onChange();
-    }, { step: '1', 'aria-label': 'Feet' });
+    const qtyInput = quantityInput(measurement, { step: '1', 'aria-label': 'Feet' });
 
     const selectedIds = new Set((measurement.measurement_modifiers || []).map((r) => r.modifier_id));
     const modifierControls = rowGroups.map((group) => {
@@ -194,10 +191,7 @@ export function createChristmasLightingCalculator({ job, service, refs, measurem
       ]);
     }
 
-    const qtyInput = numberInput(jumpRow.quantity, async (e) => {
-      await api.updateMeasurement(jumpRow.id, { quantity: Number(e.target.value) || 0 });
-      onChange();
-    }, { step: '1', 'aria-label': 'Jump wire feet' });
+    const qtyInput = quantityInput(jumpRow, { step: '1', 'aria-label': 'Jump wire feet' });
 
     return el('div', { class: 'section-box' }, [
       el('div', { class: 'section-box__head' }, [
