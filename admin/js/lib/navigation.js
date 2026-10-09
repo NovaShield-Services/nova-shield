@@ -255,6 +255,7 @@ export function installEscapeHandler(target = window) {
  *  @param contextParent  () => a better parent for the current screen, or null
  *  @param loadApp        () => Promise<{ App }>, injectable for tests
  *  @param native         () => boolean, injectable for tests
+ *  @param beforeExit     () => boolean | Promise<boolean>; false keeps the app open
  */
 export async function installBackHandler({
   currentPath,
@@ -267,6 +268,7 @@ export async function installBackHandler({
   keyboardOpen = () => isKeyboardLikelyOpen(),
   blurActive = () => document.activeElement?.blur?.(),
   resolveParent = parentOf,
+  beforeExit = () => true,
   loadApp,
   native
 } = {}) {
@@ -280,6 +282,25 @@ export async function installBackHandler({
     // A missing plugin must never break the app's startup. Back then
     // behaves as it did before this module existed.
     return null;
+  }
+
+  let exiting = false;
+  function exitSafely() {
+    if (exiting) return;
+    try {
+      const allowed = beforeExit();
+      if (allowed && typeof allowed.then === 'function') {
+        exiting = true;
+        return Promise.resolve(allowed).then(ok => {
+          if (ok) return App.exitApp();
+        }).catch(error => {
+          console.error('Could not check pending edits before exit', error);
+        }).finally(() => { exiting = false; });
+      }
+      if (allowed) return App.exitApp();
+    } catch (error) {
+      console.error('Could not check pending edits before exit', error);
+    }
   }
 
   const handler = () => {
@@ -303,8 +324,8 @@ export async function installBackHandler({
       case BACK_DISMISS_KEYBOARD: blurActive(); return;
       case BACK_HISTORY:          historyBack(); return;
       case BACK_GO_PARENT:        navigate(decision.target); return;
-      case BACK_EXIT:             App.exitApp(); return;
-      default:                    App.exitApp();
+      case BACK_EXIT:             return exitSafely();
+      default:                    return exitSafely();
     }
   };
 

@@ -120,6 +120,7 @@ document.getElementById('signOut')?.addEventListener('click', async () => {
 installEscapeHandler();
 
 installBackHandler({
+  beforeExit: flushMeasurementEdits,
   currentPath,
   navigate,
   canGoBack: () => navDepth > 1,

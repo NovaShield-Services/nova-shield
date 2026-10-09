@@ -206,7 +206,10 @@ input[inputmode="decimal"], input[type="number"] {
 .btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn--primary:hover { filter: brightness(1.08); }
 .btn--danger { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
-.btn--sm { min-height: 34px; padding: 4px 10px; font-size: .85rem; }
+.btn--sm { min-height: var(--tap); min-width: var(--tap); padding: 4px 10px; font-size: .85rem; }
+/* field.html has an inline 40px override. Keep its compact controls at the
+   same minimum tap size without changing that page's owned markup. */
+.field-view .btn.btn--sm { min-height: var(--tap); }
 .btn[disabled] { opacity: .55; cursor: not-allowed; }
 .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
 

@@ -273,7 +273,7 @@ export async function renderVisit({ mount, navigate }, jobId) {
     saveSignatureFn: async (jobId, quoteId, pngBlob, signerName) =>
       offlineQueue.callOrQueue('saveSignature', { jobId, quoteId, pngBlob, signerName }, 'Customer signature')
   });
-  measurementsPanel.guardActions(quotePanel.root);
+  measurementsPanel.guardActions(quotePanel.root, { allowQuoteDelivery: true });
   const photosPanel = createPhotosPanel({
     jobId: job.id,
     uploadFn: async (jobId, file, opts) => {

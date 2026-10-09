@@ -315,7 +315,7 @@ export async function renderJob({ mount }, jobId) {
   const activityHost = el('div', {});
   const measurementsPanel = createMeasurementsPanel({ job, refs, onChange: reload });
   const quotePanel = createQuotePanel({ job, onChange: reload });
-  measurementsPanel.guardActions(quotePanel.root);
+  measurementsPanel.guardActions(quotePanel.root, { allowQuoteDelivery: true });
 
   /* ------------------------------------------------------------ sections -- */
 

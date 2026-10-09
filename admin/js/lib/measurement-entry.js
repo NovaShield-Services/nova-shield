@@ -1,5 +1,6 @@
 import { el, numberInput, toast } from '../../../shared/dom.js';
 import { describeWriteError } from './save.js';
+import { looksOffline } from './offline-queue.js';
 
 const editors = new Set();
 let statusId = 0;
@@ -19,6 +20,15 @@ export async function flushMeasurementEdits() {
   for (const editor of [...editors]) {
     if (!editor.root.isConnected) { editors.delete(editor); continue; }
     if (!await editor.flush()) {
+      // Quantity edits are not part of the field outbox. Leaving offline
+      // must be an explicit local discard, never a claim that they synced.
+      if (editor.hasOfflineDraft() && window.confirm(
+        'Measurement quantities could not be saved because there is no connection. ' +
+        'Discard the unsaved quantity edits and continue? Cancel to stay and retry when connected.'
+      )) {
+        editor.discardDrafts();
+        continue;
+      }
       if (window.location.hash !== editor.route) {
         history.replaceState(history.state, '', editor.route || window.location.pathname);
       }
@@ -36,6 +46,7 @@ export function createMeasurementEditor({ root, save, onChange, delay = 350 }) {
   let version = 0;
   let refreshSequence = 0;
   let refreshTimer;
+  let refreshNeeded = false;
   let suspended = 0;
   let guarding = false;
   const replaying = new WeakSet();
@@ -45,10 +56,12 @@ export function createMeasurementEditor({ root, save, onChange, delay = 350 }) {
   }
 
   function requestRefresh() {
+    refreshNeeded = true;
     if (suspended || !root.isConnected) return;
     clearTimeout(refreshTimer);
     refreshTimer = setTimeout(async () => {
       if (pending() || suspended || !root.isConnected) return;
+      refreshNeeded = false;
       try { await onChange(); }
       catch (err) { toast(`Quantity saved, but the screen could not refresh: ${describeWriteError(err)}`, 'error'); }
     }, 0);
@@ -190,16 +203,28 @@ export function createMeasurementEditor({ root, save, onChange, delay = 350 }) {
         return false;
       }
       return true;
-    } finally { suspended--; }
+    } finally {
+      suspended--;
+      if (!suspended && refreshNeeded) requestRefresh();
+    }
   }
 
   /** Save before delete/duplicate/quote actions, without changing their logic.
    * Keep the original controls mounted until their original handler runs. */
-  function guardActions(host) {
+  function guardActions(host, { allowQuoteDelivery = false } = {}) {
     host.addEventListener('click', async event => {
       const target = event.target.closest('button, a');
       if (!target || !host.contains(target) || target.disabled ||
           target.dataset.measurementRecovery || replaying.has(target)) return;
+      // These controls read an existing quote; they do not calculate one
+      // from pending quantities. Preserve the genuine gesture needed by
+      // popups, clipboard and native sharing. Same-tab navigation and all
+      // mutations keep the save guard. This policy is only enabled by the
+      // quote-panel callers, never by the measurement controls themselves.
+      if (allowQuoteDelivery && (
+        target.matches('a[target="_blank"]') ||
+        ['Copy Link', 'Copy SMS Text', 'Text Quote', 'Share / Print'].includes(target.textContent.trim())
+      )) return;
       if (!pending() && !guarding) return;
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -219,6 +244,23 @@ export function createMeasurementEditor({ root, save, onChange, delay = 350 }) {
     refreshToken: () => ({ version, sequence: ++refreshSequence }),
     isCurrent: token => token.version === version && token.sequence === refreshSequence && root.isConnected,
     canRender: () => !pending() && ![...entries.values()].some(entry => entry.input === document.activeElement),
+    hasOfflineDraft: () => [...entries.values()].some(entry => entry.dirty && entry.error && looksOffline(entry.error)),
+    discardDrafts: () => {
+      // Called only after flush has settled and the user confirmed leaving.
+      // Restore local confirmed values without issuing any rollback writes.
+      for (const entry of entries.values()) {
+        clearTimeout(entry.timer);
+        entry.input.value = String(entry.saved);
+        entry.measurement.quantity = entry.saved;
+        entry.revision++;
+        entry.dirty = false;
+        entry.error = null;
+        paint(entry);
+      }
+      version++;
+      clearTimeout(refreshTimer);
+      refreshNeeded = false;
+    },
     reset: () => { for (const entry of entries.values()) clearTimeout(entry.timer); entries.clear(); }
   };
   editors.add(editor);

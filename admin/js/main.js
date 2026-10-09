@@ -243,6 +243,7 @@ installEscapeHandler();
    than wait on a CDN plugin fetch, and until the listener attaches Back
    behaves exactly as it did before (plain WebView history). */
 installBackHandler({
+  beforeExit: flushMeasurementEdits,
   currentPath: () => currentLocation().path,
   navigate,
   canGoBack,
