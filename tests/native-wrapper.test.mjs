@@ -291,9 +291,18 @@ async function main() {
       panel.root.remove();
       return result;
     });
-    assert.equal(info.previewHref, '../site/quote.html?id=quote-1');
+    // Batch 5 changed this expectation on purpose. It used to assert
+    // '../site/quote.html?id=quote-1', which is the bug: production routes
+    // everything that is not /admin/* or /shared/* to `root * /srv/site`
+    // (deploy/Caddyfile), so the customer page is at /quote.html and
+    // ../site/quote.html -- resolved from /admin/ -- asks for
+    // /srv/site/site/quote.html and 404s. The web admin and the native
+    // wrapper now share ONE address, built from company.website, which is
+    // also the value the send-notifications Edge Function puts in the
+    // customer's email. Web keeps target=_blank; native drops it.
+    assert.equal(info.previewHref, 'https://novashieldmaintenance.com/quote.html?id=quote-1');
     assert.equal(info.previewTarget, '_blank');
-    assert.equal(info.pdfHref, '../site/quote.html?id=quote-1&print=1');
+    assert.equal(info.pdfHref, 'https://novashieldmaintenance.com/quote.html?id=quote-1&print=1');
     assert.equal(info.pdfTarget, '_blank');
     assert.equal(info.pdfText, 'Download PDF');
     assert.equal(info.smsText, 'Copy SMS Text');
