@@ -7,6 +7,7 @@ import { reviewFlag } from '../components/review-flag.js';
 import { trySave } from '../lib/save.js';
 import { jobSteps, STEP_DONE, STEP_NOW } from '../components/next-step.js';
 import { activityRows, groupByDay } from '../components/job-activity.js';
+import { createJobMaterialsPanel } from '../components/job-materials.js';
 
 const JOB_STATUSES = ['new','reviewing','estimate_drafted','site_visit_scheduled','assessed',
   'quote_sent','accepted','declined','scheduled','in_progress','completed','invoiced','paid',
@@ -308,6 +309,12 @@ export async function renderJob({ mount }, jobId) {
   const photosHost = el('div', {});
   const inspectionHost = el('div', {});
   const pricingHost = el('div', {});
+
+  /* Batch 8.1. Sits after pricing because it reads the same measurements,
+     and before the quote because it is not part of it: nothing on this
+     panel reaches a customer total. It loads on demand -- see the
+     component's own comment for why. */
+  const materialsPanel = createJobMaterialsPanel({ jobId: job.id });
   const nextStepHost = el('div', {});
   const requestedHost = el('div', {});
   const notesHost = el('div', {});
@@ -1112,6 +1119,7 @@ export async function renderJob({ mount }, jobId) {
     measurementsPanel.root,
     inspectionHost,
     pricingHost,
+    materialsPanel.root,
     el('div', { class: 'card' }, [quotePanel.root]),
     notesHost,
     activityHost

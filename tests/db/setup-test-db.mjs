@@ -41,6 +41,9 @@ const LOCAL = new Set(['localhost', '127.0.0.1', '::1', '[::1]', '']);
   await client.end();
 
   console.log(`Created disposable test database "${TEST_DB_NAME}" and stamped it.`);
-  console.log('Run the suite with:');
-  console.log(`  node tests/db/batch7-1.test.mjs`);
+  console.log('Run every suite, each against a fresh database, with:');
+  console.log('  npm run test:db');
+  console.log('Or one at a time:');
+  console.log('  node tests/db/batch7-1.test.mjs');
+  console.log('  node tests/db/batch8-1.test.mjs');
 })();

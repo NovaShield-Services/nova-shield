@@ -1,4 +1,5 @@
 import { supabase } from '../../../shared/supabase.js';
+import { packsToUnits } from './inventory-math.js';
 
 /* Single data-access boundary. Views never talk to Supabase directly, so the
    day this moves behind a Next.js route handler, only this file changes. */
@@ -735,4 +736,207 @@ export async function listWinterProperties() {
   return unwrap(await supabase.from('properties')
     .select('id,address_line1,city,customers(name)')
     .order('address_line1').limit(500));
+}
+
+/* ------------------------------------------------------------- inventory -- */
+
+/* Batch 8.1. Stock is read from the ns_material_stock VIEW, never summed in
+   the browser: on-hand is the signed sum of an append-only ledger, and
+   computing it here would mean fetching every movement ever posted. Writes
+   go to ns_material_stock_moves as new rows -- a mistake is corrected by
+   posting its reverse, never by editing or deleting a movement, which is
+   what keeps a disputed shelf count explainable. */
+
+export async function listSuppliers({ includeInactive = false } = {}) {
+  let q = supabase.from('ns_suppliers').select('*').order('name');
+  if (!includeInactive) q = q.eq('active', true);
+  return unwrap(await q);
+}
+
+export async function createSupplier(patch) {
+  return unwrap(await supabase.from('ns_suppliers').insert(patch).select().single());
+}
+
+export async function updateSupplier(id, patch) {
+  return unwrap(await supabase.from('ns_suppliers')
+    .update(patch).eq('id', id).select().single());
+}
+
+/** The catalogue joined to its derived on-hand figure. Two round trips
+ *  rather than one view that also carries the supplier name, because the
+ *  view is grouped by material and adding a join to it would mean another
+ *  migration every time the catalogue grows a column. */
+export async function listMaterials({ includeInactive = false } = {}) {
+  const [materials, stock] = await Promise.all([
+    (async () => {
+      let q = supabase.from('ns_materials')
+        .select('*, ns_suppliers(id,name)').order('category').order('name');
+      if (!includeInactive) q = q.eq('active', true);
+      return unwrap(await q);
+    })(),
+    unwrap(await supabase.from('ns_material_stock').select('*'))
+  ]);
+  const byId = new Map(stock.map((s) => [s.material_id, s]));
+  return materials.map((m) => ({
+    ...m,
+    on_hand: Number(byId.get(m.id)?.on_hand ?? 0),
+    needs_reorder: byId.get(m.id)?.needs_reorder ?? true,
+    last_move_at: byId.get(m.id)?.last_move_at ?? null
+  }));
+}
+
+export async function createMaterial(patch) {
+  return unwrap(await supabase.from('ns_materials').insert(patch).select().single());
+}
+
+export async function updateMaterial(id, patch) {
+  return unwrap(await supabase.from('ns_materials')
+    .update(patch).eq('id', id).select().single());
+}
+
+export async function listStockMoves(materialId, limit = 50) {
+  return unwrap(await supabase.from('ns_material_stock_moves')
+    .select('*').eq('material_id', materialId)
+    .order('occurred_at', { ascending: false }).limit(limit));
+}
+
+/** `delta` is signed and must agree with `reason` -- the database enforces
+ *  that pairing (a negative receipt or a positive consumption is refused),
+ *  so the caller passes the sign the movement really has rather than a
+ *  magnitude plus a direction this layer would have to guess at. */
+export async function postStockMove({ materialId, delta, reason, jobId, purchaseOrderId, note }) {
+  return unwrap(await supabase.from('ns_material_stock_moves').insert({
+    material_id: materialId,
+    delta,
+    reason,
+    job_id: jobId || null,
+    purchase_order_id: purchaseOrderId || null,
+    note: note || null,
+    created_by: await currentUserId()
+  }).select().single());
+}
+
+export async function listPurchaseOrders({ status } = {}) {
+  let q = supabase.from('ns_purchase_orders')
+    .select('*, ns_suppliers(id,name), ns_purchase_order_lines(*, ns_materials(id,name,sku,unit,pack_quantity))')
+    .order('created_at', { ascending: false }).limit(100);
+  if (status) q = q.eq('status', status);
+  return unwrap(await q);
+}
+
+export async function createPurchaseOrder(patch) {
+  return unwrap(await supabase.from('ns_purchase_orders').insert({
+    ...patch, created_by: await currentUserId()
+  }).select().single());
+}
+
+export async function updatePurchaseOrder(id, patch) {
+  return unwrap(await supabase.from('ns_purchase_orders')
+    .update(patch).eq('id', id).select().single());
+}
+
+export async function addPurchaseOrderLine(purchaseOrderId, line) {
+  return unwrap(await supabase.from('ns_purchase_order_lines')
+    .insert({ purchase_order_id: purchaseOrderId, ...line }).select().single());
+}
+
+export async function updatePurchaseOrderLine(id, patch) {
+  return unwrap(await supabase.from('ns_purchase_order_lines')
+    .update(patch).eq('id', id).select().single());
+}
+
+export async function deletePurchaseOrderLine(id) {
+  unwrap(await supabase.from('ns_purchase_order_lines').delete().eq('id', id));
+}
+
+/** Receiving is TWO writes that must both land: the line's received count,
+ *  and a stock movement in material units. They are issued in that order so
+ *  a failure after the first leaves a PO that under-reports its receipt --
+ *  visible and correctable -- rather than stock on the shelf that no
+ *  paperwork accounts for. There is no RPC for this yet; if the pair starts
+ *  drifting in practice it belongs in one. */
+export async function receivePurchaseOrderLine(line, packs) {
+  const units = packsToUnits(line.ns_materials, packs);
+  if (!(units > 0)) throw new Error('Receive a positive number of packs.');
+
+  await updatePurchaseOrderLine(line.id, {
+    packs_received: Number(line.packs_received || 0) + Number(packs)
+  });
+  await postStockMove({
+    materialId: line.material_id,
+    delta: units,
+    reason: 'received',
+    purchaseOrderId: line.purchase_order_id,
+    note: `Received ${packs} pack(s) on PO`
+  });
+}
+
+export async function listServiceMaterialUsage() {
+  return unwrap(await supabase.from('ns_service_material_usage')
+    .select('*, services(id,key,name,unit), ns_materials(id,name,sku,unit)')
+    .order('service_id'));
+}
+
+export async function setServiceMaterialUsage(patch) {
+  return unwrap(await supabase.from('ns_service_material_usage')
+    .insert(patch).select().single());
+}
+
+export async function updateServiceMaterialUsage(id, patch) {
+  return unwrap(await supabase.from('ns_service_material_usage')
+    .update(patch).eq('id', id).select().single());
+}
+
+export async function deleteServiceMaterialUsage(id) {
+  unwrap(await supabase.from('ns_service_material_usage').delete().eq('id', id));
+}
+
+/** Quantities only. This is not pricing and is not read by the quote path --
+ *  see the RPC's own comment. */
+export async function estimateJobMaterials(jobId) {
+  return unwrap(await supabase.rpc('estimate_job_materials', { p_job_id: jobId }));
+}
+
+/* ----------------------------------------------- Christmas rental sets -- */
+
+export async function listRentalSets({ status, seasonYear } = {}) {
+  let q = supabase.from('ns_rental_sets')
+    .select('*, customers(id,name), properties(id,address_line1,city)')
+    .order('set_code').limit(500);
+  if (status) q = q.eq('status', status);
+  if (seasonYear) q = q.eq('season_year', seasonYear);
+  return unwrap(await q);
+}
+
+export async function createRentalSet(patch) {
+  return unwrap(await supabase.from('ns_rental_sets').insert(patch).select().single());
+}
+
+export async function updateRentalSet(id, patch) {
+  return unwrap(await supabase.from('ns_rental_sets')
+    .update(patch).eq('id', id).select().single());
+}
+
+export async function listRentalSetEvents(rentalSetId, limit = 50) {
+  return unwrap(await supabase.from('ns_rental_set_events')
+    .select('*').eq('rental_set_id', rentalSetId)
+    .order('occurred_at', { ascending: false }).limit(limit));
+}
+
+/** A status change and its log entry are written as a pair: the status says
+ *  where the set is now, the event says how it got there, and a damage or
+ *  missing-set dispute turns on the second one. The event is written FIRST
+ *  so a failure leaves a logged event with a stale status (a visible
+ *  inconsistency) rather than a silent status change with no history. */
+export async function moveRentalSet(set, { event, status, patch = {}, note, jobId } = {}) {
+  await supabase.from('ns_rental_set_events').insert({
+    rental_set_id: set.id,
+    event,
+    customer_id: patch.customer_id ?? set.customer_id ?? null,
+    job_id: jobId || null,
+    note: note || null,
+    created_by: await currentUserId()
+  }).then(unwrap);
+
+  return updateRentalSet(set.id, { ...(status ? { status } : {}), ...patch });
 }

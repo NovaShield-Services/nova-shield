@@ -10,6 +10,7 @@ import { renderJobs, renderJob } from './views/job.js';
 import { renderCustomers, renderCustomer } from './views/customers.js';
 import { renderProperty } from './views/property.js';
 import { renderSettings } from './views/settings.js';
+import { renderInventory } from './views/inventory.js';
 import { renderWinter } from './views/winter.js';
 
 const viewEl = document.getElementById('view');
@@ -30,6 +31,7 @@ const routes = [
   { pattern: /^\/properties\/([0-9a-f-]+)$/, nav: 'customers',
     render: (ctx, id) => renderProperty(ctx, id) },
   { pattern: /^\/winter$/,           nav: 'winter',    render: renderWinter },
+  { pattern: /^\/inventory$/,        nav: 'inventory', render: renderInventory },
   { pattern: /^\/settings$/,         nav: 'settings',  render: renderSettings }
 ];
 
