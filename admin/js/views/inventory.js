@@ -96,9 +96,20 @@ function stockTab() {
   const host = el('div', {});
 
   async function load() {
-    const materials = await api.listMaterials({ includeInactive: true });
-    const suppliers = await api.listSuppliers({ includeInactive: true });
+    const [materials, suppliers, locations, byLocation] = await Promise.all([
+      api.listMaterials({ includeInactive: true }),
+      api.listSuppliers({ includeInactive: true }),
+      api.listStockLocations(),
+      api.listStockByLocation()
+    ]);
     const low = materials.filter((m) => m.active && m.needs_reorder);
+
+    // material id -> [{ location_code, location_name, on_hand }]
+    const balances = new Map();
+    for (const row of byLocation) {
+      if (!balances.has(row.material_id)) balances.set(row.material_id, []);
+      balances.get(row.material_id).push(row);
+    }
 
     fill(host, [
       materials.length === 0 ? emptyCatalogue(suppliers, load) : null,
@@ -122,7 +133,7 @@ function stockTab() {
           ])
         : null,
 
-      materials.length ? catalogueCard(materials, suppliers, load) : null,
+      materials.length ? catalogueCard(materials, suppliers, locations, balances, load) : null,
       materials.length ? newMaterialCard(suppliers, load) : null
     ]);
   }
@@ -152,7 +163,7 @@ function emptyCatalogue(suppliers, reload) {
   ]);
 }
 
-function catalogueCard(materials, suppliers, reload) {
+function catalogueCard(materials, suppliers, locations, balances, reload) {
   const host = el('div', { class: 'card' });
   const byCategory = new Map();
   for (const m of materials) {
@@ -170,15 +181,19 @@ function catalogueCard(materials, suppliers, reload) {
     ]),
     ...[...byCategory.entries()].map(([category, rows]) => el('div', { class: 'section-box' }, [
       el('div', { class: 'section-box__head', style: 'flex-wrap:wrap' }, [el('strong', { text: humanise(category) })]),
-      ...rows.map((m) => materialRow(m, suppliers, reload))
+      ...rows.map((m) => materialRow(m, suppliers, locations, balances.get(m.id) || [], reload))
     ]))
   ]);
   return host;
 }
 
-function materialRow(m, suppliers, reload) {
+function materialRow(m, suppliers, locations, balances, reload) {
   const host = el('div', { class: 'section-box', style: 'margin:8px 0' });
   let movesOpen = false;
+  /* Collapsed by default. Posting a count is the everyday act; moving stock
+     between Base and a car is the morning-and-evening one, and leaving both
+     forms open put every card past 6000px at 390px wide. */
+  let transferOpen = false;
 
   function paint() {
     fill(host, [
@@ -194,6 +209,13 @@ function materialRow(m, suppliers, reload) {
           text: `${qty(m.on_hand)} ${unitLabel(m.unit)}`
         }),
         m.active ? null : el('span', { class: 'badge badge--muted', text: 'Inactive' }),
+        locations.length > 1
+          ? el('button', {
+              class: 'btn btn--sm', type: 'button',
+              text: transferOpen ? 'Hide move' : 'Move',
+              onClick: () => { transferOpen = !transferOpen; paint(); }
+            })
+          : null,
         el('button', {
           class: 'btn btn--sm', type: 'button',
           text: movesOpen ? 'Hide movements' : 'Movements',
@@ -231,7 +253,9 @@ function materialRow(m, suppliers, reload) {
           `How many ${unitLabel(m.unit)} the supplier sells in one pack.`)
       ]),
 
-      movementForm(m, reload),
+      locationBalances(m, balances),
+      movementForm(m, locations, reload),
+      transferOpen ? transferForm(m, locations, balances, reload) : null,
 
       el('div', { class: 'btn-row', style: 'margin-top:8px' }, [
         el('button', {
@@ -254,8 +278,27 @@ function materialRow(m, suppliers, reload) {
   return host;
 }
 
-function movementForm(material, reload) {
+/* Where the stock actually is. A single total answers "do we own any" and
+   never answers "is it in the car", which is the question asked every
+   morning. */
+function locationBalances(material, balances) {
+  if (!balances.length) return null;
+  return el('p', { class: 'hint', style: 'margin:8px 0 0' }, [
+    el('span', { text: balances
+      .map((b) => `${b.location_name}: ${qty(b.on_hand)} ${unitLabel(material.unit)}`)
+      .join('  ·  ') })
+  ]);
+}
+
+function locationSelect(locations, value, onChange, label) {
+  return select(
+    locations.map((l) => ({ value: l.code, label: l.name })),
+    value, onChange, { 'aria-label': label });
+}
+
+function movementForm(material, locations, reload) {
   let reason = MANUAL_REASONS[0][0];
+  let location = locations[0]?.code || 'base';
   // No placeholder: a unit word sitting in an empty NUMBER box reads as if
   // it were the value. The caption already carries the unit.
   const amount = numberInput('', null, {
@@ -275,10 +318,14 @@ function movementForm(material, reload) {
   describeSign();
 
   return el('div', { style: 'margin-top:10px' }, [
-    el('div', { class: 'grid grid--3' }, [
+    el('div', { class: 'grid grid--2' }, [
       labelled('Movement', select(
         MANUAL_REASONS.map(([value, label]) => ({ value, label })), reason,
         (e) => { reason = e.target.value; describeSign(); })),
+      labelled('Where', locationSelect(locations, location,
+        (e) => { location = e.target.value; }, `Location for ${material.name}`))
+    ]),
+    el('div', { class: 'grid grid--2', style: 'margin-top:8px' }, [
       labelled(`Quantity (${unitLabel(material.unit)})`, amount),
       labelled('Note', noteInput)
     ]),
@@ -292,16 +339,127 @@ function movementForm(material, reload) {
             toast('Enter a quantity other than zero.', 'error');
             return;
           }
-          // A correction keeps the sign the operator typed; everything else
-          // takes the sign its reason implies, so "used 40" cannot be
-          // entered as +40 and quietly add stock. See signedDelta.
+          // The SERVER derives the sign from the reason; signedDelta is
+          // kept here only to show the operator, before they commit, which
+          // way the number is about to go. A correction keeps the typed
+          // sign at both ends, because a negative correction has to be
+          // enterable at all.
           const sign = MANUAL_REASONS.find(([k]) => k === reason)?.[2] ?? 0;
-          const delta = signedDelta(sign, entered);
+          const preview = signedDelta(sign, entered);
+          if (preview === 0) { toast('Enter a quantity other than zero.', 'error'); return; }
 
-          const ok = await trySave(() => api.postStockMove({
-            materialId: material.id, delta, reason, note: noteInput.value.trim() || null
+          // One replay key per attempt, generated BEFORE the request and
+          // reused if this handler retries: the server never saw a failed
+          // first attempt, so only the caller can say "this is that same
+          // act". A fresh key per click is correct -- two deliberate clicks
+          // are two movements.
+          const clientOperationId = api.newOperationId('mv');
+
+          const ok = await trySave(() => api.postStockMovement({
+            clientOperationId,
+            materialId: material.id,
+            locationCode: location,
+            quantity: reason === 'adjustment' ? preview : Math.abs(entered),
+            reason,
+            note: noteInput.value.trim() || null
           }), { success: 'Movement posted' });
           if (ok) { amount.value = ''; noteInput.value = ''; await reload(); }
+        }
+      })
+    ])
+  ]);
+}
+
+/* Load the car in the morning, bring it back at night. Two locations, one
+   quantity, and a confirmation the goods actually moved -- the database
+   refuses the transfer without it, so this is not a courtesy checkbox.
+
+   The quantity is capped at what the SOURCE holds rather than at the total:
+   you cannot carry out of a car what is not in it, and the server refuses
+   it anyway. Showing the source balance next to the field is what stops the
+   operator discovering that at the end instead of the start. */
+function transferForm(material, locations, balances, reload) {
+  if (locations.length < 2) return null;
+
+  const held = (code) => Number(
+    balances.find((b) => b.location_code === code)?.on_hand ?? 0);
+
+  let from = locations[0].code;
+  let to = locations.find((l) => l.code !== from)?.code;
+  let confirmed = false;
+
+  const amount = numberInput('', null, {
+    step: '1', min: '0', 'aria-label': `Quantity to transfer of ${material.name}`
+  });
+  const available = el('p', { class: 'hint', style: 'margin:4px 0 0' });
+  const confirmBox = el('input', {
+    type: 'checkbox', style: 'width:auto;min-height:0;margin-right:8px',
+    'aria-label': 'Confirm the goods physically moved',
+    onChange: (e) => { confirmed = e.target.checked; }
+  });
+
+  function describeAvailable() {
+    available.textContent =
+      `${qty(held(from))} ${unitLabel(material.unit)} at ${
+        locations.find((l) => l.code === from)?.name || from}.`;
+  }
+  describeAvailable();
+
+  return el('div', { style: 'margin-top:12px' }, [
+    el('h4', { style: 'margin:0 0 6px;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)',
+      text: 'Move between locations' }),
+    el('div', { class: 'grid grid--3' }, [
+      labelled('From', locationSelect(locations, from, (e) => {
+        from = e.target.value;
+        if (to === from) to = locations.find((l) => l.code !== from)?.code;
+        describeAvailable();
+      }, `Transfer source for ${material.name}`)),
+      labelled('To', locationSelect(locations, to, (e) => { to = e.target.value; },
+        `Transfer destination for ${material.name}`)),
+      // NOT "Quantity": the movement form above already has one, and two
+      // identically-labelled fields in one card are ambiguous to a screen
+      // reader and to anyone scanning it.
+      labelled(`Quantity to move (${unitLabel(material.unit)})`, amount)
+    ]),
+    available,
+    el('label', { class: 'check', style: 'display:flex;align-items:center;margin-top:8px' }, [
+      confirmBox,
+      el('span', { text: 'The goods physically moved' })
+    ]),
+    el('p', { class: 'hint', style: 'margin:4px 0 0',
+      text: 'Stock does not move until this is ticked — the balance has to match the car.' }),
+    el('div', { class: 'btn-row', style: 'margin-top:8px' }, [
+      el('button', {
+        class: 'btn btn--sm btn--primary', type: 'button', text: 'Transfer',
+        onClick: async () => {
+          const n = num(amount.value, 0);
+          if (!(n > 0)) { toast('Enter how much is moving.', 'error'); return; }
+          if (from === to) { toast('Pick two different locations.', 'error'); return; }
+          if (!confirmed) {
+            toast('Tick the confirmation once the goods have actually moved.', 'error');
+            return;
+          }
+          if (n > held(from)) {
+            toast(`Only ${qty(held(from))} ${unitLabel(material.unit)} there. ` +
+                  'Count it and post a correction if the shelf disagrees.', 'error');
+            return;
+          }
+
+          const ok = await trySave(() => api.postStockTransfer({
+            clientOperationId: api.newOperationId('xf'),
+            materialId: material.id,
+            quantity: n,
+            fromLocationCode: from,
+            toLocationCode: to,
+            confirmedPhysical: true
+          }), { success: 'Stock moved' });
+
+          if (ok) {
+            amount.value = '';
+            confirmBox.checked = false;
+            confirmed = false;
+            await reload();
+          }
         }
       })
     ])

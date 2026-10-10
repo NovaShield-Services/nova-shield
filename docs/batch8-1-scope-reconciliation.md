@@ -183,39 +183,66 @@ shipped is a **partial 8.1 plus part of 9.1**. Honest assessment below.
 
 ---
 
-## 4. Corrective 8.1 work, in order
+## 4. Corrective 8.1 work
 
-Proposed, not started. Each item is testable on a disposable database.
+### Done (items 1-3)
 
-1. **Locations and balances.** `ns_stock_locations` (Base, Car A, optional
-   Car B), `location_id` on every movement, on-hand per material per
-   location, with the base pool shared.
-2. **Transfers as a conserving pair.** One operation, two movements, one
-   transaction, with a database-level proof that totals are conserved.
-   Physical-movement confirmation recorded on the operation, not inferred.
-3. **Operations-contract v1.** `client_operation_id` unique per operation for
-   replay safety; `actor_id` and `vehicle_id`; `record_version` for optimistic
-   concurrency; a defined pending/conflict response shape. Freeze the snapshot
-   and hand the identical copy to the field track, so neither side invents a
-   counterpart.
+1. **Locations and balances.** `ns_stock_locations` with Base and Car A
+   seeded. Car B is capability, not data: the owner runs one crew today, so
+   a second vehicle is a row somebody inserts rather than a migration
+   somebody writes. Nothing hardcodes two vehicles, and a test adds and
+   removes Car B to prove it. Exactly one base is enforced by a partial
+   unique index -- a second would split the shared pool and make every
+   stock answer ambiguous. `location_id` is NOT NULL on every movement, and
+   `ns_material_stock_by_location` gives the per-location balance the
+   morning question actually needs. The old per-material view survives as a
+   rollup, so callers written before locations existed keep working.
+2. **Transfers as a conserving pair.** `post_stock_transfer` writes two legs
+   in one transaction, and a DEFERRED constraint trigger checks at COMMIT
+   that every transfer operation has exactly two legs, two distinct
+   locations, and sums to zero per material. Deferred is the point: an
+   immediate check fires after the first leg and would fail every
+   legitimate transfer. A hand-built one-legged or unbalanced transfer is
+   refused even when it never goes through the function. Physical
+   confirmation is required before any stock moves, and a transfer larger
+   than the source holds is refused -- a negative balance is meaningful for
+   consumption but never for a transfer.
+3. **Operations-contract v1.** `ns_stock_operations` with a unique
+   caller-supplied `client_operation_id`, plus `actor_id`,
+   `vehicle_location_id`, `record_version` and `confirmed_physical`. A
+   replay returns the original operation with `replayed: true` and writes
+   nothing; reusing a key for a different kind of operation raises rather
+   than quietly returning the wrong act. Frozen and documented for both
+   tracks in **docs/operations-contract-v1.md**.
+
+Also done, because the contract is only real if the back door is shut:
+`INSERT`/`UPDATE`/`DELETE` on both ledger tables is **revoked from
+`authenticated`**, so the two RPCs are the only way stock moves. `SELECT`
+stays -- the ledger is the audit trail. The migration verifies the revoke
+took effect and raises if it did not.
+
+`estimate_job_materials` gained a **stock basis**: `null` for every
+location, `'base'` for the shared pool, a vehicle code for that car plus
+Base. The answer repeats the basis it used, at the top level and on every
+line. An unknown code raises rather than falling back to the total, because
+a shortfall against the wrong basis is worse than no shortfall.
+
+### Still to do (items 4-8)
+
 4. **Reservations and releases**, with a constraint that makes a second
-   reservation against the same scarce stock impossible rather than unlikely.
+   reservation against the same scarce stock impossible rather than
+   unlikely. The one remaining 8.1 acceptance criterion.
 5. **Crew permissions.** Owner versus assigned crew, enforced in RLS, with a
-   test that a crew cannot read or alter unassigned records.
+   test that a crew cannot read or alter unassigned records. `actor_id` and
+   `vehicle_location_id` are recorded now so this is a policy change later,
+   not a reshape.
 6. **Units.** Add L, kg, stick, and a replenishment-level unit; add
    exact-versus-estimated and usable-versus-damaged.
-7. **Admin operations view**, replacing the standalone Inventory screen's
-   scope with catalogue / receive / transfer, using existing CSS primitives
-   plus a narrowly scoped `admin/css/admin-operations.css` limited to
-   management-view selectors — which is also where the `.section-box__head`
-   wrap fix belongs instead of the current inline styles.
+7. **Admin operations view**, using existing CSS primitives plus a narrowly
+   scoped `admin/css/admin-operations.css` limited to management-view
+   selectors -- which is also where the `.section-box__head` wrap fix
+   belongs instead of the current inline styles.
 8. **Second supplier row** for `lightsdepot.ca`, name and URL only.
-
-Items 1–3 are prerequisites for the plan's acceptance criteria; 4–6 complete
-them; 7–8 are presentation and data entry.
-
----
-
 ## 5. Correctness questions that affect the work
 
 Only the ones that change what gets built. Everything else I will decide and
@@ -234,10 +261,17 @@ record.
    Car B inactive. The plan says "optional Car B"; both readings satisfy it,
    and they differ in how a second crew is enabled later.
 
-I am proceeding on these defaults and will mark each in the schema comments:
-(1) stock on a vehicle is available to that vehicle's planning only, and is
-returned to Base to become generally available — the conservative reading,
-since the alternative lets two crews plan against metal that is physically in
-one car; (2) a crew may post a correction attributed to itself but may not
-alter another actor's movement; (3) Car B is a row that may be absent, so
-enabling a second crew is data entry rather than a migration.
+**All three were answered by the owner and are now implemented.**
+
+(1) Confirmed: stock on a vehicle is available to that vehicle's work and
+returns to Base to become generally available. This is why a vehicle stock
+basis means *that car plus Base*, and a Base basis means Base alone.
+
+(2) Confirmed: a crew may post a correction attributed to itself but may not
+alter another actor's movement. Not yet enforced -- everything is admin-only
+in v1 -- but `actor_id` is recorded on every operation so the policy can be
+added without reshaping anything.
+
+(3) Confirmed, with a clarification: Car B is something the business expands
+to later, and only Car A matters now. So the space and the capability are
+there and Car B is **not seeded**. Adding it is data entry.

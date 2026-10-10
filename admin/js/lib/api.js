@@ -800,20 +800,72 @@ export async function listStockMoves(materialId, limit = 50) {
     .order('occurred_at', { ascending: false }).limit(limit));
 }
 
-/** `delta` is signed and must agree with `reason` -- the database enforces
- *  that pairing (a negative receipt or a positive consumption is refused),
- *  so the caller passes the sign the movement really has rather than a
- *  magnitude plus a direction this layer would have to guess at. */
-export async function postStockMove({ materialId, delta, reason, jobId, purchaseOrderId, note }) {
-  return unwrap(await supabase.from('ns_material_stock_moves').insert({
-    material_id: materialId,
-    delta,
-    reason,
-    job_id: jobId || null,
-    purchase_order_id: purchaseOrderId || null,
-    note: note || null,
-    created_by: await currentUserId()
-  }).select().single());
+/* Operations contract v1. Direct INSERT on the ledger is revoked, so these
+   two functions are the only way stock moves -- see
+   docs/operations-contract-v1.md and the migration's own comment on why
+   that revoke is what makes the guarantees real rather than advisory. */
+
+/** A client-generated replay key. It has to be generated BEFORE the request
+ *  and reused on retry, which is the whole point: the server never saw the
+ *  first attempt, so only the caller can say "this is that same act". */
+export function newOperationId(prefix = 'op') {
+  const rand = (globalThis.crypto && globalThis.crypto.randomUUID)
+    ? globalThis.crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  return `${prefix}-${rand}`;
+}
+
+/** One material at one location. `quantity` is a MAGNITUDE: the sign comes
+ *  from `reason`, decided server-side, so a positive 'consumed' cannot add
+ *  stock. 'adjustment' is the exception and keeps the sign it is given,
+ *  because a negative correction has to be enterable at all. */
+export async function postStockMovement({
+  clientOperationId, materialId, locationCode = 'base', quantity, reason,
+  note, jobId, purchaseOrderId, vehicleCode
+}) {
+  return unwrap(await supabase.rpc('post_stock_movement', {
+    p_client_operation_id: clientOperationId || newOperationId('mv'),
+    p_material_id: materialId,
+    p_location_code: locationCode,
+    p_quantity: quantity,
+    p_reason: reason,
+    p_note: note || null,
+    p_job_id: jobId || null,
+    p_purchase_order_id: purchaseOrderId || null,
+    p_vehicle_code: vehicleCode || null
+  }));
+}
+
+/** Two conserving legs between two locations. Refused until the physical
+ *  movement is confirmed -- a half-moved balance is the thing a crew cannot
+ *  reconcile against a car. */
+export async function postStockTransfer({
+  clientOperationId, materialId, quantity, fromLocationCode, toLocationCode,
+  confirmedPhysical = false, note, jobId
+}) {
+  return unwrap(await supabase.rpc('post_stock_transfer', {
+    p_client_operation_id: clientOperationId || newOperationId('xf'),
+    p_material_id: materialId,
+    p_quantity: quantity,
+    p_from_location_code: fromLocationCode,
+    p_to_location_code: toLocationCode,
+    p_confirmed_physical: confirmedPhysical,
+    p_note: note || null,
+    p_job_id: jobId || null
+  }));
+}
+
+export async function listStockLocations({ includeInactive = false } = {}) {
+  let q = supabase.from('ns_stock_locations').select('*').order('sort_order');
+  if (!includeInactive) q = q.eq('active', true);
+  return unwrap(await q);
+}
+
+export async function listStockByLocation(materialId) {
+  let q = supabase.from('ns_material_stock_by_location')
+    .select('*').order('location_code');
+  if (materialId) q = q.eq('material_id', materialId);
+  return unwrap(await q);
 }
 
 export async function listPurchaseOrders({ status } = {}) {
@@ -855,16 +907,17 @@ export async function deletePurchaseOrderLine(id) {
  *  visible and correctable -- rather than stock on the shelf that no
  *  paperwork accounts for. There is no RPC for this yet; if the pair starts
  *  drifting in practice it belongs in one. */
-export async function receivePurchaseOrderLine(line, packs) {
+export async function receivePurchaseOrderLine(line, packs, { locationCode = 'base' } = {}) {
   const units = packsToUnits(line.ns_materials, packs);
   if (!(units > 0)) throw new Error('Receive a positive number of packs.');
 
   await updatePurchaseOrderLine(line.id, {
     packs_received: Number(line.packs_received || 0) + Number(packs)
   });
-  await postStockMove({
+  await postStockMovement({
     materialId: line.material_id,
-    delta: units,
+    locationCode,
+    quantity: units,
     reason: 'received',
     purchaseOrderId: line.purchase_order_id,
     note: `Received ${packs} pack(s) on PO`
@@ -893,8 +946,11 @@ export async function deleteServiceMaterialUsage(id) {
 
 /** Quantities only. This is not pricing and is not read by the quote path --
  *  see the RPC's own comment. */
-export async function estimateJobMaterials(jobId) {
-  return unwrap(await supabase.rpc('estimate_job_materials', { p_job_id: jobId }));
+export async function estimateJobMaterials(jobId, locationCode = null) {
+  return unwrap(await supabase.rpc('estimate_job_materials', {
+    p_job_id: jobId,
+    p_location_code: locationCode
+  }));
 }
 
 /* ----------------------------------------------- Christmas rental sets -- */

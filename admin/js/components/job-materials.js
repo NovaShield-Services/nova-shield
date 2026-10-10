@@ -1,5 +1,5 @@
 import * as api from '../lib/api.js';
-import { el, numberInput, confirmAction, toast } from '../../../shared/dom.js';
+import { el, select, numberInput, confirmAction, toast } from '../../../shared/dom.js';
 import { fill } from '../lib/admin-dom.js';
 import { money, qty, num, unitLabel } from '../../../shared/format.js';
 import { trySave } from '../lib/save.js';
@@ -26,12 +26,23 @@ export function createJobMaterialsPanel({ jobId }) {
   const root = el('div', { class: 'card' });
   let estimate = null;
   let loading = false;
+  let locations = [];
+
+  /* Which stock counts as reachable for this job. Stock in a car is
+     available to that car's work; Base is available to everyone. Until jobs
+     are assigned to a crew (Batch 12.1), the operator says which basis they
+     mean, and the answer says which one it used -- rather than this panel
+     guessing and quietly reporting a shortfall against the wrong pile. */
+  let basis = null;   // null = every location
 
   async function load() {
     loading = true;
     paint();
     try {
-      estimate = await api.estimateJobMaterials(jobId);
+      if (!locations.length) {
+        locations = await api.listStockLocations().catch(() => []);
+      }
+      estimate = await api.estimateJobMaterials(jobId, basis);
     } catch (err) {
       estimate = { error: err.message };
     } finally {
@@ -47,12 +58,28 @@ export function createJobMaterialsPanel({ jobId }) {
         el('p', { text: 'Worked out from this job’s measurements and what each service consumes. ' +
                         'Quantities only — nothing here affects the quote.' })
       ]),
-      el('button', {
-        class: 'btn btn--sm', type: 'button',
-        text: loading ? 'Working…' : estimate ? 'Recalculate' : 'Work out materials',
-        disabled: loading,
-        onClick: load
-      })
+      el('div', { class: 'btn-row', style: 'flex-wrap:wrap' }, [
+        estimate && !estimate.error && locations.length
+          ? el('label', { class: 'field', style: 'margin:0;min-width:150px' }, [
+              el('span', { text: 'Stock counted' }),
+              select(
+                [{ value: '', label: 'Everywhere' },
+                 ...locations.map((l) => ({
+                   value: l.code,
+                   label: l.kind === 'vehicle' ? `${l.name} + Base` : l.name
+                 }))],
+                basis || '',
+                async (e) => { basis = e.target.value || null; await load(); },
+                { 'aria-label': 'Which stock counts as reachable' })
+            ])
+          : null,
+        el('button', {
+          class: 'btn btn--sm', type: 'button',
+          text: loading ? 'Working…' : estimate ? 'Recalculate' : 'Work out materials',
+          disabled: loading,
+          onClick: load
+        })
+      ].filter(Boolean))
     ]);
   }
 
@@ -73,6 +100,7 @@ export function createJobMaterialsPanel({ jobId }) {
     }
 
     const lines = estimate.lines || [];
+    const basisLocation = locations.find((l) => l.code === basis);
     const unmapped = estimate.unmapped_services || [];
     const short = lines.filter((l) => Number(l.shortfall) > 0);
     const flagged = lines.filter((l) => l.from_flagged_measurement);
@@ -96,7 +124,7 @@ export function createJobMaterialsPanel({ jobId }) {
         : null,
 
       lines.length
-        ? el('div', {}, lines.map((line) => lineRow(line, load)))
+        ? el('div', {}, lines.map((line) => lineRow(line, load, basis)))
         : null,
 
       costed.length
@@ -131,12 +159,15 @@ export function createJobMaterialsPanel({ jobId }) {
         : null,
 
       el('p', { class: 'hint', style: 'margin-top:10px' }, [
+        el('span', { text: basisLocation
+          ? `On-hand figures count ${basisLocation.name}${basisLocation.kind === 'vehicle' ? ' plus Base' : ''}. `
+          : 'On-hand figures count every location — not what one crew can reach today. ' }),
         el('a', { href: '#/inventory', text: 'Open Inventory' })
       ])
     ]);
   }
 
-  function lineRow(line, reload) {
+  function lineRow(line, reload, consumeFrom) {
     const required = Number(line.required);
     const onHand = Number(line.on_hand);
     const shortfall = Number(line.shortfall);
@@ -188,15 +219,23 @@ export function createJobMaterialsPanel({ jobId }) {
               const used = num(useInput.value, 0);
               if (!(used > 0)) { toast('Enter how much was used.', 'error'); return; }
               if (!confirmAction(
-                `Take ${qty(used)} ${unitLabel(line.unit)} of ${line.name} off stock for this job? ` +
+                `Take ${qty(used)} ${unitLabel(line.unit)} of ${line.name} off ` +
+                `${consumeFrom ? consumeFrom.replace('_', ' ') : 'Base'} for this job? ` +
                 'This posts a ledger movement and is undone by posting a correction, not by deleting it.')) return;
 
-              await trySave(() => api.postStockMove({
+              // A magnitude plus a reason: the server signs it. Passing a
+              // negative here would be refused, which is the point.
+              await trySave(() => api.postStockMovement({
+                clientOperationId: api.newOperationId('use'),
                 materialId: line.material_id,
-                delta: -Math.abs(used),
+                // Off the car when a car basis is selected, off Base
+                // otherwise. Consuming from the wrong location is the kind
+                // of error that only shows up at the end-of-day count.
+                locationCode: consumeFrom || 'base',
+                quantity: Math.abs(used),
                 reason: 'consumed',
                 jobId,
-                note: `Used on job`
+                note: 'Used on job'
               }), {
                 success: `${qty(used)} ${unitLabel(line.unit)} taken off stock`,
                 after: reload

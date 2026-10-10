@@ -66,7 +66,11 @@ const FAKE_API = `
     if (globalThis.__failNext > 0) { globalThis.__failNext--; throw new Error('Network unreachable'); }
   }
 
-  export async function postStockMove(args)  { push('postStockMove', args); await maybeFail(); return {}; }
+  export function newOperationId(prefix) { return (prefix || 'op') + '-fixed-for-tests'; }
+  export async function postStockMovement(args) { push('postStockMovement', args); await maybeFail(); return {}; }
+  export async function postStockTransfer(args) { push('postStockTransfer', args); await maybeFail(); return {}; }
+  export async function listStockLocations() { return clone(globalThis.__LOCATIONS); }
+  export async function listStockByLocation() { return clone(globalThis.__BALANCES); }
   export async function createMaterial(p)    { push('createMaterial', { patch: clone(p) }); await maybeFail(); return {}; }
   export async function updateMaterial(id, p){ push('updateMaterial', { id, patch: clone(p) }); await maybeFail(); return {}; }
   export async function createSupplier(p)    { push('createSupplier', { patch: clone(p) }); return {}; }
@@ -86,8 +90,8 @@ const FAKE_API = `
     return {};
   }
   export async function currentUserId() { return 'admin-1'; }
-  export async function estimateJobMaterials(jobId) {
-    push('estimateJobMaterials', { jobId });
+  export async function estimateJobMaterials(jobId, locationCode) {
+    push('estimateJobMaterials', { jobId, locationCode: locationCode ?? null });
     if (globalThis.__estimateFails) throw new Error('Network unreachable');
     return clone(globalThis.__ESTIMATE);
   }
@@ -104,9 +108,10 @@ const FAKE_API = `
     await updatePurchaseOrderLine(line.id, {
       packs_received: Number(line.packs_received || 0) + Number(packs)
     });
-    await postStockMove({
-      materialId: line.material_id, delta: units, reason: 'received',
-      purchaseOrderId: line.purchase_order_id, note: 'Received ' + packs + ' pack(s) on PO'
+    await postStockMovement({
+      materialId: line.material_id, locationCode: 'base', quantity: units,
+      reason: 'received', purchaseOrderId: line.purchase_order_id,
+      note: 'Received ' + packs + ' pack(s) on PO'
     });
   }
 `;
@@ -128,6 +133,24 @@ const MATERIALS = [
     unit: 'linear_ft', supplier_id: 'sup-1', ns_suppliers: { id: 'sup-1', name: 'Permanent Lighting Direct' },
     pack_quantity: 500, unit_cost: null, currency: 'CAD', reorder_point: 50, reorder_qty: 1,
     active: true, on_hand: 10, needs_reorder: true, last_move_at: null }
+];
+
+const LOCATIONS = [
+  { id: 'loc-base',  code: 'base',  name: 'Base',  kind: 'base',    active: true, sort_order: 0 },
+  { id: 'loc-car-a', code: 'car_a', name: 'Car A', kind: 'vehicle', active: true, sort_order: 1 }
+];
+
+/* Deliberately split across two locations, so a test that only ever looked
+   at a total would pass while the per-location figure was wrong. */
+const BALANCES = [
+  { material_id: 'mat-track', location_id: 'loc-base',  location_code: 'base',
+    location_name: 'Base',  on_hand: 200, unit: 'linear_ft' },
+  { material_id: 'mat-track', location_id: 'loc-car-a', location_code: 'car_a',
+    location_name: 'Car A', on_hand: 50,  unit: 'linear_ft' },
+  { material_id: 'mat-wire',  location_id: 'loc-base',  location_code: 'base',
+    location_name: 'Base',  on_hand: 10,  unit: 'linear_ft' },
+  { material_id: 'mat-wire',  location_id: 'loc-car-a', location_code: 'car_a',
+    location_name: 'Car A', on_hand: 0,   unit: 'linear_ft' }
 ];
 
 const SERVICES = [
@@ -263,7 +286,9 @@ async function launch() {
         __ORDERS: opts.orders || ORDERS,
         __SETS: opts.sets || SETS,
         __MOVES: opts.moves || [],
-        __SET_EVENTS: opts.setEvents || []
+        __SET_EVENTS: opts.setEvents || [],
+        __LOCATIONS: opts.locations || LOCATIONS,
+        __BALANCES: opts.balances || BALANCES
       },
       options: opts,
       bodySrc: body.toString(),
@@ -293,7 +318,10 @@ async function launch() {
       return { out, calls: globalThis.__calls };
     },
     {
-      fixtures: { __ESTIMATE: opts.estimate || ESTIMATE },
+      fixtures: {
+        __ESTIMATE: opts.estimate || ESTIMATE,
+        __LOCATIONS: opts.locations || LOCATIONS
+      },
       options: opts,
       bodySrc: body.toString(),
       helpersSrc: HELPERS.toString()
@@ -393,9 +421,9 @@ async function launch() {
 
   /* --------------------------------------------------- movement signing -- */
 
-  const postedMove = (calls) => calls.filter((c) => c.name === 'postStockMove');
+  const postedMove = (calls) => calls.filter((c) => c.name === 'postStockMovement');
 
-  await record('C1 "Used on a job: 40" posts MINUS 40, whatever the operator typed', async () => {
+  await record('C1 "Used on a job: 40" posts a MAGNITUDE plus the reason, never a signed number', async () => {
     const { calls } = await withInventory({}, async ({ mount, h }) => {
       await h.settle();
       const box = [...mount.querySelectorAll('.section-box')]
@@ -410,11 +438,16 @@ async function launch() {
     });
     const moves = postedMove(calls);
     assert.equal(moves.length, 1);
-    assert.equal(moves[0].delta, -40, 'a positive consumption is refused by the database');
+    // The SERVER signs it. Sending -40 from here would be refused by the
+    // database's sign/reason agreement, and sending +40 with no reason
+    // would add stock -- so the contract takes a magnitude and a reason.
+    assert.equal(moves[0].quantity, 40);
     assert.equal(moves[0].reason, 'consumed');
+    assert.equal(moves[0].delta, undefined, 'no signed delta crosses the boundary');
+    assert.ok(moves[0].clientOperationId, 'every post carries a replay key');
   });
 
-  await record('C2 a magnitude typed with a minus on a consumption still posts once, negative', async () => {
+  await record('C2 a minus typed on a consumption is normalised to a magnitude', async () => {
     const { calls } = await withInventory({}, async ({ mount, h }) => {
       await h.settle();
       const box = [...mount.querySelectorAll('.section-box')]
@@ -426,7 +459,9 @@ async function launch() {
       h.button(box, 'Post movement').click();
       await h.settle(120);
     });
-    assert.equal(postedMove(calls)[0].delta, -40, 'not +40 from a double negative');
+    assert.equal(postedMove(calls)[0].quantity, 40,
+      'the reason already says which way it goes; a typed minus must not double-negate');
+    assert.equal(postedMove(calls)[0].reason, 'consumed');
   });
 
   await record('C3 a CORRECTION keeps the sign typed, so stock can be taken off by hand', async () => {
@@ -442,8 +477,9 @@ async function launch() {
       await h.settle(120);
     });
     const moves = postedMove(calls);
-    assert.equal(moves[0].delta, -7,
-      'forcing a sign here would make a negative correction impossible to enter');
+    assert.equal(moves[0].quantity, -7,
+      'a correction is the one case that carries its own sign -- forcing one ' +
+      'here would make a negative correction impossible to enter');
     assert.equal(moves[0].reason, 'adjustment');
   });
 
@@ -499,12 +535,13 @@ async function launch() {
       await h.settle(150);
     });
     const lineUpdate = calls.find((c) => c.name === 'updatePurchaseOrderLine');
-    const move = calls.find((c) => c.name === 'postStockMove');
+    const move = calls.find((c) => c.name === 'postStockMovement');
     assert.ok(lineUpdate, 'the order line must record the receipt');
     assert.equal(lineUpdate.patch.packs_received, 3, '1 already received + 2 now, in PACKS');
     assert.ok(move, 'and the shelf must be credited');
-    assert.equal(move.delta, 300, '2 packs x 150 linear ft, converted exactly once');
+    assert.equal(move.quantity, 300, '2 packs x 150 linear ft, converted exactly once');
     assert.equal(move.reason, 'received');
+    assert.equal(move.locationCode, 'base', 'a delivery arrives at Base, not in a car');
     assert.equal(move.purchaseOrderId, 'po-1');
   });
 
@@ -530,7 +567,7 @@ async function launch() {
     assert.match(String(lastDialog), /more than the 3 pack\(s\) still outstanding/);
     // The dialog handler accepts, so it still posts -- the point is that it
     // asked rather than silently over-receiving.
-    assert.ok(calls.some((c) => c.name === 'postStockMove'));
+    assert.ok(calls.some((c) => c.name === 'postStockMovement'));
   });
 
   await record('D4 marking an un-ordered draft "ordered" supplies ordered_at, which the CHECK demands', async () => {
@@ -807,11 +844,12 @@ async function launch() {
       h.button(box, 'Take off stock').click();
       await h.settle(200);
     });
-    const move = calls.find((c) => c.name === 'postStockMove');
+    const move = calls.find((c) => c.name === 'postStockMovement');
     assert.ok(move);
-    assert.equal(move.delta, -216, 'the estimate, as the pre-filled default');
+    assert.equal(move.quantity, 216, 'the estimate, as the pre-filled default');
     assert.equal(move.reason, 'consumed');
     assert.equal(move.jobId, 'job-1', 'so the movement can be traced back to the job');
+    assert.equal(move.locationCode, 'base', 'the default basis is everywhere, so it comes off Base');
   });
 
   await record('G8 an edited usage is what gets posted, not the estimate', async () => {
@@ -824,7 +862,7 @@ async function launch() {
       h.button(box, 'Take off stock').click();
       await h.settle(200);
     });
-    assert.equal(calls.find((c) => c.name === 'postStockMove').delta, -190,
+    assert.equal(calls.find((c) => c.name === 'postStockMovement').quantity, 190,
       'real usage is rarely exactly the estimate, which is why the field is editable');
   });
 
@@ -838,7 +876,10 @@ async function launch() {
       h.button(box, 'Take off stock').click();
       await h.settle(200);
     });
-    assert.equal(calls.find((c) => c.name === 'postStockMove').delta, -25);
+    const move = calls.find((c) => c.name === 'postStockMovement');
+    assert.equal(move.quantity, 25);
+    assert.equal(move.reason, 'consumed',
+      'the reason is what makes it a subtraction; no sign is sent from here');
   });
 
   await record('G10 taking stock off asks first, and says a correction is how it is undone', async () => {
@@ -851,7 +892,7 @@ async function launch() {
       h.button(box, 'Take off stock').click();
       await h.settle(200);
     });
-    assert.match(String(lastDialog), /off stock for this job/);
+    assert.match(String(lastDialog), /off Base for this job/);
     assert.match(String(lastDialog), /posting a correction, not by deleting it/);
   });
 
@@ -903,6 +944,155 @@ async function launch() {
       return mount.textContent;
     });
     assert.match(out, /Nothing here affects quote pricing/);
+  });
+
+  /* ------------------------------------------- locations and transfers -- */
+
+  await record('J1 per-location balances are shown, not just a total', async () => {
+    const { out } = await withInventory({}, async ({ mount, h }) => {
+      await h.settle(150);
+      const box = [...mount.querySelectorAll('.section-box')]
+        .find((b) => (b.textContent || '').includes('FIXTURE channel'));
+      return box.textContent;
+    });
+    assert.match(out, /Base: 200 linear ft/);
+    assert.match(out, /Car A: 50 linear ft/,
+      'a single total answers "do we own any" and never answers "is it in the car"');
+  });
+
+  await record('J2 a movement names WHERE it happened', async () => {
+    const { calls } = await withInventory({}, async ({ mount, h }) => {
+      await h.settle(150);
+      const box = [...mount.querySelectorAll('.section-box')]
+        .find((b) => (b.textContent || '').includes('FIXTURE channel'));
+      const where = h.labelled(box, 'Where');
+      where.value = 'car_a';
+      where.dispatchEvent(new Event('change', { bubbles: true }));
+      h.labelled(box, 'Quantity (linear ft)').value = '5';
+      h.button(box, 'Post movement').click();
+      await h.settle(150);
+    });
+    assert.equal(postedMove(calls)[0].locationCode, 'car_a',
+      'a movement with no location cannot be reconciled against a shelf or a car');
+  });
+
+  await record('J3 a transfer sends two location codes and the confirmation', async () => {
+    const { calls } = await withInventory({}, async ({ mount, h }) => {
+      await h.settle(150);
+      const box = [...mount.querySelectorAll('.section-box')]
+        .find((b) => (b.textContent || '').includes('FIXTURE channel'));
+      h.button(box, 'Move').click();
+      await h.settle(100);
+      h.labelled(box, 'From').value = 'base';
+      h.labelled(box, 'To').value = 'car_a';
+      const qtyInput = h.labelled(box, 'Quantity to move (linear ft)');
+      qtyInput.value = '40';
+      const check = box.querySelector('input[type="checkbox"]');
+      check.checked = true;
+      check.dispatchEvent(new Event('change', { bubbles: true }));
+      h.button(box, 'Transfer').click();
+      await h.settle(200);
+    });
+    const xf = calls.find((c) => c.name === 'postStockTransfer');
+    assert.ok(xf, 'the transfer must actually be sent');
+    assert.equal(xf.quantity, 40);
+    assert.equal(xf.fromLocationCode, 'base');
+    assert.equal(xf.toLocationCode, 'car_a');
+    assert.equal(xf.confirmedPhysical, true);
+    assert.ok(xf.clientOperationId);
+  });
+
+  await record('J3b the move panel is collapsed until asked for', async () => {
+    const { out } = await withInventory({}, async ({ mount, h }) => {
+      await h.settle(150);
+      const box = [...mount.querySelectorAll('.section-box')]
+        .find((b) => (b.textContent || '').includes('FIXTURE channel'));
+      return { before: !!h.button(box, 'Transfer'), texts: h.buttonTexts(box) };
+    });
+    assert.equal(out.before, false,
+      'both forms open put every card past 6000px at 390px wide');
+    assert.ok(out.texts.includes('Move'));
+  });
+
+  await record('J4 an UNCONFIRMED transfer is not sent at all', async () => {
+    const { calls } = await withInventory({}, async ({ mount, h }) => {
+      await h.settle(150);
+      const box = [...mount.querySelectorAll('.section-box')]
+        .find((b) => (b.textContent || '').includes('FIXTURE channel'));
+      h.button(box, 'Move').click();
+      await h.settle(100);
+      const qtyInput = h.labelled(box, 'Quantity to move (linear ft)');
+      qtyInput.value = '10';
+      h.button(box, 'Transfer').click();
+      await h.settle(200);
+    });
+    assert.equal(calls.filter((c) => c.name === 'postStockTransfer').length, 0,
+      'stock does not move until somebody says the goods moved');
+  });
+
+  await record('J5 transferring more than the SOURCE holds is refused before the round trip', async () => {
+    const { calls, out } = await withInventory({}, async ({ mount, h }) => {
+      await h.settle(150);
+      const box = [...mount.querySelectorAll('.section-box')]
+        .find((b) => (b.textContent || '').includes('FIXTURE channel'));
+      h.button(box, 'Move').click();
+      await h.settle(100);
+      h.labelled(box, 'From').value = 'car_a';
+      h.labelled(box, 'From').dispatchEvent(new Event('change', { bubbles: true }));
+      const qtyInput = h.labelled(box, 'Quantity to move (linear ft)');
+      qtyInput.value = '200';
+      const check = box.querySelector('input[type="checkbox"]');
+      check.checked = true;
+      check.dispatchEvent(new Event('change', { bubbles: true }));
+      h.button(box, 'Transfer').click();
+      await h.settle(200);
+      const toast = document.getElementById('toast');
+      return { text: box.textContent, toast: toast ? toast.textContent : null };
+    });
+    assert.equal(calls.filter((c) => c.name === 'postStockTransfer').length, 0,
+      'the server refuses it anyway; catching it here is what stops the ' +
+      'operator discovering it at the end instead of the start');
+    assert.match(String(out.toast), /Only 50 linear ft there/);
+    assert.match(out.text, /50 linear ft at Car A/,
+      'the source balance has to be visible next to the field');
+  });
+
+  await record('J6 the job panel asks for a stock basis and says which one it used', async () => {
+    const { calls, out } = await withJobMaterials({}, async ({ mount, h }) => {
+      h.button(mount, 'Work out materials').click();
+      await h.settle(250);
+      const basis = h.labelled(mount, 'Stock counted');
+      const before = mount.textContent;
+      basis.value = 'car_a';
+      basis.dispatchEvent(new Event('change', { bubbles: true }));
+      await h.settle(250);
+      return { before, after: mount.textContent };
+    });
+    const estimates = calls.filter((c) => c.name === 'estimateJobMaterials');
+    assert.equal(estimates.length, 2);
+    assert.equal(estimates[0].locationCode, null, 'the default basis is every location');
+    assert.equal(estimates[1].locationCode, 'car_a');
+    assert.match(out.before, /count every location/,
+      'a figure that counts stock a crew cannot reach must say so');
+    assert.match(out.after, /count Car A plus Base/);
+  });
+
+  await record('J7 a vehicle basis takes the consumption off that vehicle', async () => {
+    const { calls } = await withJobMaterials({}, async ({ mount, h }) => {
+      h.button(mount, 'Work out materials').click();
+      await h.settle(250);
+      const basis = h.labelled(mount, 'Stock counted');
+      basis.value = 'car_a';
+      basis.dispatchEvent(new Event('change', { bubbles: true }));
+      await h.settle(250);
+      const box = [...mount.querySelectorAll('.section-box')]
+        .find((b) => (b.textContent || '').includes('FIXTURE channel'));
+      h.button(box, 'Take off stock').click();
+      await h.settle(250);
+    });
+    const move = calls.find((c) => c.name === 'postStockMovement');
+    assert.equal(move.locationCode, 'car_a',
+      'consuming from the wrong location only shows up at the end-of-day count');
   });
 
   /* ------------------------------------------- the pure conversions ----- */

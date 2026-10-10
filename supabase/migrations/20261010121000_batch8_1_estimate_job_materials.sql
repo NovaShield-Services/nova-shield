@@ -29,7 +29,28 @@
 -- Consuming stock stays an explicit act from the Inventory screen, so a
 -- quote that is never accepted cannot silently draw down the shelf.
 
-create or replace function public.estimate_job_materials(p_job_id uuid)
+-- STOCK BASIS, and why it is a parameter rather than a decision made here.
+--
+-- Stock lives at Base or in a vehicle, and the owner's rule is that stock in
+-- a car is available to THAT car's work and returns to Base to become
+-- generally available again (docs/batch8-1-scope-reconciliation.md §5). So
+-- "what is on hand for this job" has no single right answer until the job is
+-- assigned to a crew, and job-to-crew assignment is Batch 12.1 dispatch.
+--
+-- Rather than guess, the caller says which basis it wants and the answer
+-- says which basis it used:
+--   null          every location, i.e. everything the business owns. The
+--                 default, and what the admin catalogue wants.
+--   'base'        the shared pool only.
+--   'car_a', ...  that vehicle plus Base, which is what a crew can actually
+--                 reach on the day.
+-- An unknown code is an error, never a silent fallback to the total: a
+-- shortfall computed against the wrong basis is worse than no shortfall.
+
+create or replace function public.estimate_job_materials(
+  p_job_id        uuid,
+  p_location_code text default null
+)
 returns jsonb
 language plpgsql
 stable
@@ -39,6 +60,8 @@ declare
   v_job    record;
   v_lines  jsonb;
   v_unmapped jsonb;
+  v_loc    uuid;
+  v_kind   text;
 begin
   if not public.is_admin() then
     raise exception 'estimate_job_materials is admin-only'
@@ -53,6 +76,16 @@ begin
   if not found then
     raise exception 'Job % was not found', p_job_id
       using errcode = 'no_data_found';
+  end if;
+
+  if p_location_code is not null then
+    select id, kind into v_loc, v_kind
+      from public.ns_stock_locations
+     where lower(btrim(code)) = lower(btrim(p_location_code)) and active;
+    if v_loc is null then
+      raise exception 'No active stock location with code %', p_location_code
+        using errcode = 'no_data_found';
+    end if;
   end if;
 
   /* Measured quantity per service on this job. Zero-quantity rows are
@@ -95,15 +128,16 @@ begin
                'category',      st.category,
                'unit',          st.unit,
                'required',      round(r.required_qty, 2),
-               'on_hand',       st.on_hand,
+               'on_hand',       loc.on_hand,
+               'stock_basis',   coalesce(p_location_code, 'all_locations'),
                -- Never negative: a surplus is reported as a zero shortfall
                -- plus the on-hand figure, so a reader cannot mistake
                -- "-40 needed" for an order quantity.
-               'shortfall',     round(greatest(r.required_qty - st.on_hand, 0), 2),
+               'shortfall',     round(greatest(r.required_qty - loc.on_hand, 0), 2),
                'pack_quantity', st.pack_quantity,
                'packs_to_order', case
-                 when r.required_qty - st.on_hand <= 0 then 0
-                 else ceil((r.required_qty - st.on_hand) / st.pack_quantity)
+                 when r.required_qty - loc.on_hand <= 0 then 0
+                 else ceil((r.required_qty - loc.on_hand) / st.pack_quantity)
                end,
                'unit_cost',     st.unit_cost,
                'currency',      st.currency,
@@ -117,6 +151,19 @@ begin
                'from_services', r.from_services
              ) as line
         from required r
+        join (
+          -- The basis, resolved once. A vehicle basis includes Base,
+          -- because a crew loads from Base on its way out; a Base basis
+          -- does not include the cars, because what is in a car is spoken
+          -- for by that car's day.
+          select b.material_id, sum(b.on_hand) as on_hand,
+                 bool_or(b.on_hand <= 0) as depleted_somewhere
+            from public.ns_material_stock_by_location b
+           where p_location_code is null
+              or b.location_id = v_loc
+              or (v_kind = 'vehicle' and b.location_kind = 'base')
+           group by b.material_id
+        ) loc on loc.material_id = r.material_id
         join public.ns_material_stock st on st.material_id = r.material_id
     ) lines;
 
@@ -150,6 +197,7 @@ begin
     'customer_id',       v_job.customer_id,
     'property_id',       v_job.property_id,
     'generated_at',      now(),
+    'stock_basis',       coalesce(p_location_code, 'all_locations'),
     'lines',             v_lines,
     'unmapped_services', v_unmapped
   );
@@ -159,14 +207,20 @@ $$;
 /* Admin-only, and explicitly so for all three routes a privilege can
    arrive by (Batch 7.1). CREATE OR REPLACE preserves existing grants, so a
    re-run cannot quietly widen access either. */
-revoke all on function public.estimate_job_materials(uuid) from public;
-revoke all on function public.estimate_job_materials(uuid) from anon;
-grant execute on function public.estimate_job_materials(uuid) to authenticated;
-grant execute on function public.estimate_job_materials(uuid) to service_role;
+-- The single-argument form from the first draft of this migration is
+-- dropped rather than left beside the new one: two overloads would let a
+-- caller silently keep the old all-locations behaviour while believing it
+-- had asked for a basis.
+drop function if exists public.estimate_job_materials(uuid);
+
+revoke all on function public.estimate_job_materials(uuid, text) from public;
+revoke all on function public.estimate_job_materials(uuid, text) from anon;
+grant execute on function public.estimate_job_materials(uuid, text) to authenticated;
+grant execute on function public.estimate_job_materials(uuid, text) to service_role;
 
 do $$
 begin
-  if has_function_privilege('anon', 'public.estimate_job_materials(uuid)', 'execute') then
+  if has_function_privilege('anon', 'public.estimate_job_materials(uuid, text)', 'execute') then
     raise exception
       'anon still holds EXECUTE on estimate_job_materials after an explicit '
       'revoke from both anon and PUBLIC, so it is INHERITED from a role anon '
@@ -177,7 +231,7 @@ begin
 end
 $$;
 
-comment on function public.estimate_job_materials(uuid) is
+comment on function public.estimate_job_materials(uuid, text) is
   'Quantities only: what a job consumes, per the service->material mapping, '
   'against current on-hand stock. Reads the stock ledger, never writes it, '
   'and is not part of the pricing or quote path.';

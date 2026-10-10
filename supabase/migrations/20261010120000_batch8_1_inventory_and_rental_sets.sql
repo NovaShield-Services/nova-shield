@@ -264,6 +264,137 @@ create index if not exists ns_rental_set_events_set_idx
   on public.ns_rental_set_events (rental_set_id, occurred_at desc);
 
 /* ===================================================================== */
+/* stock locations                                                       */
+/* ===================================================================== */
+
+-- Base, Car A, and later Car B. Stock is counted PER LOCATION, not as one
+-- global pile, because the question the business actually asks every
+-- morning is "what is in the car" and the question it asks every evening is
+-- "what came back".
+--
+-- CAR B IS CAPABILITY, NOT DATA. The owner runs one crew today and expects
+-- a second later. A second vehicle is therefore a ROW somebody inserts, not
+-- a migration somebody writes: nothing below hardcodes two vehicles, and
+-- only Base and Car A are seeded. Adding Car B is data entry.
+--
+-- ONE BASE, enforced. The blueprint describes a single stock base with the
+-- vehicles drawing from it. A second base row would silently split that
+-- pool in two and make every "is it in stock" answer ambiguous, so the
+-- partial unique index below makes it impossible rather than discouraged.
+
+create table if not exists public.ns_stock_locations (
+  id         uuid primary key default gen_random_uuid(),
+  code       text not null,
+  name       text not null,
+  kind       text not null,
+  active     boolean not null default true,
+  sort_order integer not null default 0,
+  note       text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+
+  constraint ns_stock_locations_code_not_blank check (btrim(code) <> ''),
+  constraint ns_stock_locations_name_not_blank check (btrim(name) <> ''),
+  constraint ns_stock_locations_kind_known check (kind in ('base', 'vehicle'))
+);
+
+create unique index if not exists ns_stock_locations_code_key
+  on public.ns_stock_locations (lower(btrim(code)));
+
+create unique index if not exists ns_stock_locations_one_base
+  on public.ns_stock_locations ((kind))
+  where kind = 'base';
+
+insert into public.ns_stock_locations (code, name, kind, sort_order, note) values
+  ('base',  'Base',  'base',    0, 'The single shared stock pool everything is drawn from and returned to.'),
+  ('car_a', 'Car A', 'vehicle', 1, 'Crew A''s vehicle.')
+on conflict do nothing;
+
+/* ===================================================================== */
+/* stock operations (the replay-safe unit of work)                       */
+/* ===================================================================== */
+
+-- Every movement belongs to an OPERATION. An operation is what the field
+-- or the admin screen asked for; movements are what the ledger did about
+-- it. The split exists for three reasons, each of which is a requirement
+-- rather than a preference:
+--
+--   1. REPLAY SAFETY. client_operation_id is unique, so the same request
+--      sent twice -- a retried write, a flaky connection, a tap the
+--      operator was not sure registered -- cannot add stock twice. The
+--      second attempt collides and the RPC returns the FIRST operation
+--      unchanged, so the caller sees success without a duplicate.
+--   2. A TRANSFER IS ONE ACT, TWO MOVEMENTS. Grouping them under one
+--      operation is what lets the conservation rule below be stated at all.
+--   3. ATTRIBUTION. Who did it, from which vehicle, and whether the
+--      physical movement was confirmed. "Confirm physical movement before
+--      stock moves" cannot be enforced against a bare ledger row.
+--
+-- record_version supports optimistic concurrency for callers that re-read
+-- and re-submit. It is incremented by any amendment to the operation
+-- itself; movements are never amended, only reversed.
+
+create table if not exists public.ns_stock_operations (
+  id                  uuid primary key default gen_random_uuid(),
+
+  -- Supplied by the CALLER, not the server: it has to survive the retry
+  -- that the server never saw the first time.
+  client_operation_id text not null,
+
+  kind                text not null,
+  actor_id            uuid references auth.users(id),
+  vehicle_location_id uuid references public.ns_stock_locations(id) on delete restrict,
+
+  -- A transfer does not move stock until somebody says the goods physically
+  -- moved. Defaulting false means the honest state is the default.
+  confirmed_physical  boolean not null default false,
+
+  record_version      integer not null default 1,
+  job_id              uuid references public.ns_jobs(id) on delete set null,
+  purchase_order_id   uuid references public.ns_purchase_orders(id) on delete set null,
+  note                text,
+  occurred_at         timestamptz not null default now(),
+  created_at          timestamptz not null default now(),
+
+  constraint ns_stock_operations_client_id_not_blank
+    check (btrim(client_operation_id) <> ''),
+  constraint ns_stock_operations_kind_known check (kind in (
+    'receipt', 'transfer', 'consumption', 'correction', 'opening')),
+  constraint ns_stock_operations_version_positive check (record_version >= 1)
+);
+
+create unique index if not exists ns_stock_operations_client_id_key
+  on public.ns_stock_operations (client_operation_id);
+
+create index if not exists ns_stock_operations_kind_idx
+  on public.ns_stock_operations (kind, occurred_at desc);
+
+/* The CHECK above cannot read another table, so the vehicle-is-a-vehicle
+   rule is a trigger. Stated as a rule rather than left to callers because
+   an operation attributed to "Base" as if it were a car is the kind of row
+   that reads as correct in every report and is wrong in all of them. */
+create or replace function public.ns_guard_operation_vehicle()
+returns trigger language plpgsql set search_path = public, pg_temp as $$
+declare
+  v_kind text;
+begin
+  if new.vehicle_location_id is null then return new; end if;
+  select kind into v_kind from public.ns_stock_locations
+   where id = new.vehicle_location_id;
+  if v_kind is distinct from 'vehicle' then
+    raise exception
+      'vehicle_location_id must name a vehicle location, not %', coalesce(v_kind, 'a missing location')
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists guard_operation_vehicle on public.ns_stock_operations;
+create trigger guard_operation_vehicle
+  before insert or update on public.ns_stock_operations
+  for each row execute function public.ns_guard_operation_vehicle();
+
+/* ===================================================================== */
 /* stock ledger                                                          */
 /* ===================================================================== */
 
@@ -271,7 +402,17 @@ create table if not exists public.ns_material_stock_moves (
   id                uuid primary key default gen_random_uuid(),
   material_id       uuid not null references public.ns_materials(id) on delete restrict,
 
-  -- In `unit`, signed. Positive adds to the shelf, negative takes off it.
+  -- WHERE the stock is. Not nullable: a movement that does not say where it
+  -- happened cannot be reconciled against a shelf or a car, and a default
+  -- would quietly attribute somebody's car count to Base.
+  location_id       uuid not null references public.ns_stock_locations(id) on delete restrict,
+
+  -- WHICH act this is part of. Not nullable for the same reason: an
+  -- orphaned movement has no replay key, no actor and no confirmation, so
+  -- none of the guarantees above would hold for it.
+  operation_id      uuid not null references public.ns_stock_operations(id) on delete restrict,
+
+  -- In `unit`, signed. Positive adds to that location, negative takes off it.
   delta             numeric not null,
   reason            text not null,
 
@@ -285,7 +426,8 @@ create table if not exists public.ns_material_stock_moves (
 
   constraint ns_stock_moves_delta_nonzero check (delta <> 0),
   constraint ns_stock_moves_reason_known check (reason in (
-    'received', 'consumed', 'returned', 'damaged', 'adjustment', 'opening')),
+    'received', 'consumed', 'returned', 'damaged', 'adjustment', 'opening',
+    'transfer')),
 
   -- The sign has to agree with the reason. A "received" posted negative, or
   -- a "consumed" posted positive, is a data-entry slip that would otherwise
@@ -298,6 +440,9 @@ create table if not exists public.ns_material_stock_moves (
       when 'opening'  then delta > 0
       when 'consumed' then delta < 0
       when 'damaged'  then delta < 0
+      -- 'transfer' is signed by which leg it is (out of one location,
+      -- into another), and 'adjustment' is the deliberate escape hatch.
+      -- Both are checked by the conservation rule instead.
       else true
     end)
 );
@@ -309,9 +454,107 @@ create index if not exists ns_stock_moves_job_idx
   on public.ns_material_stock_moves (job_id)
   where job_id is not null;
 
-/* On-hand, derived. A LEFT JOIN so a catalogue row with no movements yet
-   reads as 0 rather than disappearing -- a part that has never been
-   received is precisely the one a shortfall report must still mention. */
+create index if not exists ns_stock_moves_operation_idx
+  on public.ns_material_stock_moves (operation_id);
+
+create index if not exists ns_stock_moves_location_idx
+  on public.ns_material_stock_moves (location_id, material_id);
+
+/* ------------------------------------------------- transfers conserve --- */
+
+-- "Transfers conserve totals" is an acceptance criterion, so it is a
+-- database rule, not a convention the RPC is trusted to follow. For every
+-- transfer operation, each material's movements must sum to EXACTLY zero:
+-- what leaves one location arrives at another, and the two legs must name
+-- different locations.
+--
+-- DEFERRED, and this is the whole point. The two legs are separate INSERTs;
+-- an immediate check would fire after the first one and fail every
+-- legitimate transfer. A CONSTRAINT TRIGGER deferred to COMMIT sees the
+-- finished transaction, which is the only moment at which conservation is
+-- a meaningful question.
+
+create or replace function public.ns_guard_transfer_conserves()
+returns trigger language plpgsql set search_path = public, pg_temp as $$
+declare
+  v_kind    text;
+  v_bad     record;
+  v_op      uuid := coalesce(new.operation_id, old.operation_id);
+begin
+  select kind into v_kind from public.ns_stock_operations where id = v_op;
+  if v_kind is distinct from 'transfer' then
+    return null;                       -- only transfers are conserving
+  end if;
+
+  select mv.material_id,
+         sum(mv.delta)                       as net,
+         count(distinct mv.location_id)      as locations,
+         count(*)                            as legs
+    into v_bad
+    from public.ns_material_stock_moves mv
+   where mv.operation_id = v_op
+   group by mv.material_id
+  having sum(mv.delta) <> 0
+      or count(distinct mv.location_id) <> 2
+      or count(*) <> 2
+   limit 1;
+
+  if found then
+    raise exception
+      'Transfer % does not conserve material %: % leg(s) across % location(s), net %. '
+      'A transfer must be exactly two legs, two distinct locations, summing to zero.',
+      v_op, v_bad.material_id, v_bad.legs, v_bad.locations, v_bad.net
+      using errcode = 'check_violation';
+  end if;
+
+  return null;
+end $$;
+
+drop trigger if exists guard_transfer_conserves on public.ns_material_stock_moves;
+create constraint trigger guard_transfer_conserves
+  after insert or update or delete on public.ns_material_stock_moves
+  deferrable initially deferred
+  for each row execute function public.ns_guard_transfer_conserves();
+
+/* ------------------------------------------------------ derived stock --- */
+
+/* Per material PER LOCATION. This is the real balance: the morning question
+   is "what is in Car A", and a single global figure cannot answer it.
+   A CROSS JOIN against the location list, so a material that has never
+   moved into a location still reports 0 there rather than being absent --
+   the same reasoning as the LEFT JOIN below, one level down. */
+create or replace view public.ns_material_stock_by_location as
+select m.id           as material_id,
+       m.sku,
+       m.name,
+       m.category,
+       m.unit,
+       m.active,
+       l.id           as location_id,
+       l.code         as location_code,
+       l.name         as location_name,
+       l.kind         as location_kind,
+       coalesce(sum(mv.delta), 0)          as on_hand,
+       max(mv.occurred_at)                 as last_move_at
+  from public.ns_materials m
+ cross join public.ns_stock_locations l
+  left join public.ns_material_stock_moves mv
+         on mv.material_id = m.id and mv.location_id = l.id
+ where l.active
+ group by m.id, l.id;
+
+/* Totals across every location, kept at its ORIGINAL shape so the callers
+   written before locations existed -- estimate_job_materials and the admin
+   catalogue -- keep working unchanged. A LEFT JOIN so a catalogue row with
+   no movements yet reads as 0 rather than disappearing: a part that has
+   never been received is precisely the one a shortfall report must still
+   mention.
+   Note what this total means now. It is everything the business owns,
+   wherever it sits -- NOT what is reachable for a given job. Stock in a
+   vehicle is available to that vehicle's work and returns to Base to become
+   generally available again (owner's decision, recorded in
+   docs/batch8-1-scope-reconciliation.md §5). Callers that need reachable
+   stock must ask by location; see estimate_job_materials' basis parameter. */
 create or replace view public.ns_material_stock as
 select m.id            as material_id,
        m.sku,
@@ -389,7 +632,7 @@ declare
 begin
   foreach t in array array[
     'ns_suppliers', 'ns_materials', 'ns_purchase_orders',
-    'ns_rental_sets', 'ns_service_material_usage'
+    'ns_rental_sets', 'ns_service_material_usage', 'ns_stock_locations'
   ] loop
     execute format(
       'drop trigger if exists %I on public.%I', 'touch_' || t, t);
@@ -412,7 +655,8 @@ begin
   foreach t in array array[
     'ns_suppliers', 'ns_materials', 'ns_purchase_orders',
     'ns_purchase_order_lines', 'ns_rental_sets', 'ns_rental_set_events',
-    'ns_material_stock_moves', 'ns_service_material_usage'
+    'ns_material_stock_moves', 'ns_service_material_usage',
+    'ns_stock_locations', 'ns_stock_operations'
   ] loop
     execute format('alter table public.%I enable row level security', t);
 
@@ -445,12 +689,19 @@ $$;
    RLS-protected tables hands out every row to anyone who can select the
    view, regardless of the admin_all policy underneath. Requires
    PostgreSQL 15+; this project reports 17.6 (checked live before writing). */
-alter view public.ns_material_stock set (security_invoker = on);
-
-revoke all on public.ns_material_stock from public;
-revoke all on public.ns_material_stock from anon;
-grant select on public.ns_material_stock to authenticated;
-grant select on public.ns_material_stock to service_role;
+do $$
+declare
+  v text;
+begin
+  foreach v in array array['ns_material_stock', 'ns_material_stock_by_location'] loop
+    execute format('alter view public.%I set (security_invoker = on)', v);
+    execute format('revoke all on public.%I from public', v);
+    execute format('revoke all on public.%I from anon', v);
+    execute format('grant select on public.%I to authenticated', v);
+    execute format('grant select on public.%I to service_role', v);
+  end loop;
+end
+$$;
 
 comment on table public.ns_materials is
   'Parts catalogue. Populated from the admin Inventory screen; no rows are '
@@ -458,9 +709,20 @@ comment on table public.ns_materials is
   'by this application.';
 
 comment on table public.ns_material_stock_moves is
-  'Append-only stock ledger. On-hand is the sum of delta, exposed by the '
-  'ns_material_stock view. Correct a mistake by posting its reverse, not by '
+  'Append-only stock ledger, per material PER LOCATION. On-hand is the sum '
+  'of delta, exposed by ns_material_stock_by_location and rolled up by '
+  'ns_material_stock. Correct a mistake by posting its reverse, not by '
   'editing or deleting a row.';
+
+comment on table public.ns_stock_locations is
+  'Base and the vehicles. One base is enforced. A second vehicle is a row '
+  'somebody inserts, not a migration somebody writes: only Base and Car A '
+  'are seeded.';
+
+comment on table public.ns_stock_operations is
+  'The replay-safe unit of work every movement belongs to. '
+  'client_operation_id is unique, so a retried request cannot post stock '
+  'twice. See docs/operations-contract-v1.md.';
 
 comment on table public.ns_rental_sets is
   'Christmas lighting rental sets as tracked physical assets (rental '

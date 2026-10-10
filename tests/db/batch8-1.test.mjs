@@ -37,6 +37,7 @@ const PGURL = process.env.PGURL
 
 const TABLES_MIGRATION = '20261010120000_batch8_1_inventory_and_rental_sets.sql';
 const RPC_MIGRATION    = '20261010121000_batch8_1_estimate_job_materials.sql';
+const OPS_MIGRATION    = '20261010130000_batch8_1_stock_operations_contract_v1.sql';
 const migration = (file) => readFileSync(join(MIGRATIONS, file), 'utf8');
 
 const results = [];
@@ -75,11 +76,28 @@ async function errorOf(fn) {
     drop table if exists public.ns_rental_sets cascade;
     drop table if exists public.ns_materials cascade;
     drop table if exists public.ns_suppliers cascade;
+    drop table if exists public.ns_stock_operations cascade;
+    drop table if exists public.ns_stock_locations cascade;
+    drop view  if exists public.ns_material_stock_by_location cascade;
+    drop function if exists public.estimate_job_materials(uuid, text);
     drop function if exists public.estimate_job_materials(uuid);
+    drop function if exists public.post_stock_movement(text,uuid,text,numeric,text,text,uuid,uuid,text);
+    drop function if exists public.post_stock_transfer(text,uuid,numeric,text,text,boolean,text,uuid);
+    drop function if exists public.ns_operation_result(uuid,boolean);
+    drop function if exists public.ns_location_by_code(text);
     drop function if exists public.ns_touch_updated_at() cascade;
+    drop function if exists public.ns_guard_transfer_conserves() cascade;
+    drop function if exists public.ns_guard_operation_vehicle() cascade;
   `);
 
   await client.query(readFileSync(join(HERE, 'fixture-schema-batch8-1.sql'), 'utf8'));
+
+  /* The contract RPCs are admin-only, and the fixture's is_admin() reads a
+     session GUC. Set it once for the whole run; the handful of cases that
+     are ABOUT the guard flip it off and back on themselves. Without this,
+     every post_stock_movement call fails with 42501 and the failures
+     cascade into every later case that expected the stock to be there. */
+  await client.query(`select set_config('nova.is_admin','on',false)`);
 
   // ================================================== A. the migrations ====
   await record('A1 the tables migration applies cleanly', async () => {
@@ -90,9 +108,14 @@ async function errorOf(fn) {
     await client.query(migration(RPC_MIGRATION));
   });
 
-  await record('A3 both migrations are re-runnable without error or duplicate rows', async () => {
+  await record('A2b the operations-contract migration applies cleanly', async () => {
+    await client.query(migration(OPS_MIGRATION));
+  });
+
+  await record('A3 all migrations are re-runnable without error or duplicate rows', async () => {
     await client.query(migration(TABLES_MIGRATION));
     await client.query(migration(RPC_MIGRATION));
+    await client.query(migration(OPS_MIGRATION));
     const { n } = await one(
       `select count(*)::int as n from public.ns_suppliers
         where website = 'https://permanentlightingdirect.ca/diy-kits'`);
@@ -203,40 +226,80 @@ async function errorOf(fn) {
     pack_quantity: 500, unit_cost: 0.5, reorder_point: 0
   });
 
-  const move = (materialId, delta, reason, extra = {}) => client.query(
-    `insert into public.ns_material_stock_moves (material_id, delta, reason, job_id, note)
-     values ($1,$2,$3,$4,$5)`,
-    [materialId, delta, reason, extra.jobId ?? null, extra.note ?? null]);
+  /* Every movement goes through the contract now -- direct INSERT on the
+     ledger is revoked, which test I1b proves. `delta` is still written as a
+     signed number here because the sign/reason agreement is what several
+     cases below are about; post_stock_movement takes a magnitude plus a
+     reason and derives the sign itself, so a negative is passed as
+     abs()+reason except for 'adjustment', which keeps its sign. */
+  let opSeq = 0;
+  const move = async (materialId, delta, reason, extra = {}) => {
+    const { rows } = await client.query(
+      `select public.post_stock_movement($1,$2,$3,$4,$5,$6,$7,null,null) as r`,
+      [extra.clientOpId ?? `fixture-op-${++opSeq}`, materialId,
+       extra.location ?? 'base', delta, reason,
+       extra.note ?? null, extra.jobId ?? null]);
+    return rows[0].r;
+  };
+
+  /* A direct ledger insert, for the cases that are specifically about the
+     table's own constraints rather than about the contract. Run as the
+     table owner, which is the only role that still can. */
+  const rawMove = async (materialId, delta, reason, extra = {}) => {
+    const op = (await one(
+      `insert into public.ns_stock_operations (client_operation_id, kind, confirmed_physical)
+       values ($1, $2, true) returning id`,
+      [extra.clientOpId ?? `fixture-raw-${++opSeq}`, extra.kind ?? 'correction'])).id;
+    return client.query(
+      `insert into public.ns_material_stock_moves
+         (material_id, location_id, operation_id, delta, reason, job_id, note)
+       values ($1, public.ns_location_by_code($2), $3, $4, $5, $6, $7)`,
+      [materialId, extra.location ?? 'base', op, delta, reason,
+       extra.jobId ?? null, extra.note ?? null]);
+  };
 
   await record('C1 a zero-delta movement is refused', async () => {
-    const err = await errorOf(() => move(trackId, 0, 'adjustment'));
+    const err = await errorOf(() => rawMove(trackId, 0, 'adjustment'));
     assert.ok(err); assert.equal(err.code, '23514');
   });
 
   await record('C2 an unknown reason is refused', async () => {
-    const err = await errorOf(() => move(trackId, 5, 'borrowed'));
+    const err = await errorOf(() => rawMove(trackId, 5, 'borrowed'));
     assert.ok(err); assert.equal(err.code, '23514');
   });
 
-  await record('C3 a NEGATIVE "received" is refused (the sign/reason agreement)', async () => {
-    const err = await errorOf(() => move(trackId, -10, 'received'));
+  await record('C3 a NEGATIVE "received" is refused at the TABLE level, under the contract', async () => {
+    const err = await errorOf(() => rawMove(trackId, -10, 'received'));
     assert.ok(err, 'a mistyped sign on a receipt would otherwise read as a legitimate movement');
     assert.equal(err.code, '23514');
   });
 
   await record('C4 a POSITIVE "consumed" is refused', async () => {
-    const err = await errorOf(() => move(trackId, 10, 'consumed'));
+    const err = await errorOf(() => rawMove(trackId, 10, 'consumed'));
     assert.ok(err); assert.equal(err.code, '23514');
   });
 
   await record('C5 a POSITIVE "damaged" is refused', async () => {
-    const err = await errorOf(() => move(trackId, 3, 'damaged'));
+    const err = await errorOf(() => rawMove(trackId, 3, 'damaged'));
     assert.ok(err); assert.equal(err.code, '23514');
   });
 
   await record('C6 "adjustment" is the deliberate escape hatch and goes either way', async () => {
     await move(trackId, 7, 'adjustment');
     await move(trackId, -7, 'adjustment');
+  });
+
+  await record('C6b the contract derives the sign, so a positive "consumed" cannot be posted', async () => {
+    // Its own material: a case that changes a balance must not quietly
+    // change the arithmetic of a later one that shares the part.
+    const id = await newMaterial({ name: 'FIXTURE sign derivation' });
+    await move(id, 30, 'received');
+    // A caller passing +10 with reason 'consumed' gets -10, not an error and
+    // not +10: the magnitude is the caller's, the direction is the reason's.
+    await move(id, 10, 'consumed');
+    const { on_hand } = await one(
+      'select on_hand from public.ns_material_stock where material_id=$1', [id]);
+    assert.equal(Number(on_hand), 20);
   });
 
   await record('C7 on_hand is the signed sum of the ledger', async () => {
@@ -339,8 +402,8 @@ async function errorOf(fn) {
       `insert into public.ns_purchase_orders (supplier_id) values ($1) returning id`,
       [supplierId])).id;
     await client.query(
-      `insert into public.ns_material_stock_moves (material_id, delta, reason, purchase_order_id)
-       values ($1, 10, 'received', $2)`, [wireId, tmp]);
+      `select public.post_stock_movement($1,$2,'base',10,'received',null,null,$3,null)`,
+      ['po-receipt-1', wireId, tmp]);
     await client.query('delete from public.ns_purchase_orders where id=$1', [tmp]);
     const row = await one(
       `select purchase_order_id from public.ns_material_stock_moves
@@ -468,8 +531,8 @@ async function errorOf(fn) {
     [jobId, serviceId, quantity, over.unit ?? 'linear_ft',
      over.label ?? 'FIXTURE run', over.reviewRequired ?? false]);
 
-  const estimate = async (id = jobId) => (await one(
-    'select public.estimate_job_materials($1) as r', [id])).r;
+  const estimate = async (id = jobId, basis = null) => (await one(
+    'select public.estimate_job_materials($1,$2) as r', [id, basis])).r;
 
   await record('G1 non-admins are refused', async () => {
     await client.query(`select set_config('nova.is_admin','off',false)`);
@@ -593,6 +656,51 @@ async function errorOf(fn) {
       'a requirement derived from a measurement nobody has confirmed must say so');
   });
 
+  await record('G12b the stock basis is named in the answer, and defaults to every location', async () => {
+    const r = await estimate();
+    assert.equal(r.stock_basis, 'all_locations');
+    for (const line of r.lines) assert.equal(line.stock_basis, 'all_locations');
+  });
+
+  await record('G12c a VEHICLE basis counts that car plus Base, not the whole business', async () => {
+    const basisJob = (await one(
+      `insert into public.ns_jobs (customer_id) values ($1) returning id`, [customerId])).id;
+    const part = await newMaterial({ name: 'FIXTURE basis part', pack_quantity: 10 });
+    const svcB = (await one(
+      `insert into public.services (key,name,unit,sort_order)
+       values ('fixture_basis_svc','FIXTURE basis service','linear_ft',98) returning id`)).id;
+    await mapUsage(svcB, part, 1);
+    await client.query(
+      `insert into public.job_measurements (job_id, service_id, quantity, unit)
+       values ($1,$2,100,'linear_ft')`, [basisJob, svcB]);
+
+    await move(part, 70, 'received', { location: 'base' });
+    await client.query(
+      `select public.post_stock_transfer($1,$2,25,'base','car_a',true,null,null)`,
+      ['basis-xfer', part]);
+    // base 45, car_a 25, total 70.
+
+    const all3 = await estimate(basisJob, null);
+    const base = await estimate(basisJob, 'base');
+    const car  = await estimate(basisJob, 'car_a');
+
+    const pick = (r) => r.lines.find((l) => l.name === 'FIXTURE basis part');
+    assert.equal(Number(pick(all3).on_hand), 70, 'everything the business owns');
+    assert.equal(Number(pick(base).on_hand), 45, 'the shared pool only');
+    assert.equal(Number(pick(car).on_hand), 70,
+      'the car plus Base -- a crew loads from Base on its way out');
+
+    assert.equal(Number(pick(base).shortfall), 55, '100 required - 45 at Base');
+    assert.equal(Number(pick(base).packs_to_order), 6, 'ceil(55 / 10)');
+    assert.equal(car.stock_basis, 'car_a');
+  });
+
+  await record('G12d an unknown basis is an error, never a silent fall back to the total', async () => {
+    const err = await errorOf(() => estimate(jobId, 'car_z'));
+    assert.ok(err, 'a shortfall against the wrong basis is worse than no shortfall');
+    assert.equal(err.code, 'P0002');
+  });
+
   await record('G13 the estimate is read-only -- it never writes to the ledger', async () => {
     const before = (await one(
       'select count(*)::int as n from public.ns_material_stock_moves')).n;
@@ -613,6 +721,262 @@ async function errorOf(fn) {
     const r = await estimate();
     const track = r.lines.find((l) => l.name === 'FIXTURE track');
     assert.equal(Number(track.required), 216, 'still only this job\'s 200 ft');
+  });
+
+  // =========================== L. stock locations, Base / Car A / Car B ===
+
+  await record('L1 Base and Car A are seeded; Car B is NOT', async () => {
+    const rows = await all(
+      'select code, kind, active from public.ns_stock_locations order by sort_order');
+    assert.deepEqual(rows.map((r) => r.code), ['base', 'car_a'],
+      'the owner runs one crew today; a second vehicle is data entry, not a migration');
+    assert.equal(rows[0].kind, 'base');
+    assert.equal(rows[1].kind, 'vehicle');
+  });
+
+  await record('L2 Car B can be added as a ROW, with no schema change', async () => {
+    await client.query(
+      `insert into public.ns_stock_locations (code, name, kind, sort_order)
+       values ('car_b', 'Car B', 'vehicle', 2)`);
+    const { n } = await one(
+      `select count(*)::int as n from public.ns_stock_locations where kind='vehicle'`);
+    assert.equal(n, 2, 'nothing in the schema hardcodes how many vehicles exist');
+    await client.query(`delete from public.ns_stock_locations where code='car_b'`);
+  });
+
+  await record('L3 a SECOND base is refused -- one shared pool, enforced', async () => {
+    const err = await errorOf(() => client.query(
+      `insert into public.ns_stock_locations (code, name, kind)
+       values ('base_2', 'Overflow base', 'base')`));
+    assert.ok(err, 'two bases would split the pool and make every stock answer ambiguous');
+    assert.equal(err.code, '23505');
+  });
+
+  await record('L4 a location code is unique, case-insensitively', async () => {
+    const err = await errorOf(() => client.query(
+      `insert into public.ns_stock_locations (code, name, kind) values (' CAR_A ', 'Dup', 'vehicle')`));
+    assert.ok(err); assert.equal(err.code, '23505');
+  });
+
+  await record('L5 balances are PER LOCATION, and a material reads 0 where it has never been', async () => {
+    const id = await newMaterial({ name: 'FIXTURE located part' });
+    await move(id, 60, 'received', { location: 'base' });
+    const rows = await all(
+      `select location_code, on_hand from public.ns_material_stock_by_location
+        where material_id=$1 order by location_code`, [id]);
+    assert.deepEqual(rows.map((r) => [r.location_code, Number(r.on_hand)]),
+      [['base', 60], ['car_a', 0]],
+      'a part absent from the car must read 0 there, not be missing from the report');
+  });
+
+  await record('L6 the per-material total is the rollup of the location balances', async () => {
+    const id = await newMaterial({ name: 'FIXTURE rollup part' });
+    await move(id, 100, 'received', { location: 'base' });
+    await client.query(
+      `select public.post_stock_transfer($1,$2,40,'base','car_a',true,null,null)`,
+      [`rollup-${id}`, id]);
+    const total = Number((await one(
+      'select on_hand from public.ns_material_stock where material_id=$1', [id])).on_hand);
+    const parts = await all(
+      `select location_code, on_hand from public.ns_material_stock_by_location
+        where material_id=$1 order by location_code`, [id]);
+    assert.equal(total, 100, 'a transfer moves stock, it does not create or destroy it');
+    assert.deepEqual(parts.map((r) => [r.location_code, Number(r.on_hand)]),
+      [['base', 60], ['car_a', 40]]);
+  });
+
+  // ================================= M. operations contract v1, replay ====
+
+  const callMovement = (clientOpId, materialId, qty, reason, location = 'base') => one(
+    `select public.post_stock_movement($1,$2,$3,$4,$5,null,null,null,null) as r`,
+    [clientOpId, materialId, location, qty, reason]);
+
+  const callTransfer = (clientOpId, materialId, qty, from, to, confirmed = true) => one(
+    `select public.post_stock_transfer($1,$2,$3,$4,$5,$6,null,null) as r`,
+    [clientOpId, materialId, qty, from, to, confirmed]);
+
+  await record('M1 a REPLAY cannot add stock twice, and reports itself as a replay', async () => {
+    const id = await newMaterial({ name: 'FIXTURE replay part' });
+    const first = (await callMovement('replay-key-1', id, 25, 'received')).r;
+    const again = (await callMovement('replay-key-1', id, 25, 'received')).r;
+
+    assert.equal(first.replayed, false);
+    assert.equal(again.replayed, true, 'the caller must be told it was a replay, not a new write');
+    assert.equal(again.operation_id, first.operation_id, 'the ORIGINAL operation comes back');
+
+    const { on_hand } = await one(
+      'select on_hand from public.ns_material_stock where material_id=$1', [id]);
+    assert.equal(Number(on_hand), 25, 'this is the whole point: 25, not 50');
+
+    const { n } = await one(
+      'select count(*)::int as n from public.ns_material_stock_moves where operation_id=$1',
+      [first.operation_id]);
+    assert.equal(n, 1);
+  });
+
+  await record('M2 reusing a replay key for a DIFFERENT kind of operation is refused', async () => {
+    const id = await newMaterial({ name: 'FIXTURE key reuse' });
+    await callMovement('reused-key-1', id, 10, 'received');
+    const err = await errorOf(() => callTransfer('reused-key-1', id, 5, 'base', 'car_a'));
+    assert.ok(err, 'silently returning the receipt would report a transfer that never happened');
+    assert.match(err.message, /already used for a receipt operation/);
+  });
+
+  await record('M3 a blank or missing replay key is refused', async () => {
+    const id = await newMaterial({ name: 'FIXTURE no key' });
+    for (const key of ['', '   ']) {
+      const err = await errorOf(() => callMovement(key, id, 5, 'received'));
+      assert.ok(err, 'without a key there is no replay safety at all');
+      assert.equal(err.code, '22023');
+    }
+  });
+
+  await record('M4 the operation records actor, and the movement is attributed to it', async () => {
+    const actor = (await one(`insert into auth.users default values returning id`)).id;
+    await client.query(`select set_config('nova.actor_id', $1, false)`, [actor]);
+    const id = await newMaterial({ name: 'FIXTURE attributed' });
+    const res = (await callMovement('attributed-1', id, 5, 'received')).r;
+    assert.equal(res.actor_id, actor);
+    const row = await one(
+      'select created_by from public.ns_material_stock_moves where operation_id=$1',
+      [res.operation_id]);
+    assert.equal(row.created_by, actor);
+    await client.query(`select set_config('nova.actor_id', '', false)`);
+  });
+
+  await record('M5 the result carries the balances it touched, so no re-read is needed', async () => {
+    const id = await newMaterial({ name: 'FIXTURE balances back' });
+    const res = (await callMovement('balances-1', id, 70, 'received')).r;
+    assert.equal(res.balances.length, 1);
+    assert.equal(res.balances[0].location_code, 'base');
+    assert.equal(Number(res.balances[0].on_hand), 70);
+    assert.equal(res.movements.length, 1);
+    assert.equal(Number(res.movements[0].delta), 70);
+  });
+
+  await record('M6 a non-admin cannot post anything', async () => {
+    const id = await newMaterial({ name: 'FIXTURE non-admin' });
+    await client.query(`select set_config('nova.is_admin','off',false)`);
+    const a = await errorOf(() => callMovement('denied-1', id, 5, 'received'));
+    const b = await errorOf(() => callTransfer('denied-2', id, 5, 'base', 'car_a'));
+    await client.query(`select set_config('nova.is_admin','on',false)`);
+    assert.equal(a.code, '42501');
+    assert.equal(b.code, '42501');
+  });
+
+  // ================================= N. transfers conserve, and confirm ===
+
+  await record('N1 a transfer CONSERVES the total and moves the balance', async () => {
+    const id = await newMaterial({ name: 'FIXTURE transfer part' });
+    await move(id, 90, 'received', { location: 'base' });
+    const res = (await callTransfer('xfer-1', id, 30, 'base', 'car_a')).r;
+
+    assert.equal(res.movements.length, 2, 'one act, two legs');
+    assert.equal(res.movements.reduce((sum, m) => sum + Number(m.delta), 0), 0,
+      'the legs must sum to zero -- that is what conservation means');
+
+    const parts = await all(
+      `select location_code, on_hand from public.ns_material_stock_by_location
+        where material_id=$1 order by location_code`, [id]);
+    assert.deepEqual(parts.map((r) => [r.location_code, Number(r.on_hand)]),
+      [['base', 60], ['car_a', 30]]);
+  });
+
+  await record('N2 an UNCONFIRMED transfer moves nothing', async () => {
+    const id = await newMaterial({ name: 'FIXTURE unconfirmed' });
+    await move(id, 50, 'received');
+    const err = await errorOf(() => callTransfer('xfer-unconfirmed', id, 10, 'base', 'car_a', false));
+    assert.ok(err, '"confirm physical movement before stock moves" is a rule, not a nicety');
+    assert.match(err.message, /physical movement is confirmed/);
+    const { on_hand } = await one(
+      `select on_hand from public.ns_material_stock_by_location
+        where material_id=$1 and location_code='car_a'`, [id]);
+    assert.equal(Number(on_hand), 0);
+  });
+
+  await record('N3 a transfer of more than the source holds is refused', async () => {
+    const id = await newMaterial({ name: 'FIXTURE overdrawn' });
+    await move(id, 20, 'received');
+    const err = await errorOf(() => callTransfer('xfer-over', id, 25, 'base', 'car_a'));
+    assert.ok(err, 'you cannot carry out of a car what is not in it');
+    assert.match(err.message, /Only 20 available at base/);
+  });
+
+  await record('N4 a transfer to the SAME location is refused', async () => {
+    const id = await newMaterial({ name: 'FIXTURE same place' });
+    await move(id, 20, 'received');
+    const err = await errorOf(() => callTransfer('xfer-same', id, 5, 'base', 'base'));
+    assert.ok(err); assert.equal(err.code, '22023');
+  });
+
+  await record('N5 an unknown location code is a clear error, not a silent no-op', async () => {
+    const id = await newMaterial({ name: 'FIXTURE nowhere' });
+    const err = await errorOf(() => callTransfer('xfer-nowhere', id, 5, 'base', 'car_z'));
+    assert.ok(err); assert.equal(err.code, 'P0002');
+  });
+
+  await record('N6 a HAND-BUILT one-legged transfer is refused at COMMIT', async () => {
+    // The conservation trigger is deferred, so this proves it fires on the
+    // finished transaction rather than on the first insert -- which is the
+    // only moment conservation is a meaningful question.
+    const id = await newMaterial({ name: 'FIXTURE one leg' });
+    await move(id, 40, 'received');
+    await client.query('begin');
+    const op = (await one(
+      `insert into public.ns_stock_operations (client_operation_id, kind, confirmed_physical)
+       values ('hand-one-leg', 'transfer', true) returning id`)).id;
+    await client.query(
+      `insert into public.ns_material_stock_moves
+         (material_id, location_id, operation_id, delta, reason)
+       values ($1, public.ns_location_by_code('base'), $2, -10, 'transfer')`, [id, op]);
+    const err = await errorOf(() => client.query('commit'));
+    assert.ok(err, 'a half transfer would silently destroy stock');
+    assert.match(err.message, /does not conserve/);
+    await client.query('rollback');
+  });
+
+  await record('N7 a hand-built transfer whose legs do not balance is refused at COMMIT', async () => {
+    const id = await newMaterial({ name: 'FIXTURE unbalanced' });
+    await move(id, 40, 'received');
+    await client.query('begin');
+    const op = (await one(
+      `insert into public.ns_stock_operations (client_operation_id, kind, confirmed_physical)
+       values ('hand-unbalanced', 'transfer', true) returning id`)).id;
+    await client.query(
+      `insert into public.ns_material_stock_moves
+         (material_id, location_id, operation_id, delta, reason)
+       values ($1, public.ns_location_by_code('base'), $2, -10, 'transfer'),
+              ($1, public.ns_location_by_code('car_a'), $2, 15, 'transfer')`, [id, op]);
+    const err = await errorOf(() => client.query('commit'));
+    assert.ok(err, '5 units would appear from nowhere');
+    assert.match(err.message, /net 5/);
+    await client.query('rollback');
+  });
+
+  await record('N8 a NON-transfer operation is not forced to conserve', async () => {
+    // A receipt adds stock; requiring it to balance would be nonsense. The
+    // trigger must distinguish, not simply fire on every movement.
+    const id = await newMaterial({ name: 'FIXTURE receipt not conserving' });
+    await move(id, 15, 'received');
+    const { on_hand } = await one(
+      'select on_hand from public.ns_material_stock where material_id=$1', [id]);
+    assert.equal(Number(on_hand), 15);
+  });
+
+  await record('N9 an operation cannot blame a vehicle that is the Base', async () => {
+    const err = await errorOf(() => client.query(
+      `insert into public.ns_stock_operations (client_operation_id, kind, vehicle_location_id)
+       values ('bad-vehicle', 'transfer', public.ns_location_by_code('base'))`));
+    assert.ok(err, '"which car did this" must not read as answered when it is not');
+    assert.match(err.message, /must name a vehicle location/);
+  });
+
+  await record('N10 a transfer is attributed to the vehicle side', async () => {
+    const id = await newMaterial({ name: 'FIXTURE attributed transfer' });
+    await move(id, 30, 'received');
+    const res = (await callTransfer('xfer-attributed', id, 10, 'base', 'car_a')).r;
+    const car = await one(`select id from public.ns_stock_locations where code='car_a'`);
+    assert.equal(res.vehicle_location_id, car.id);
   });
 
   // ================================================== H. updated_at ========
@@ -642,23 +1006,52 @@ async function errorOf(fn) {
     'public.ns_suppliers', 'public.ns_materials', 'public.ns_purchase_orders',
     'public.ns_purchase_order_lines', 'public.ns_rental_sets',
     'public.ns_rental_set_events', 'public.ns_material_stock_moves',
-    'public.ns_service_material_usage'
+    'public.ns_service_material_usage', 'public.ns_stock_locations',
+    'public.ns_stock_operations'
   ];
 
   const tablePriv = async (role, tbl, priv) => (await one(
     'select has_table_privilege($1,$2,$3) as ok', [role, tbl, priv])).ok;
 
   await record('I1 anon holds NO privilege on any new table, through any route', async () => {
-    for (const t of [...ALL_NEW, 'public.ns_material_stock']) {
+    for (const t of [...ALL_NEW, 'public.ns_material_stock',
+                     'public.ns_material_stock_by_location']) {
       for (const p of ['SELECT', 'INSERT', 'UPDATE', 'DELETE']) {
         assert.equal(await tablePriv('anon', t, p), false, `anon must not hold ${p} on ${t}`);
       }
     }
   });
 
+  await record('I1b authenticated cannot write the ledger DIRECTLY, only via the contract', async () => {
+    // This is the line that makes the contract's guarantees real rather than
+    // advisory: with direct INSERT available, any caller could write a
+    // movement with no operation, no replay key and no confirmation.
+    for (const t of ['public.ns_material_stock_moves', 'public.ns_stock_operations']) {
+      for (const p2 of ['INSERT', 'UPDATE', 'DELETE']) {
+        assert.equal(await tablePriv('authenticated', t, p2), false,
+          `authenticated must not hold ${p2} on ${t}`);
+      }
+      assert.equal(await tablePriv('authenticated', t, 'SELECT'), true,
+        `${t} must stay readable -- the ledger is the audit trail`);
+    }
+  });
+
+  await record('I1c the contract functions are admin-reachable and anon-proof', async () => {
+    for (const f of [
+      'public.post_stock_movement(text,uuid,text,numeric,text,text,uuid,uuid,text)',
+      'public.post_stock_transfer(text,uuid,numeric,text,text,boolean,text,uuid)'
+    ]) {
+      const { a, b } = await one(
+        'select has_function_privilege($1,$2,$3) as a, has_function_privilege($4,$2,$3) as b',
+        ['anon', f, 'EXECUTE', 'authenticated']);
+      assert.equal(a, false, `anon must not execute ${f}`);
+      assert.equal(b, true, `authenticated must execute ${f}`);
+    }
+  });
+
   await record('I2 anon cannot EXECUTE estimate_job_materials', async () => {
     const { ok } = await one(
-      `select has_function_privilege('anon','public.estimate_job_materials(uuid)','EXECUTE') as ok`);
+      `select has_function_privilege('anon','public.estimate_job_materials(uuid,text)','EXECUTE') as ok`);
     assert.equal(ok, false);
   });
 
@@ -676,19 +1069,30 @@ async function errorOf(fn) {
     assert.equal(await tablePriv('anon', 'public.ns_materials', 'SELECT'), false);
   });
 
-  await record('I4 authenticated and service_role keep full access', async () => {
+  await record('I4 authenticated and service_role keep the access they should', async () => {
+    // The two ledger tables are deliberately read-only to authenticated --
+    // see I1b. Everything else stays fully writable from the admin screens.
+    const LEDGER = ['public.ns_material_stock_moves', 'public.ns_stock_operations'];
     for (const t of ALL_NEW) {
+      assert.equal(await tablePriv('authenticated', t, 'SELECT'), true, `authenticated SELECT on ${t}`);
+      if (!LEDGER.includes(t)) {
+        for (const p of ['INSERT', 'UPDATE', 'DELETE']) {
+          assert.equal(await tablePriv('authenticated', t, p), true, `authenticated ${p} on ${t}`);
+        }
+      }
+      // service_role is the server-side path and keeps everything.
       for (const p of ['SELECT', 'INSERT', 'UPDATE', 'DELETE']) {
-        assert.equal(await tablePriv('authenticated', t, p), true, `authenticated ${p} on ${t}`);
         assert.equal(await tablePriv('service_role', t, p), true, `service_role ${p} on ${t}`);
       }
     }
-    assert.equal(await tablePriv('authenticated', 'public.ns_material_stock', 'SELECT'), true);
+    for (const v of ['public.ns_material_stock', 'public.ns_material_stock_by_location']) {
+      assert.equal(await tablePriv('authenticated', v, 'SELECT'), true, `authenticated SELECT on ${v}`);
+    }
   });
 
   await record('I5 the revoke from PUBLIC did not take authenticated access by side effect', async () => {
     const { ok } = await one(
-      `select has_function_privilege('authenticated','public.estimate_job_materials(uuid)','EXECUTE') as ok`);
+      `select has_function_privilege('authenticated','public.estimate_job_materials(uuid,text)','EXECUTE') as ok`);
     assert.equal(ok, true);
   });
 

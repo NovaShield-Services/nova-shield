@@ -46,6 +46,18 @@ grant usage on schema public to anon, authenticated, service_role, ns_legacy_wri
 drop table if exists auth.users cascade;
 create table auth.users (id uuid primary key default gen_random_uuid());
 
+-- The operations-contract RPCs attribute every operation to auth.uid().
+-- Supabase supplies it from the request JWT; a plain cluster has no such
+-- thing, so this reads the same session GUC the is_admin() stand-in uses.
+-- Shape is what matters: a uuid or null.
+drop function if exists auth.uid() cascade;
+create function auth.uid() returns uuid
+language sql stable
+as $$ select nullif(current_setting('nova.actor_id', true), '')::uuid $$;
+
+grant usage on schema auth to anon, authenticated, service_role;
+grant execute on function auth.uid() to anon, authenticated, service_role;
+
 -- -------------------------------------------------------------- is_admin --
 -- The live definition reads admin_users against auth.uid(). Neither exists
 -- in a plain Postgres cluster, so this stand-in reads a session GUC, which

@@ -156,6 +156,27 @@ const SET_EVENTS = [
 const FAKE_API = `
   const clone = (v) => JSON.parse(JSON.stringify(v));
   export async function listSuppliers()   { return clone(${JSON.stringify(SUPPLIERS)}); }
+  export async function listStockLocations() { return clone(${JSON.stringify([
+    { id: 'loc-base',  code: 'base',  name: 'Base',  kind: 'base',    active: true, sort_order: 0 },
+    { id: 'loc-car-a', code: 'car_a', name: 'Car A', kind: 'vehicle', active: true, sort_order: 1 }
+  ])}); }
+  export async function listStockByLocation() { return clone(${JSON.stringify([
+    { material_id: 'mat-track', location_id: 'loc-base',  location_code: 'base',
+      location_name: 'Base',  on_hand: -200 },
+    { material_id: 'mat-track', location_id: 'loc-car-a', location_code: 'car_a',
+      location_name: 'Car A', on_hand: 50 },
+    { material_id: 'mat-wire',  location_id: 'loc-base',  location_code: 'base',
+      location_name: 'Base',  on_hand: 10 },
+    { material_id: 'mat-wire',  location_id: 'loc-car-a', location_code: 'car_a',
+      location_name: 'Car A', on_hand: 0 },
+    { material_id: 'mat-ctrl',  location_id: 'loc-base',  location_code: 'base',
+      location_name: 'Base',  on_hand: 5 },
+    { material_id: 'mat-ctrl',  location_id: 'loc-car-a', location_code: 'car_a',
+      location_name: 'Car A', on_hand: 0 }
+  ])}); }
+  export function newOperationId(p) { return (p || 'op') + '-shot'; }
+  export async function postStockMovement() { return {}; }
+  export async function postStockTransfer() { return {}; }
   export async function listMaterials()   { return clone(${JSON.stringify(MATERIALS)}); }
   export async function listServices()    { return clone(${JSON.stringify(SERVICES)}); }
   export async function listServiceMaterialUsage() { return clone(${JSON.stringify(USAGE)}); }
@@ -165,7 +186,6 @@ const FAKE_API = `
   export async function listRentalSetEvents() { return clone(${JSON.stringify(SET_EVENTS)}); }
   export async function estimateJobMaterials() { return clone(${JSON.stringify(ESTIMATE)}); }
   export async function currentUserId()   { return 'admin-1'; }
-  export async function postStockMove()   { return {}; }
   export async function createMaterial()  { return {}; }
   export async function updateMaterial()  { return {}; }
   export async function createPurchaseOrder() { return {}; }
@@ -255,7 +275,7 @@ const PROBE = () => {
       // The expanded ledger and the expanded set history are the densest
       // things on these screens, so they get their own pass rather than
       // being assumed to fit.
-      const expander = tab === 'stock' ? 'Movements' : tab === 'sets' ? 'History' : null;
+      const expander = tab === 'stock' ? 'Move' : tab === 'sets' ? 'History' : null;
       if (expander) {
         await page.evaluate((label) => {
           const btn = [...document.querySelectorAll('button')]
@@ -265,6 +285,18 @@ const PROBE = () => {
         await page.waitForTimeout(300);
         await page.screenshot({ path: `${OUT}/inventory-${tab}-expanded-${s.tag}.png`, fullPage: true });
         findings.push({ view: `inventory/${tab}+expanded @${s.tag}`, ...(await page.evaluate(PROBE)) });
+
+        // The stock tab has two expanders; shoot the ledger as well.
+        if (tab === 'stock') {
+          await page.evaluate(() => {
+            const btn = [...document.querySelectorAll('button')]
+              .find((b) => b.textContent.trim() === 'Movements');
+            if (btn) btn.click();
+          });
+          await page.waitForTimeout(300);
+          await page.screenshot({ path: `${OUT}/inventory-stock-ledger-${s.tag}.png`, fullPage: true });
+          findings.push({ view: `inventory/stock+ledger @${s.tag}`, ...(await page.evaluate(PROBE)) });
+        }
       }
 
       // Per-card clips: a full-page phone shot of these screens is several
