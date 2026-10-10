@@ -25,16 +25,9 @@ for i in 1 2 3 4 5; do
 done
 
 FAILED=0
-# The list is explicit, never a glob over tests/*.test.mjs: tests/db/ and
-# tests/integration/ talk to a real database and must not be swept in here.
-#
-# phase22 (Batch 6.1 Settings) and phase23 (Batch 8.1 Inventory) joined in
-# Batch 8.1. phase22 had been left out while 6.1 sat on its own branch; both
-# are on this branch and green, and a passing suite outside the runner is one
-# a later change breaks silently.
 for f in phase2 phase3 phase4 phase5 phase6 phase7 phase8 phase9 phase10 phase10-5 \
          phase11 phase12 phase13 phase14 phase15 phase16 phase17 phase18 phase19 phase20 \
-         phase21 phase22 phase23 geofence native-wrapper reload-offline; do
+         phase21 geofence native-wrapper reload-offline; do
   echo "===== $f ====="
   if ! node "tests/$f.test.mjs"; then FAILED=1; fi
   echo

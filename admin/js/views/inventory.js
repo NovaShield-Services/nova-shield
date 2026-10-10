@@ -1,5 +1,6 @@
 import * as api from '../lib/api.js';
-import { el, fill, select, numberInput, confirmAction, toast } from '../../../shared/dom.js';
+import { el, select, numberInput, confirmAction, toast } from '../../../shared/dom.js';
+import { fill } from '../lib/admin-dom.js';
 import { money, qty, num, date, dateTime, unitLabel, humanise } from '../../../shared/format.js';
 import { trySave } from '../lib/save.js';
 import { signedDelta, packsToUnits } from '../lib/inventory-math.js';

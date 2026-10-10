@@ -30,28 +30,6 @@ export function clear(node) {
   return node;
 }
 
-/** Empties `node` and appends `children`, dropping the falsy ones.
- *
- *  el() already skips null/undefined/false children, so `cond ? x : null`
- *  reads as "omit this" everywhere inside an el() call. DOM append() does
- *  NOT: it stringifies, so the same expression passed to
- *  `clear(host).append(...)` paints the literal word "null" on the page.
- *  Found in Batch 8.1 by looking at a screenshot -- it is invisible in a
- *  DOM assertion that only looks for the elements it expects.
- *
- *  Use this instead of clear(x).append(...) wherever any child is
- *  conditional. Added in Batch 8.1; the pre-existing clear().append() calls
- *  elsewhere in the admin app have not been converted (see
- *  docs/batch8-1-findings.md). */
-export function fill(node, children) {
-  clear(node);
-  for (const child of [].concat(children)) {
-    if (child === null || child === undefined || child === false) continue;
-    node.append(child instanceof Node ? child : document.createTextNode(String(child)));
-  }
-  return node;
-}
-
 export function field(labelText, control) {
   return el('label', { class: 'field' }, [el('span', { text: labelText }), control]);
 }

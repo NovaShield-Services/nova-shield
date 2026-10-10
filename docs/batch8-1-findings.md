@@ -174,8 +174,11 @@ paints the literal word **`null`** on the page.
 The first Inventory screenshot had five of them. No DOM assertion would have
 caught it: the tests looked for the elements they expected and found them.
 
-Fixed by adding `fill(node, children)` to `shared/dom.js` and using it
-throughout the two new files.
+Fixed by adding `fill(node, children)` and using it throughout the two new
+files. It initially went into `shared/dom.js`; the revised roadmap after
+Batch 7 makes `shared/` read-only to both tracks, so it now lives in
+`admin/js/lib/admin-dom.js` instead — see
+docs/batch8-1-scope-reconciliation.md §2.
 
 **Not fixed, and worth a follow-up:** the same pattern exists in
 pre-existing views (`winter.js` passes `selectedEvent ? … : null` straight
@@ -229,15 +232,19 @@ fail:
 | `npm test` — full regression, 26 suites | **all green** |
 | `tests/screenshot-batch8-1.mjs` — 390 / 430 / desktop, 4 tabs + 2 expanded + job panel | **no layout problems in any view** |
 
-`npm run test:db` now runs both database suites, each against a **freshly
-created** disposable database, because the two fixtures define overlapping
-table names with different shapes and sharing one database would make the
-result depend on the order they ran in.
+`bash tests/db/run-db-tests.sh` runs both database suites, each against a
+**freshly created** disposable database, because the two fixtures define
+overlapping table names with different shapes and sharing one database would
+make the result depend on the order they ran in. It is invoked directly, not
+through `npm run test:db`: `package.json` belongs to the native/packaging
+track under the revised roadmap, and its `test:db` script still points at the
+Batch 7.1 suite alone.
 
-`phase22` (Batch 6.1 Settings) and `phase23` joined the regression runner's
-explicit list. `phase22` had been left out while 6.1 sat on its own branch;
-both are on this branch and green, and a passing suite outside the runner is
-one a later change breaks silently. The list stays explicit, never a glob —
+`phase22` (Batch 6.1 Settings) and `phase23` were briefly added to the
+regression runner's explicit list and have since been **reverted**:
+`tests/run-regression.sh` is a separate owner-authorised integration change
+under the revised roadmap. Both suites pass and must be run directly until
+integration registers them. The list stays explicit, never a glob —
 `tests/db/` and `tests/integration/` talk to real databases.
 
 ### What the tests do and do not prove

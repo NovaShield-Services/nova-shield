@@ -7,7 +7,7 @@
     "test": "bash tests/run-regression.sh",
     "test:integration": "bash tests/run-integration.sh",
     "db:setup": "node tests/db/setup-test-db.mjs",
-    "test:db": "bash tests/db/run-db-tests.sh",
+    "test:db": "node tests/db/batch7-1.test.mjs",
     "sync:mobile": "node scripts/sync-mobile.js",
     "cap:sync": "npm run sync:mobile && npx cap sync",
     "cap:android": "npm run cap:sync && npx cap open android",

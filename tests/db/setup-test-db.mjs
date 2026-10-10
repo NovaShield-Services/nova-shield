@@ -41,8 +41,13 @@ const LOCAL = new Set(['localhost', '127.0.0.1', '::1', '[::1]', '']);
   await client.end();
 
   console.log(`Created disposable test database "${TEST_DB_NAME}" and stamped it.`);
+  // Deliberately NOT `npm run test:db`. package.json is owned by the native/
+  // packaging track under the revised roadmap, and its test:db script still
+  // points at the Batch 7.1 suite alone -- running it would silently skip
+  // everything added since. Changing that one line is an integration item;
+  // until then this runner is the entry point.
   console.log('Run every suite, each against a fresh database, with:');
-  console.log('  npm run test:db');
+  console.log('  bash tests/db/run-db-tests.sh');
   console.log('Or one at a time:');
   console.log('  node tests/db/batch7-1.test.mjs');
   console.log('  node tests/db/batch8-1.test.mjs');

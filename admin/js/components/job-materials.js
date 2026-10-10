@@ -1,5 +1,6 @@
 import * as api from '../lib/api.js';
-import { el, fill, numberInput, confirmAction, toast } from '../../../shared/dom.js';
+import { el, numberInput, confirmAction, toast } from '../../../shared/dom.js';
+import { fill } from '../lib/admin-dom.js';
 import { money, qty, num, unitLabel } from '../../../shared/format.js';
 import { trySave } from '../lib/save.js';
 
