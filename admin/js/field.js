@@ -144,6 +144,11 @@ installBackHandler({
    now, don't wait for the browser to notice." */
 const syncBadge = document.getElementById('syncBadge');
 const syncNowBtn = document.getElementById('syncNow');
+// The badge is an interactive button. Announce changes separately so its
+// role/name remain useful and background replay does not move focus.
+const syncStatus = el('span', { class: 'sr-only', role: 'status', 'aria-live': 'polite',
+  'aria-atomic': 'true', dataset: { syncStatus: '' } });
+syncBadge.after(syncStatus);
 
 /* Four states the tech must be able to tell apart, because they call for
    different actions:
@@ -186,7 +191,10 @@ function paintBadge(state) {
   }
 }
 
-offlineQueue.subscribe(paintBadge);
+offlineQueue.subscribe(state => {
+  paintBadge(state);
+  if (syncStatus.textContent !== syncBadge.textContent) syncStatus.textContent = syncBadge.textContent;
+});
 
 /* Tapping the badge lists what is actually waiting. The queue has always
    stored a human label per item; nothing rendered it, so a tech with a stuck
@@ -213,6 +221,7 @@ function openOutbox() {
   ]);
   let sequence = 0;
   let unsubscribe;
+  let listFocus;
   const unregister = pushOverlay(close);
   function close() {
     sequence++;
@@ -230,6 +239,11 @@ function openOutbox() {
     try {
       const items = await offlineQueue.pending();
       if (attempt !== sequence || !dialog.isConnected) return;
+      const focusedItem = document.activeElement.closest('[data-outbox-id]');
+      if (focusedItem && list.contains(focusedItem)) {
+        listFocus = { id: focusedItem.dataset.outboxId,
+          index: [...list.children].indexOf(focusedItem) };
+      }
       clear(list).append(...items.map((item, index) => el('div', { class: 'section-box' }, [
         el('strong', { text: item.label || item.type }),
         el('p', { class: 'hint', text: `Saved ${new Date(item.createdAt).toLocaleString()}` }),
@@ -245,7 +259,16 @@ function openOutbox() {
           }
         })
       ])));
+      [...list.children].forEach((node, index) => { node.dataset.outboxId = String(items[index].id); });
       if (!items.length) list.append(el('p', { class: 'empty', text: 'Nothing waiting to sync.' }));
+      if (listFocus) {
+        const matching = [...list.children].find(node => node.dataset.outboxId === listFocus.id);
+        const next = matching || list.children[Math.min(listFocus.index, items.length - 1)];
+        if (!current.syncing && !current.discarding) {
+          (next?.querySelector('button') || closeButton).focus();
+          listFocus = null;
+        } else closeButton.focus();
+      }
     } catch (err) {
       if (attempt !== sequence || !dialog.isConnected) return;
       clear(list).append(el('p', { class: 'error-text', text: `Could not read saved actions: ${err.message}` }));

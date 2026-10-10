@@ -53,12 +53,14 @@ function passportPanel(property, onSaved) {
   }
 
   const preferencesInput = el('textarea', {
-    rows: '2', placeholder: 'e.g. "Avoid east flower beds", "Rear gate code: 1234"'
+    rows: '2', 'aria-label': 'Customer preferences', placeholder: 'e.g. "Avoid east flower beds", "Rear gate code: 1234"'
   });
   preferencesInput.value = p.preferences || '';
   const contents = () => JSON.stringify([Object.values(fields).map(read => read()), preferencesInput.value.trim()]);
   let savedContents;
   let saving = false;
+  const saveStatus = el('p', { class: 'hint', role: 'status', 'aria-live': 'polite',
+    'aria-atomic': 'true', dataset: { passportStatus: '' } });
 
   const root = el('div', { class: 'card' }, [
     el('div', { class: 'card__head' }, [
@@ -109,6 +111,8 @@ function passportPanel(property, onSaved) {
           const button = event.currentTarget;
           if (button.disabled) return;
           saving = true;
+          button.setAttribute('aria-busy', 'true');
+          saveStatus.textContent = 'Saving passport…';
           button.disabled = true;
           button.textContent = 'Saving passport…';
           const submittedContents = contents();
@@ -134,18 +138,22 @@ function passportPanel(property, onSaved) {
               'updateProperty', { id: property.id, patch: { passport } }, 'Save Property Passport');
             property.passport = passport;
             savedContents = submittedContents;
+            saveStatus.textContent = queued ? 'Passport saved on this device — waiting to sync.' : 'Property Passport saved.';
             queueToast(queued, 'Property Passport saved');
             await onSaved?.();
           } catch (err) {
+            saveStatus.textContent = `Passport not saved: ${describeWriteError(err)}`;
             toast(err.message, 'error');
           } finally {
             saving = false;
+            button.setAttribute('aria-busy', 'false');
             button.disabled = false;
             button.textContent = 'Save passport';
           }
         }
       })
-    ])
+    ]),
+    saveStatus
   ]);
   savedContents = contents();
   return { root, hasDraft: () => saving || contents() !== savedContents };
@@ -373,7 +381,8 @@ export async function renderVisit({ mount, navigate }, jobId) {
   );
   const noteBtn = el('button', { class: 'btn', text: 'Save note' });
   const notesList = el('div', {});
-  const notesStatus = el('div', {});
+  const notesStatus = el('div', { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true',
+    dataset: { notesStatus: '' } });
   let notesAttempt = 0;
 
   noteBtn.addEventListener('click', async () => {
@@ -395,11 +404,13 @@ export async function renderVisit({ mount, navigate }, jobId) {
 
   async function refreshNotes() {
     const attempt = ++notesAttempt;
-    clear(notesStatus).append(el('p', { class: 'hint', role: 'status', text: 'Loading notes…' }));
+    const retryFocused = notesStatus.contains(document.activeElement);
+    clear(notesStatus).append(el('p', { class: 'hint', text: 'Loading notes…' }));
     try {
       const notes = await api.listNotes(job.id);
       if (attempt !== notesAttempt || !notesList.isConnected) return;
       clear(notesStatus);
+      if (retryFocused && document.activeElement === document.body) noteBody.focus();
       clear(notesList).append(
         notes.length
           ? el('div', {}, notes.map(n => el('div', { class: 'section-box' }, [
@@ -417,6 +428,7 @@ export async function renderVisit({ mount, navigate }, jobId) {
         el('p', { class: 'error-text', text: `Could not load notes: ${readError(err)}` }),
         el('button', { class: 'btn btn--sm', text: 'Retry notes', onClick: () => refreshNotes() })
       );
+      if (retryFocused && document.activeElement === document.body) notesStatus.querySelector('button')?.focus();
     }
   }
 
@@ -441,6 +453,7 @@ export async function renderVisit({ mount, navigate }, jobId) {
   }
 
   async function reload({ initial = false } = {}) {
+    const retryFocused = refreshStatus.contains(document.activeElement);
     const refresh = measurementsPanel.refreshToken();
     clear(refreshStatus).append(el('p', { class: 'hint', text: 'Loading visit data…' }));
     let sections = refs.sections, measurements = lastMeasurements, pricing = lastPricing, quotes = lastQuotes;
@@ -464,11 +477,13 @@ export async function renderVisit({ mount, navigate }, jobId) {
       // A permission failure is an error too; never call it an offline save.
       if (initial || !hasVisitData) throw err;
       showRefreshError(err);
+      if (retryFocused && document.activeElement === document.body) refreshStatus.querySelector('button')?.focus();
       return;
     }
 
     if (!measurementsPanel.isCurrent(refresh)) return;
     clear(refreshStatus);
+    if (retryFocused && document.activeElement === document.body) statusSelect.focus();
     clear(sectionsHost).append(sectionsPanel(job, refs, reload));
     // Do not replace an editable passport after an unrelated refresh or a
     // slow save: the tech may already be typing their next change.

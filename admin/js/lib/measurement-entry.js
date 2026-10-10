@@ -95,7 +95,7 @@ export function createMeasurementEditor({ root, save, onChange, delay = 350 }) {
     entry.message.textContent = invalid ? 'Not saved — enter a non-negative quantity.'
       : entry.error ? `Not saved — ${describeWriteError(entry.error)}`
       : entry.running ? 'Saving quantity…'
-      : entry.dirty ? 'Quantity not saved yet.' : '';
+      : entry.dirty ? 'Quantity not saved yet.' : entry.savedNotice || '';
     entry.retry.hidden = !entry.error || invalid;
     entry.discard.hidden = !entry.dirty || !!entry.running;
   }
@@ -104,6 +104,10 @@ export function createMeasurementEditor({ root, save, onChange, delay = 350 }) {
     clearTimeout(entry.timer);
     if (entry.running) return entry.running;
     if (!entry.dirty || !valid(entry)) { paint(entry); return Promise.resolve(); }
+    const retryFocused = document.activeElement === entry.retry;
+    // Blur starts a save during a pointer click. Hiding recovery controls
+    // must not move the button being clicked before its click event fires.
+    entry.recovery.style.minHeight = `${entry.recovery.getBoundingClientRect().height}px`;
     entry.running = (async () => {
       while (entry.dirty && valid(entry)) {
         const value = Number(entry.input.value);
@@ -112,6 +116,7 @@ export function createMeasurementEditor({ root, save, onChange, delay = 350 }) {
         try {
           await write(entry.measurement, value);
           entry.saved = value;
+          entry.savedNotice = 'Quantity saved.';
           entry.measurement.quantity = value;
           if (revision === entry.revision) entry.dirty = false;
         } catch (err) {
@@ -121,7 +126,12 @@ export function createMeasurementEditor({ root, save, onChange, delay = 350 }) {
       }
     })().finally(() => {
       entry.running = null;
+      entry.recovery.style.minHeight = '';
       paint(entry);
+      if (retryFocused &&
+          (document.activeElement === document.body || document.activeElement === entry.retry)) {
+        (entry.dirty && !entry.retry.hidden ? entry.retry : entry.input).focus();
+      }
       if (!entry.dirty) requestRefresh();
     });
     paint(entry);
@@ -130,7 +140,7 @@ export function createMeasurementEditor({ root, save, onChange, delay = 350 }) {
 
   function quantityInput(measurement, attrs = {}) {
     const id = `measurement-save-${++statusId}`;
-    const message = el('span', { id, class: 'hint', role: 'status', 'aria-live': 'polite' });
+    const message = el('span', { id, class: 'hint measurement-save-status', role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' });
     const input = numberInput(measurement.quantity, null, {
       ...attrs, 'aria-describedby': id
     });
@@ -147,15 +157,19 @@ export function createMeasurementEditor({ root, save, onChange, delay = 350 }) {
         version++;
         entry.dirty = false;
         entry.error = null;
+        entry.savedNotice = 'Using saved quantity.';
         paint(entry);
+        input.focus();
         requestRefresh();
       } });
-    Object.assign(entry, { retry, discard });
+    const recovery = el('div', { class: 'btn-row' }, [retry, discard]);
+    Object.assign(entry, { retry, discard, recovery });
     entries.set(measurement.id, entry);
     input.addEventListener('input', () => {
       entry.revision++;
       version++;
       entry.dirty = true;
+      entry.savedNotice = '';
       entry.error = null;
       clearTimeout(entry.timer);
       paint(entry);
@@ -165,7 +179,7 @@ export function createMeasurementEditor({ root, save, onChange, delay = 350 }) {
       if (!entry.dirty) requestRefresh();
     }); });
     paint(entry);
-    return el('div', {}, [input, message, retry, discard]);
+    return el('div', {}, [input, message, recovery]);
   }
 
   async function changeQuantity(fn) {

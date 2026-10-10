@@ -24,18 +24,100 @@ function copyDir(src, dest) {
   fs.cpSync(src, dest, { recursive: true });
 }
 
-copyDir(path.join(ROOT, 'admin'), path.join(WWW, 'admin'));
-copyDir(path.join(ROOT, 'shared'), path.join(WWW, 'shared'));
+// Check literal runtime references in the actual staging tree, not the repo
+// that happened to supply it. Data URLs, hash routes and remote URLs are not
+// packaged files. Runtime API/signed-photo/camera URLs still need their own
+// network/plugin contracts; this is deliberately not an offline-read cache.
+function auditBundle(www) {
+  const local = [], remote = new Set(), excluded = [], missing = [];
+  const stripComments = source => source.replace(
+    /\/\*[\s\S]*?\*\/|\/\/[^\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`/g,
+    match => match.startsWith('/*') || match.startsWith('//') ? ' ' : match);
+  function reference(source, value, base = source) {
+    if (!value || value.startsWith('#') || /^(data|blob|tel|sms|mailto):/.test(value)) return;
+    if (/^(https?:)?\/\//.test(value)) { remote.add(value); return; }
+    // Templates beginning with a runtime value (signed photos, public quote
+    // host, etc.) cannot be validated as packaged file names.
+    if (value.startsWith('${')) return;
+    const pathname = value.split(/[?#]/)[0];
+    if (pathname.includes('${')) throw new Error(`Unresolved local path in ${source}: ${value}`);
+    const resolved = path.posix.normalize(pathname.startsWith('/') ? pathname.slice(1)
+      : path.posix.join(path.posix.dirname(base), pathname));
+    const entry = { source, value, resolved };
+    local.push(entry);
+    if (resolved.startsWith('../') || !fs.existsSync(path.join(www, resolved)) ||
+        !fs.statSync(path.join(www, resolved)).isFile()) missing.push(entry);
+  }
+  function walk(dir) {
+    for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
+      const absolute = path.join(dir, item.name);
+      if (item.isDirectory()) { walk(absolute); continue; }
+      const source = path.relative(www, absolute).split(path.sep).join('/');
+      if (!/\.(js|html|css|webmanifest)$/.test(source)) continue;
+      const body = stripComments(fs.readFileSync(absolute, 'utf8').replace(/<!--[\s\S]*?-->/g, ' '));
+      if (source.endsWith('.js')) {
+        for (const match of body.matchAll(/\bfrom\s*['"]([^'"]+)['"]|\bimport\s*\(?\s*['"]([^'"]+)['"]/g)) {
+          reference(source, match[1] || match[2]);
+        }
+        // DOM URLs resolve against the document, not against the module.
+        for (const match of body.matchAll(/\b(?:src|href)\s*:\s*(['"`])([^'"`]+)\1|\bfetch\s*\(\s*(['"`])([^'"`]+)\3/g)) {
+          reference(source, match[2] || match[4], 'admin/field.html');
+        }
+        // This browser-only quote path is intentionally absent. Assert its
+        // native branch stays absolute instead of silently exempting a miss.
+        if (source === 'admin/js/views/quote.js') {
+          const match = body.match(/const quoteUrl = `([^`]+)`/);
+          if (match) {
+            if (!/const previewUrl = isNative\(\) \? publicUrl : quoteUrl;/.test(body) ||
+                !/const publicUrl = `\$\{canonicalBase\(\)\}\/quote\.html\?id=/.test(body)) {
+              throw new Error('Native quote link must use the absolute customer URL');
+            }
+            excluded.push({ source, value: match[1], reason: 'Browser-only quote fallback; native uses publicUrl' });
+          }
+        }
+      }
+      if (source.endsWith('.html')) {
+        for (const match of body.matchAll(/\b(?:src|href)\s*=\s*['"]([^'"]+)['"]/g)) reference(source, match[1]);
+        for (const match of body.matchAll(/(?:url=|location\.replace\(['"])([^'";<>]+)/g)) reference(source, match[1]);
+      }
+      for (const match of body.matchAll(/\burl\(\s*['"]?([^'"\s)]+)['"]?\s*\)/g)) reference(source, match[1]);
+      if (/\.(css|html)$/.test(source)) {
+        for (const match of body.matchAll(/@import\s*['"]([^'"]+)['"]/g)) reference(source, match[1]);
+      }
+      if (source.endsWith('.webmanifest')) {
+        const manifest = JSON.parse(body);
+        reference(source, manifest.start_url);
+        for (const icon of manifest.icons || []) reference(source, icon.src);
+      }
+      // Includes lazy plugin URLs declared in PINNED, alongside eager imports.
+      for (const match of body.matchAll(/['"](https:\/\/cdn\.jsdelivr\.net\/[^'"]+)['"]/g)) remote.add(match[1]);
+    }
+  }
+  walk(www);
+  if (missing.length) throw new Error('Missing native bundle references:\n' + missing.map(item =>
+    `${item.source}: ${item.value} -> ${item.resolved}`).join('\n'));
+  return { local, remote: [...remote].sort(), excluded };
+}
+
+function syncMobile(www = WWW) {
+  copyDir(path.join(ROOT, 'admin'), path.join(www, 'admin'));
+  copyDir(path.join(ROOT, 'shared'), path.join(www, 'shared'));
 
 // The native app's actual screen is admin/field.html, not a root index.html
 // -- Capacitor expects an index.html at webDir's root as the load target,
 // so this is a one-line redirect rather than a second copy of field.html
 // (which would be exactly the duplicated-source-of-truth problem this
 // whole script exists to avoid).
-fs.writeFileSync(path.join(WWW, 'index.html'),
+  fs.writeFileSync(path.join(www, 'index.html'),
   '<!doctype html><html><head><meta charset="utf-8">' +
   '<meta http-equiv="refresh" content="0;url=admin/field.html">' +
   '<script>location.replace("admin/field.html");</script></head>' +
   '<body>Loading Nova Shield Field…</body></html>\n');
 
-console.log(`Synced admin/ + shared/ -> ${path.relative(ROOT, WWW)}/`);
+  const report = auditBundle(www);
+  console.log(`Synced admin/ + shared/ -> ${path.relative(ROOT, www)}/; checked ${report.local.length} local references`);
+  return report;
+}
+
+module.exports = { auditBundle, syncMobile };
+if (require.main === module) syncMobile();
