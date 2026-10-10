@@ -1,0 +1,113 @@
+{
+  "browser": "151.0.7922.173",
+  "views": [
+    {
+      "file": "390-load-error.png",
+      "scenario": "load-error",
+      "viewport": 390,
+      "document": 390
+    },
+    {
+      "file": "390-stale-data.png",
+      "scenario": "stale-data",
+      "viewport": 390,
+      "document": 390
+    },
+    {
+      "file": "390-saving-passport.png",
+      "scenario": "saving-passport",
+      "viewport": 390,
+      "document": 390
+    },
+    {
+      "file": "390-failed-outbox.png",
+      "scenario": "failed-outbox",
+      "viewport": 390,
+      "document": 390
+    },
+    {
+      "file": "390-large-schedule.png",
+      "scenario": "large-schedule",
+      "viewport": 390,
+      "document": 390
+    },
+    {
+      "file": "390-many-measurements.png",
+      "scenario": "many-measurements",
+      "viewport": 390,
+      "document": 390
+    },
+    {
+      "file": "430-load-error.png",
+      "scenario": "load-error",
+      "viewport": 430,
+      "document": 430
+    },
+    {
+      "file": "430-stale-data.png",
+      "scenario": "stale-data",
+      "viewport": 430,
+      "document": 430
+    },
+    {
+      "file": "430-saving-passport.png",
+      "scenario": "saving-passport",
+      "viewport": 430,
+      "document": 430
+    },
+    {
+      "file": "430-failed-outbox.png",
+      "scenario": "failed-outbox",
+      "viewport": 430,
+      "document": 430
+    },
+    {
+      "file": "430-large-schedule.png",
+      "scenario": "large-schedule",
+      "viewport": 430,
+      "document": 430
+    },
+    {
+      "file": "430-many-measurements.png",
+      "scenario": "many-measurements",
+      "viewport": 430,
+      "document": 430
+    },
+    {
+      "file": "1200-load-error.png",
+      "scenario": "load-error",
+      "viewport": 1200,
+      "document": 1200
+    },
+    {
+      "file": "1200-stale-data.png",
+      "scenario": "stale-data",
+      "viewport": 1200,
+      "document": 1200
+    },
+    {
+      "file": "1200-saving-passport.png",
+      "scenario": "saving-passport",
+      "viewport": 1200,
+      "document": 1200
+    },
+    {
+      "file": "1200-failed-outbox.png",
+      "scenario": "failed-outbox",
+      "viewport": 1200,
+      "document": 1200
+    },
+    {
+      "file": "1200-large-schedule.png",
+      "scenario": "large-schedule",
+      "viewport": 1200,
+      "document": 1200
+    },
+    {
+      "file": "1200-many-measurements.png",
+      "scenario": "many-measurements",
+      "viewport": 1200,
+      "document": 1200
+    }
+  ]
+}

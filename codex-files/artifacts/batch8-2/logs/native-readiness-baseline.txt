@@ -1,0 +1,81 @@
+(node:447871) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("/workspace/.nova-shield/test-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+Browser: 151.0.7922.173
+PASS - Quantity saving and failure already reach a polite live region
+FAIL - A successful quantity save announces completion
+  locator.waitFor: Timeout 5000ms exceeded.
+Call log:
+[2m  - waiting for getByText('Quantity saved.', { exact: true }) to be visible[22m
+
+FAIL - Quantity recovery restores focus to its input when the button disappears
+  Expected values to be strictly equal:
+
+false !== true
+
+FAIL - Successful keyboard retry restores quantity focus
+  Expected values to be strictly equal:
+
+false !== true
+
+FAIL - A failed keyboard quantity retry keeps the renewed recovery button focused
+  Expected values to be strictly equal:
+
+false !== true
+
+PASS - A delayed quantity retry does not reclaim focus from the next field
+FAIL - Passport save progress has its own live region and busy state
+  locator.waitFor: Timeout 5000ms exceeded.
+Call log:
+[2m  - waiting for locator('[data-passport-status]') to be visible[22m
+
+FAIL - Passport preferences have a programmatic label
+  Expected values to be strictly equal:
+
+0 !== 1
+
+FAIL - Outbox badge stays a keyboard button and changes have a separate live region
+  locator.waitFor: Timeout 5000ms exceeded.
+Call log:
+[2m  - waiting for locator('[data-sync-status]') to be visible[22m
+
+FAIL - Outbox refresh preserves keyboard focus on the next remaining action
+  Expected values to be strictly equal:
+
+false !== true
+
+FAIL - Notes errors update a persistent live region
+  Expected values to be strictly equal:
+
+undefined !== ''
+
+FAIL - Keyboard notes retry restores a usable focus target on failure and success
+  Expected values to be strictly equal:
+
+false !== true
+
+FAIL - Stale visit warning already has a live region and working keyboard Retry
+  Expected "actual" to be strictly unequal to:
+
+'BODY'
+FAIL - At 390px Tab follows header controls and gives the badge a visible focus ring
+  {"width":"1px","style":"auto"}
+PASS - Outbox modal traps Tab, dismisses with Escape and restores badge focus
+FAIL - At 390px keyboard traversal reaches the visit controls with visible focus and no unnamed controls
+  {"tag":"A","text":"Nova Shield Field","width":"1px","outline":"auto"}
+PASS - Window and winter icon steppers already expose named buttons
+PASS - light: primary save text meets 4.5:1 contrast
+PASS - light: error toast text meets 4.5:1 contrast
+FAIL - light: sync states, warning, quantity hint and error text meet 4.5:1
+  The expression evaluated to a falsy value:
+
+  assert.ok(await contrast(page.getByText('Not saved — enter a non-negative quantity.', { exact: true })) >= 4.5)
+
+FAIL - dark: primary save text meets 4.5:1 contrast
+  Contrast 2.2630525560119263
+FAIL - dark: error toast text meets 4.5:1 contrast
+  Contrast 2.4732174739983006
+PASS - dark: sync states, warning, quantity hint and error text meet 4.5:1
+PASS - Cold bundled start cannot initialise when both CDN entry imports are unavailable (known limitation)
+
+8/24 passed

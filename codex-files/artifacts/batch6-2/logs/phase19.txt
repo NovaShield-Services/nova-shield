@@ -1,0 +1,34 @@
+(node:54065) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("/workspace/.nova-shield/test-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:54065) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/nova-shield/admin/js/lib/navigation.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/nova-shield/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS - 1. Every inner admin screen has a parent; only the dashboard is root
+PASS - 2. A query string never changes which screen a path is
+PASS - 3. An unknown route falls back to the root rather than nowhere
+PASS - 4. A contextual parent overrides the static map but cannot invent one
+PASS - 5. The field console has its own root and parent graph
+PASS - 6. An open overlay wins over everything else
+PASS - 7. The nav drawer closes before the screen changes
+PASS - 8. The keyboard is dismissed before the screen changes
+PASS - 9. With app history, Back pops one entry
+PASS - 10. A deep-linked inner screen goes to its parent, NEVER exits
+PASS - 11. Only the root screen exits the app
+PASS - 12. The field console exits only from its schedule screen
+PASS - 13. Overlays dismiss newest-first and deregister cleanly
+PASS - 14. A dismiss that deregisters itself does not take the layer below with it
+PASS - 15. pushOverlay refuses a non-function
+PASS - 16. Keyboard detection needs BOTH a focused field and a shrunken viewport
+PASS - 17. installBackHandler is a no-op off-native and never touches the plugin
+PASS - 18. A missing plugin degrades silently instead of breaking startup
+PASS - 19. The native handler performs each decision against a plugin double
+PASS - 20. Each new route gets a history depth stamp; filters do not
+PASS - 21. Navigating to a real screen does increase the depth
+PASS - 22. Going back restores the earlier depth rather than inventing a new one
+PASS - 23. A deep-linked filtered URL still starts at depth 1
+PASS - 24. Escape closes a registered overlay in a real browser
+PASS - 25. External links are marked to open outside the WebView
+
+25/25 passed

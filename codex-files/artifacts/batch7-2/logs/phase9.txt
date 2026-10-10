@@ -1,0 +1,20 @@
+(node:155805) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("/workspace/.nova-shield/test-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS - 1. Basic deck: one section renders with correct total
+PASS - 2. Multiple deck sections: total sums correctly
+PASS - 3. Mixed Condition: each deck section keeps its own independent selection
+PASS - 4. Mixed access: Main deck (easy) and Upper deck (difficult) reflected via their own section hints
+PASS - 5. No fake stairs/railing/addon/job-wide controls exist (real data has none of these)
+PASS - 6. Duplicate: copies section, sq ft, Condition + Material -- not review/reason/notes
+PASS - 7a. Remove deck section: calls deleteMeasurement after confirm
+PASS - 7b. Edit deck section: rename and area change both persist
+PASS - 9. Minimum charge: card shows "minimum applied" without replacing the total
+PASS - 10. Review flag toggles review_required without touching quantity/section/label
+PASS - 11. No manual-adjustment UI inside the calculator (quote-level concept)
+PASS - 12. No bespoke RPC/quote-pathway reference anywhere in the component source
+PASS - 13. No per-row dollar figure is invented in the DOM (only the card-level total, from pricedRows)
+PASS - 14. Multi-service: Deck + Siding + Concrete + Gutter + Windows + Roof + Heating Wire all coexist with correct independent totals
+PASS - 15. Offline add-section: createMeasurement returning null does not throw
+
+15/15 passed

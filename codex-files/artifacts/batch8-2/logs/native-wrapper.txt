@@ -1,0 +1,24 @@
+(node:460181) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("/workspace/.nova-shield/test-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS - native.js: isNative() is false by default (plain browser)
+PASS - native.js: setStatusBarTheme() never touches StatusBar plugin off-native
+PASS - native.js: hapticLight() never throws off-native
+PASS - native.js: getDevicePosition() resolves real coords when the plugin succeeds
+PASS - native.js: getDevicePosition() resolves null (never throws) on permission denial
+PASS - native.js: shareOrFallback() runs fallbackFn when Share fails
+PASS - native.js: shareOrFallback() does not call fallbackFn when Share succeeds
+PASS - native.js: persistPhotoLocally() is a no-op (null) off-native
+PASS - photo-markup.js: Skip resolves the original File unchanged
+PASS - photo-markup.js: drawing a mark then "Use this photo" resolves a new PNG File
+PASS - field-photos.js: "+ Add photo" opens the file input on web, never the native camera
+PASS - quote.js: Download PDF / Preview Quote / Copy SMS keep their web behaviour off-native
+PASS - field-schedule.js: no arrival banner when the device position is unavailable
+PASS - field-schedule.js: arrival banner appears when the device is within 100m of the property
+PASS - native.js: isNative() reflects the mocked native platform
+PASS - field-photos.js: "+ Add photo" calls the native camera (not the file input) when native
+PASS - quote.js: Download PDF shares the absolute public URL when native
+PASS - native.js: shareCurrentPage() writes the rendered page to Filesystem then shares it
+PASS - native.js: shareCurrentPage() falls back to false when Share fails
+
+19/19 passed

@@ -1,0 +1,360 @@
+/* Nova Shield field tool.
+   Built mobile-first: this is used standing in someone's driveway on a phone,
+   so touch targets are >=44px and numeric entry is large. */
+
+:root {
+  --bg: #f2f5f7;
+  --surface: #ffffff;
+  --surface-2: #f7f9fa;
+  --text: #16212a;
+  --muted: #5e6e79;
+  --line: #d7dee4;
+  --line-strong: #b9c4cc;
+  --accent: #1d5f7a;
+  --on-accent: #ffffff;
+  --on-danger: #ffffff;
+  --accent-soft: #e6f1f6;
+  --gold: #8a6414;
+  --gold-soft: #fdf6e3;
+  --danger: #a1352f;
+  --danger-soft: #fdeceb;
+  --ok: #1f6b46;
+  --ok-soft: #e9f5ee;
+  --radius: 10px;
+  --shadow: 0 1px 2px rgba(16,33,42,.06), 0 8px 24px rgba(16,33,42,.06);
+  --tap: 44px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #11171c; --surface: #18212a; --surface-2: #141c24;
+    --text: #e7eef3; --muted: #93a3af; --line: #29353f; --line-strong: #3a4954;
+    --accent: #6cb6d4; --accent-soft: #16303c;
+    --on-accent: #11171c; --on-danger: #11171c;
+    --gold: #d9b569; --gold-soft: #2b2313;
+    --danger: #e98b84; --danger-soft: #34201e;
+    --ok: #7cc9a0; --ok-soft: #162a20;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+}
+
+* { box-sizing: border-box; }
+
+/* .topbar and .nav set `display`, which would otherwise beat the user-agent
+   [hidden] rule and leave the chrome visible on the login screen. */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-text-size-adjust: 100%;
+  /* max(…) rather than the bare env() value: on a device with no notch/
+     gesture bar (most Android phones, older iPhones) env() resolves to 0,
+     so the bare form gave those devices no breathing room at all. This
+     guarantees at least 16px everywhere and the real inset wherever one
+     exists. Requires viewport-fit=cover on the page's own <meta viewport>
+     (already set on both admin/index.html and admin/field.html) -- without
+     it, env() always resolves to 0 regardless of the device. */
+  padding-top: max(16px, env(safe-area-inset-top));
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: var(--accent); }
+:is(button, a, [role="button"], input, select, textarea):focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 3px;
+}
+
+/* ---------------------------------------------------------------- topbar -- */
+.topbar {
+  position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  /* body's own safe-area padding only protects content before the page
+     scrolls -- a sticky element sticks to the viewport edge regardless, so
+     once scrolled it needs the inset on itself or it slides back under a
+     notch/camera cutout. max() keeps the usual 8px rhythm on a device with
+     no inset at all. */
+  padding-top: max(8px, env(safe-area-inset-top));
+  background: var(--surface); border-bottom: 1px solid var(--line);
+}
+.topbar__menu, .topbar__signout {
+  min-height: var(--tap); min-width: var(--tap);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface-2); padding: 0 12px;
+}
+.topbar__signout { margin-left: auto; font-size: .85rem; }
+.topbar__brand {
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 700; letter-spacing: .01em; text-decoration: none; color: var(--text);
+}
+.topbar__brand em { font-style: normal; font-weight: 500; color: var(--muted); font-size: .85rem; }
+.topbar__mark { color: var(--accent); }
+
+/* ------------------------------------------------------------------- nav -- */
+.nav { display: none; background: var(--surface); border-bottom: 1px solid var(--line); }
+.nav.is-open { display: block; }
+/* The drawer has to stick with the topbar that opens it. .topbar is sticky but
+   .nav was a static sibling, so it rendered at its document position: measured
+   at 390px with the page scrolled to 1755px, nav.top was -1678px -- i.e.
+   tapping the hamburger anywhere below the fold did nothing visible, on every
+   list long enough to scroll. Desktop (>=860px) lays the nav out as a sidebar
+   and never had the problem, which is why it survived.
+   Scoped to the mobile drawer only; the min-width:860px block below resets it. */
+.nav.is-open {
+  position: sticky;
+  top: calc(var(--tap) + 16px + env(safe-area-inset-top));
+  z-index: 29;                       /* just under .topbar's 30 */
+  max-height: calc(100vh - var(--tap) - 16px - env(safe-area-inset-top));
+  overflow-y: auto;
+  box-shadow: var(--shadow);
+}
+.nav a {
+  display: block; padding: 14px 16px; min-height: var(--tap);
+  color: var(--text); text-decoration: none; border-bottom: 1px solid var(--line);
+}
+.nav a[aria-current="page"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+@media (min-width: 860px) {
+  .topbar__menu { display: none; }
+  .nav { display: flex; gap: 4px; padding: 0 12px; }
+  /* Desktop is a horizontal bar, not a drawer -- undo the mobile stickiness
+     so it doesn't float over the page or gain its own scrollbar. */
+  .nav.is-open {
+    position: static; max-height: none; overflow: visible; box-shadow: none;
+  }
+  .nav a { border-bottom: 3px solid transparent; padding: 12px 14px; }
+  .nav a[aria-current="page"] { background: none; border-bottom-color: var(--accent); }
+}
+
+/* ------------------------------------------------------------------ view -- */
+.view { width: min(1100px, 100%); margin: 0 auto; padding: 16px 12px 64px; }
+@media (min-width: 860px) { .view { padding: 24px 20px 80px; } }
+
+.loading, .empty {
+  padding: 32px 16px; text-align: center; color: var(--muted);
+  border: 1px dashed var(--line); border-radius: var(--radius); background: var(--surface-2);
+}
+
+h1 { font-size: 1.5rem; margin: 0 0 4px; }
+h2 { font-size: 1.05rem; margin: 0; }
+h3 { font-size: .95rem; margin: 0; }
+.page-head { margin-bottom: 16px; }
+.page-head p { margin: 0; color: var(--muted); font-size: .9rem; }
+
+/* ----------------------------------------------------------------- cards -- */
+.card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 16px; margin-bottom: 14px;
+}
+.card__head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap; margin-bottom: 12px;
+}
+.card__head p { margin: 2px 0 0; color: var(--muted); font-size: .85rem; }
+
+/* Long unbreakable strings must not widen the page. Grid and flex items
+   default to min-width:auto, so a real 49-char customer email in the job
+   contact card measured 458px against a 364px content box and gave the whole
+   job screen -- the most-used admin page -- a horizontal scroll. It persisted
+   in single-column mode, so the grid track was never the cause: the text run
+   itself is. Applied to the places that carry user-supplied strings. */
+.field, .field p, .row-item, .row-item__main, .row-item__meta, .card, .qline {
+  min-width: 0;
+}
+/* .page-head p joined this list in Batch 4. Until then every page header
+   held text that breaks at spaces (a job reference plus an address); the
+   customer header is the first to put a bare email address there, and a
+   56-character one pushed the whole document to 505px at a 390px viewport. */
+.field p, .row-item__meta, .card__head p, .hint, .page-head p {
+  overflow-wrap: anywhere;
+}
+
+/* ----------------------------------------------------------------- forms -- */
+.field { display: block; margin-bottom: 12px; }
+.field > span {
+  display: block; margin-bottom: 5px;
+  font-size: .75rem; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--muted);
+}
+input, select, textarea {
+  width: 100%; min-height: var(--tap);
+  padding: 10px 12px;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--line); border-radius: var(--radius);
+}
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent);
+}
+textarea { min-height: 88px; resize: vertical; }
+/* big, keypad-friendly numbers for field entry */
+input[inputmode="decimal"], input[type="number"] {
+  font-variant-numeric: tabular-nums; font-size: 1.15rem; font-weight: 600;
+}
+.grid { display: grid; gap: 12px; }
+@media (min-width: 640px) {
+  .grid--2 { grid-template-columns: 1fr 1fr; }
+  .grid--3 { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* --------------------------------------------------------------- buttons -- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: var(--tap); padding: 10px 16px;
+  border: 1px solid var(--line-strong); border-radius: var(--radius);
+  background: var(--surface); font-weight: 600;
+}
+.btn:hover { background: var(--surface-2); }
+.btn--primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn--primary:hover { background: var(--accent); filter: brightness(1.08); }
+.btn.btn--primary[aria-busy="true"] { opacity: 1; cursor: wait; }
+.btn--danger { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
+.btn--sm { min-height: var(--tap); min-width: var(--tap); padding: 4px 10px; font-size: .85rem; }
+/* field.html has an inline 40px override. Keep its compact controls at the
+   same minimum tap size without changing that page's owned markup. */
+.field-view .btn.btn--sm { min-height: var(--tap); }
+/* Long customer/service names must wrap inside the phone's card/header. */
+.field-view h1, .field-view h2, .field-view .card__head > div {
+  min-width: 0; overflow-wrap: anywhere;
+}
+.field-topbar .sync-badge {
+  display: inline-flex; align-items: center; min-height: var(--tap); min-width: var(--tap);
+  white-space: normal; overflow-wrap: anywhere;
+}
+.outbox-dialog {
+  width: min(560px, calc(100% - 28px)); max-height: calc(100dvh - 40px);
+  overflow-y: auto; padding: 18px; border: 1px solid var(--line);
+  border-radius: var(--radius); background: var(--surface); color: var(--text);
+}
+.outbox-dialog::backdrop { background: rgb(0 0 0 / .45); }
+.outbox-dialog p, .outbox-dialog strong { overflow-wrap: anywhere; }
+.outbox-dialog .section-box { min-width: 0; }
+.btn[disabled] { opacity: .55; cursor: not-allowed; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ---------------------------------------------------------------- tokens -- */
+.badge {
+  display: inline-block; padding: 3px 9px; border-radius: 999px;
+  font-size: .72rem; font-weight: 700; letter-spacing: .03em;
+  background: var(--accent-soft); color: var(--accent); white-space: nowrap;
+}
+.badge--warn { background: var(--gold-soft); color: var(--gold); }
+.badge--ok   { background: var(--ok-soft); color: var(--ok); }
+.badge--muted{ background: var(--surface-2); color: var(--muted); }
+
+.stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+@media (min-width: 720px) { .stat-grid { grid-template-columns: repeat(4, 1fr); } }
+.stat {
+  display: block; text-align: left; text-decoration: none;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 14px;
+}
+.stat:hover { border-color: var(--accent); }
+.stat__n { display: block; font-size: 1.8rem; font-weight: 800; line-height: 1.1; }
+.stat__l { display: block; font-size: .78rem; color: var(--muted); margin-top: 2px; }
+
+/* ----------------------------------------------------------------- lists -- */
+.row-item {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px; margin-bottom: 8px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.row-item:hover { border-color: var(--accent); }
+.row-item__main { flex: 1 1 220px; min-width: 0; }
+.row-item__main strong { display: block; }
+/* One meta line per span. Until Batch 3 every row carried exactly one of
+   these, so the default inline display never showed; the jobs list and the
+   activity timeline stack two or three (address, requested services,
+   schedule), which ran together as "...KelownaRequested: Gutter Cleaning".
+   Every call site renders these as their own line, so block is correct for
+   all of them. */
+.row-item__meta { display: block; color: var(--muted); font-size: .84rem; }
+/* A row's badge cluster. The flex-basis matters: as a plain flex item a
+   five-badge cluster sizes to its max-content (~690px), which starved
+   .row-item__main of room on a wide screen and wrapped a customer name
+   onto two lines beside 500px of white space. Capping the basis lets the
+   badges wrap among themselves instead, and main -- the only grower --
+   takes the rest. Below ~640px the whole row still wraps, so the cluster
+   drops to its own line exactly as before. */
+.row-item__badges {
+  display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+  flex: 0 1 320px; min-width: 0;
+}
+
+/* ------------------------------------------------------------ inspection -- */
+.check-grid { display: grid; gap: 8px; }
+@media (min-width: 640px) { .check-grid { grid-template-columns: 1fr 1fr; } }
+.check {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 11px 12px; min-height: var(--tap);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--surface-2); cursor: pointer;
+}
+.check input { width: 20px; height: 20px; min-height: 0; margin: 2px 0 0; flex: none; }
+.check.is-on { border-color: var(--accent); background: var(--accent-soft); }
+.warn {
+  margin-top: 8px; padding: 10px 12px;
+  border-left: 4px solid var(--gold); border-radius: 6px;
+  background: var(--gold-soft); font-size: .85rem;
+}
+.warn strong { display: block; }
+
+/* ------------------------------------------------------------ quote math -- */
+.money { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.qline {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 10px 0; border-bottom: 1px solid var(--line);
+}
+.qline:last-child { border-bottom: 0; }
+.qline--total { font-size: 1.15rem; font-weight: 800; border-top: 2px solid var(--line-strong); }
+.qline__sub { display: block; color: var(--muted); font-size: .8rem; font-weight: 400; }
+.qline--credit .money { color: var(--ok); }
+.total-hero { font-size: 2.2rem; font-weight: 800; line-height: 1; }
+
+.section-box {
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 12px; margin-bottom: 10px; background: var(--surface-2);
+}
+.section-box__head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 10px;
+}
+
+/* ----------------------------------------------------------------- toast -- */
+.toast {
+  /* left:50% + translateX(-50%) with no width meant shrink-to-fit only saw
+     the space from the midpoint to the right edge, so max-width was
+     unreachable and every toast was capped at exactly half the viewport --
+     the standard offline message rendered as a 195px four-line box on a
+     phone. Insetting both sides and centring with margin lets it use the
+     width it was always meant to have.
+     bottom also respects the safe-area inset now; it was the only
+     fixed-position element in the file that didn't, so on a notched iPhone
+     the app's entire feedback channel sat under the home indicator. */
+  position: fixed; left: 12px; right: 12px; transform: none;
+  bottom: max(20px, calc(12px + env(safe-area-inset-bottom)));
+  width: fit-content; margin-inline: auto;
+  z-index: 60; max-width: min(520px, calc(100% - 24px));
+  padding: 12px 16px; border-radius: var(--radius);
+  background: var(--text); color: var(--bg);
+  box-shadow: var(--shadow); font-size: .9rem;
+}
+.toast--error { background: var(--danger); color: var(--on-danger); }
+
+/* ----------------------------------------------------------------- login -- */
+.login { width: min(420px, 100%); margin: 8vh auto; }
+.login h1 { text-align: center; }
+.login p.sub { text-align: center; color: var(--muted); margin: 0 0 20px; font-size: .9rem; }
+
+.error-text { color: var(--danger); font-size: .86rem; margin-top: 8px; }
+.hint { color: var(--muted); font-size: .82rem; }
+.measurement-save-status { display: block; margin: 6px 0 8px; }
+.measurement-save-status:empty { margin: 0; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}

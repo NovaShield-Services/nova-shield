@@ -1,0 +1,803 @@
+{
+  "browser": "151.0.7922.173",
+  "views": [
+    {
+      "file": "admin-390-saved.png",
+      "layout": "admin",
+      "state": "saved",
+      "viewport": 390,
+      "document": 390,
+      "controls": [
+        {
+          "name": "Inspect saved quantity",
+          "width": 177.28125,
+          "height": 44
+        },
+        {
+          "name": "New estimate",
+          "width": 116.328125,
+          "height": 44
+        },
+        {
+          "name": "New version",
+          "width": 106.1875,
+          "height": 44
+        },
+        {
+          "name": "Copy Link",
+          "width": 87.875,
+          "height": 46
+        },
+        {
+          "name": "Copy SMS Text",
+          "width": 118.453125,
+          "height": 46
+        },
+        {
+          "name": "Duplicate Quote",
+          "width": 132.65625,
+          "height": 44
+        },
+        {
+          "name": "Call",
+          "width": 47.171875,
+          "height": 44
+        },
+        {
+          "name": "Navigate",
+          "width": 83.90625,
+          "height": 44
+        },
+        {
+          "name": "Clear",
+          "width": 57.234375,
+          "height": 44
+        },
+        {
+          "name": "Save note",
+          "width": 88.296875,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "file": "admin-390-offline.png",
+      "layout": "admin",
+      "state": "offline",
+      "viewport": 390,
+      "document": 390,
+      "controls": [
+        {
+          "name": "Retry quantity save",
+          "width": 154.984375,
+          "height": 44
+        },
+        {
+          "name": "Use saved quantity",
+          "width": 151.84375,
+          "height": 44
+        },
+        {
+          "name": "Inspect saved quantity",
+          "width": 177.28125,
+          "height": 44
+        },
+        {
+          "name": "New estimate",
+          "width": 116.328125,
+          "height": 44
+        },
+        {
+          "name": "New version",
+          "width": 106.1875,
+          "height": 44
+        },
+        {
+          "name": "Copy Link",
+          "width": 87.875,
+          "height": 46
+        },
+        {
+          "name": "Copy SMS Text",
+          "width": 118.453125,
+          "height": 46
+        },
+        {
+          "name": "Duplicate Quote",
+          "width": 132.65625,
+          "height": 44
+        },
+        {
+          "name": "Call",
+          "width": 47.171875,
+          "height": 44
+        },
+        {
+          "name": "Navigate",
+          "width": 83.90625,
+          "height": 44
+        },
+        {
+          "name": "Clear",
+          "width": 57.234375,
+          "height": 44
+        },
+        {
+          "name": "Save note",
+          "width": 88.296875,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "file": "admin-430-saved.png",
+      "layout": "admin",
+      "state": "saved",
+      "viewport": 430,
+      "document": 430,
+      "controls": [
+        {
+          "name": "Inspect saved quantity",
+          "width": 177.28125,
+          "height": 44
+        },
+        {
+          "name": "New estimate",
+          "width": 116.328125,
+          "height": 44
+        },
+        {
+          "name": "New version",
+          "width": 106.1875,
+          "height": 44
+        },
+        {
+          "name": "Copy Link",
+          "width": 87.875,
+          "height": 44
+        },
+        {
+          "name": "Copy SMS Text",
+          "width": 118.453125,
+          "height": 44
+        },
+        {
+          "name": "Duplicate Quote",
+          "width": 132.65625,
+          "height": 46
+        },
+        {
+          "name": "Call",
+          "width": 47.171875,
+          "height": 44
+        },
+        {
+          "name": "Navigate",
+          "width": 83.90625,
+          "height": 44
+        },
+        {
+          "name": "Clear",
+          "width": 57.234375,
+          "height": 44
+        },
+        {
+          "name": "Save note",
+          "width": 88.296875,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "file": "admin-430-offline.png",
+      "layout": "admin",
+      "state": "offline",
+      "viewport": 430,
+      "document": 430,
+      "controls": [
+        {
+          "name": "Retry quantity save",
+          "width": 154.984375,
+          "height": 44
+        },
+        {
+          "name": "Use saved quantity",
+          "width": 151.84375,
+          "height": 44
+        },
+        {
+          "name": "Inspect saved quantity",
+          "width": 177.28125,
+          "height": 44
+        },
+        {
+          "name": "New estimate",
+          "width": 116.328125,
+          "height": 44
+        },
+        {
+          "name": "New version",
+          "width": 106.1875,
+          "height": 44
+        },
+        {
+          "name": "Copy Link",
+          "width": 87.875,
+          "height": 44
+        },
+        {
+          "name": "Copy SMS Text",
+          "width": 118.453125,
+          "height": 44
+        },
+        {
+          "name": "Duplicate Quote",
+          "width": 132.65625,
+          "height": 46
+        },
+        {
+          "name": "Call",
+          "width": 47.171875,
+          "height": 44
+        },
+        {
+          "name": "Navigate",
+          "width": 83.90625,
+          "height": 44
+        },
+        {
+          "name": "Clear",
+          "width": 57.234375,
+          "height": 44
+        },
+        {
+          "name": "Save note",
+          "width": 88.296875,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "file": "admin-1200-saved.png",
+      "layout": "admin",
+      "state": "saved",
+      "viewport": 1200,
+      "document": 1200,
+      "controls": [
+        {
+          "name": "Inspect saved quantity",
+          "width": 177.28125,
+          "height": 44
+        },
+        {
+          "name": "New estimate",
+          "width": 116.328125,
+          "height": 44
+        },
+        {
+          "name": "New version",
+          "width": 106.1875,
+          "height": 44
+        },
+        {
+          "name": "Copy Link",
+          "width": 87.875,
+          "height": 46
+        },
+        {
+          "name": "Copy SMS Text",
+          "width": 118.453125,
+          "height": 46
+        },
+        {
+          "name": "Duplicate Quote",
+          "width": 132.65625,
+          "height": 46
+        },
+        {
+          "name": "Call",
+          "width": 47.171875,
+          "height": 44
+        },
+        {
+          "name": "Navigate",
+          "width": 83.90625,
+          "height": 44
+        },
+        {
+          "name": "Clear",
+          "width": 57.234375,
+          "height": 44
+        },
+        {
+          "name": "Save note",
+          "width": 88.296875,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "file": "admin-1200-offline.png",
+      "layout": "admin",
+      "state": "offline",
+      "viewport": 1200,
+      "document": 1200,
+      "controls": [
+        {
+          "name": "Retry quantity save",
+          "width": 154.984375,
+          "height": 44
+        },
+        {
+          "name": "Use saved quantity",
+          "width": 151.84375,
+          "height": 44
+        },
+        {
+          "name": "Inspect saved quantity",
+          "width": 177.28125,
+          "height": 44
+        },
+        {
+          "name": "New estimate",
+          "width": 116.328125,
+          "height": 44
+        },
+        {
+          "name": "New version",
+          "width": 106.1875,
+          "height": 44
+        },
+        {
+          "name": "Copy Link",
+          "width": 87.875,
+          "height": 46
+        },
+        {
+          "name": "Copy SMS Text",
+          "width": 118.453125,
+          "height": 46
+        },
+        {
+          "name": "Duplicate Quote",
+          "width": 132.65625,
+          "height": 46
+        },
+        {
+          "name": "Call",
+          "width": 47.171875,
+          "height": 44
+        },
+        {
+          "name": "Navigate",
+          "width": 83.90625,
+          "height": 44
+        },
+        {
+          "name": "Clear",
+          "width": 57.234375,
+          "height": 44
+        },
+        {
+          "name": "Save note",
+          "width": 88.296875,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "file": "field-390-saved.png",
+      "layout": "field",
+      "state": "saved",
+      "viewport": 390,
+      "document": 390,
+      "controls": [
+        {
+          "name": "Sign out",
+          "width": 77.953125,
+          "height": 44
+        },
+        {
+          "name": "Inspect saved quantity",
+          "width": 204.765625,
+          "height": 44
+        },
+        {
+          "name": "New estimate",
+          "width": 133.015625,
+          "height": 44
+        },
+        {
+          "name": "New version",
+          "width": 121.078125,
+          "height": 44
+        },
+        {
+          "name": "Copy Link",
+          "width": 99.53125,
+          "height": 48
+        },
+        {
+          "name": "Copy SMS Text",
+          "width": 135.53125,
+          "height": 48
+        },
+        {
+          "name": "Duplicate Quote",
+          "width": 152.25,
+          "height": 44
+        },
+        {
+          "name": "Call",
+          "width": 51.625,
+          "height": 44
+        },
+        {
+          "name": "Navigate",
+          "width": 94.859375,
+          "height": 44
+        },
+        {
+          "name": "Clear",
+          "width": 63.46875,
+          "height": 44
+        },
+        {
+          "name": "Save note",
+          "width": 100.03125,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "file": "field-390-offline.png",
+      "layout": "field",
+      "state": "offline",
+      "viewport": 390,
+      "document": 390,
+      "controls": [
+        {
+          "name": "Sign out",
+          "width": 77.953125,
+          "height": 44
+        },
+        {
+          "name": "Retry quantity save",
+          "width": 178.515625,
+          "height": 44
+        },
+        {
+          "name": "Use saved quantity",
+          "width": 174.828125,
+          "height": 44
+        },
+        {
+          "name": "Inspect saved quantity",
+          "width": 204.765625,
+          "height": 44
+        },
+        {
+          "name": "New estimate",
+          "width": 133.015625,
+          "height": 44
+        },
+        {
+          "name": "New version",
+          "width": 121.078125,
+          "height": 44
+        },
+        {
+          "name": "Copy Link",
+          "width": 99.53125,
+          "height": 48
+        },
+        {
+          "name": "Copy SMS Text",
+          "width": 135.53125,
+          "height": 48
+        },
+        {
+          "name": "Duplicate Quote",
+          "width": 152.25,
+          "height": 44
+        },
+        {
+          "name": "Call",
+          "width": 51.625,
+          "height": 44
+        },
+        {
+          "name": "Navigate",
+          "width": 94.859375,
+          "height": 44
+        },
+        {
+          "name": "Clear",
+          "width": 63.46875,
+          "height": 44
+        },
+        {
+          "name": "Save note",
+          "width": 100.03125,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "file": "field-430-saved.png",
+      "layout": "field",
+      "state": "saved",
+      "viewport": 430,
+      "document": 430,
+      "controls": [
+        {
+          "name": "Sign out",
+          "width": 77.953125,
+          "height": 44
+        },
+        {
+          "name": "Inspect saved quantity",
+          "width": 204.765625,
+          "height": 44
+        },
+        {
+          "name": "New estimate",
+          "width": 133.015625,
+          "height": 44
+        },
+        {
+          "name": "New version",
+          "width": 121.078125,
+          "height": 44
+        },
+        {
+          "name": "Copy Link",
+          "width": 99.53125,
+          "height": 44
+        },
+        {
+          "name": "Copy SMS Text",
+          "width": 135.53125,
+          "height": 44
+        },
+        {
+          "name": "Duplicate Quote",
+          "width": 152.25,
+          "height": 48
+        },
+        {
+          "name": "Call",
+          "width": 51.625,
+          "height": 44
+        },
+        {
+          "name": "Navigate",
+          "width": 94.859375,
+          "height": 44
+        },
+        {
+          "name": "Clear",
+          "width": 63.46875,
+          "height": 44
+        },
+        {
+          "name": "Save note",
+          "width": 100.03125,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "file": "field-430-offline.png",
+      "layout": "field",
+      "state": "offline",
+      "viewport": 430,
+      "document": 430,
+      "controls": [
+        {
+          "name": "Sign out",
+          "width": 77.953125,
+          "height": 44
+        },
+        {
+          "name": "Retry quantity save",
+          "width": 178.515625,
+          "height": 44
+        },
+        {
+          "name": "Use saved quantity",
+          "width": 174.828125,
+          "height": 44
+        },
+        {
+          "name": "Inspect saved quantity",
+          "width": 204.765625,
+          "height": 44
+        },
+        {
+          "name": "New estimate",
+          "width": 133.015625,
+          "height": 44
+        },
+        {
+          "name": "New version",
+          "width": 121.078125,
+          "height": 44
+        },
+        {
+          "name": "Copy Link",
+          "width": 99.53125,
+          "height": 44
+        },
+        {
+          "name": "Copy SMS Text",
+          "width": 135.53125,
+          "height": 44
+        },
+        {
+          "name": "Duplicate Quote",
+          "width": 152.25,
+          "height": 48
+        },
+        {
+          "name": "Call",
+          "width": 51.625,
+          "height": 44
+        },
+        {
+          "name": "Navigate",
+          "width": 94.859375,
+          "height": 44
+        },
+        {
+          "name": "Clear",
+          "width": 63.46875,
+          "height": 44
+        },
+        {
+          "name": "Save note",
+          "width": 100.03125,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "file": "field-1200-saved.png",
+      "layout": "field",
+      "state": "saved",
+      "viewport": 1200,
+      "document": 1200,
+      "controls": [
+        {
+          "name": "Sign out",
+          "width": 77.953125,
+          "height": 44
+        },
+        {
+          "name": "Inspect saved quantity",
+          "width": 204.765625,
+          "height": 44
+        },
+        {
+          "name": "New estimate",
+          "width": 133.015625,
+          "height": 44
+        },
+        {
+          "name": "New version",
+          "width": 121.078125,
+          "height": 44
+        },
+        {
+          "name": "Copy Link",
+          "width": 99.53125,
+          "height": 48
+        },
+        {
+          "name": "Copy SMS Text",
+          "width": 135.53125,
+          "height": 48
+        },
+        {
+          "name": "Duplicate Quote",
+          "width": 152.25,
+          "height": 48
+        },
+        {
+          "name": "Call",
+          "width": 51.625,
+          "height": 44
+        },
+        {
+          "name": "Navigate",
+          "width": 94.859375,
+          "height": 44
+        },
+        {
+          "name": "Clear",
+          "width": 63.46875,
+          "height": 44
+        },
+        {
+          "name": "Save note",
+          "width": 100.03125,
+          "height": 44
+        }
+      ]
+    },
+    {
+      "file": "field-1200-offline.png",
+      "layout": "field",
+      "state": "offline",
+      "viewport": 1200,
+      "document": 1200,
+      "controls": [
+        {
+          "name": "Sign out",
+          "width": 77.953125,
+          "height": 44
+        },
+        {
+          "name": "Retry quantity save",
+          "width": 178.515625,
+          "height": 44
+        },
+        {
+          "name": "Use saved quantity",
+          "width": 174.828125,
+          "height": 44
+        },
+        {
+          "name": "Inspect saved quantity",
+          "width": 204.765625,
+          "height": 44
+        },
+        {
+          "name": "New estimate",
+          "width": 133.015625,
+          "height": 44
+        },
+        {
+          "name": "New version",
+          "width": 121.078125,
+          "height": 44
+        },
+        {
+          "name": "Copy Link",
+          "width": 99.53125,
+          "height": 48
+        },
+        {
+          "name": "Copy SMS Text",
+          "width": 135.53125,
+          "height": 48
+        },
+        {
+          "name": "Duplicate Quote",
+          "width": 152.25,
+          "height": 48
+        },
+        {
+          "name": "Call",
+          "width": 51.625,
+          "height": 44
+        },
+        {
+          "name": "Navigate",
+          "width": 94.859375,
+          "height": 44
+        },
+        {
+          "name": "Clear",
+          "width": 63.46875,
+          "height": 44
+        },
+        {
+          "name": "Save note",
+          "width": 100.03125,
+          "height": 44
+        }
+      ]
+    }
+  ]
+}

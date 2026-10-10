@@ -1,0 +1,19 @@
+(node:46484) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("/workspace/.nova-shield/test-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS - Count buckets: total matches sum across groups, "windows" not "each"
+PASS - Height is section-driven: Front (1 storey) and Rear (2 storey) each show their own hint
+PASS - Window type is independent per group: Front=standard, Rear=storm
+PASS - Scope renders as exactly one job-level control, not per-row
+PASS - Changing Scope fans out setMeasurementModifier to every existing group
+PASS - Stepper: + increases count via updateMeasurement, never creates/deletes the row
+PASS - Stepper: minus never goes below zero and never deletes the row
+PASS - Minimum charge: card shows "minimum applied" without replacing the total
+PASS - Review flag toggles review_required without touching quantity/section/label
+PASS - No duplicate button anywhere in this calculator (deliberate)
+PASS - Add window group: picks up current visit-wide Scope and Window-type default
+PASS - No child-service behavior: windows never spawns a second card or extra service rows
+PASS - Multi-service: Windows + Siding + Gutter Brightening + Heating Wire all coexist with correct independent totals
+PASS - Interaction model is distinct: uses steppers (unlike Siding/Gutter), has no bracket section or eave/downspout split (unlike Heating Wire)
+
+14/14 passed

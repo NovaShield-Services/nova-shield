@@ -1,0 +1,22 @@
+(node:154936) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("/workspace/.nova-shield/test-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS - 1. One 1-storey elevation renders with correct total
+PASS - 2. Front 1-storey + rear 2-storey: both render with their own elevation hint and a combined total
+PASS - 3. Three mixed areas (Front/Rear/Garage) all render as independent sections
+PASS - 4. Front=light/vinyl, Rear=heavy/painted -- each row keeps its own independent modifier selection
+PASS - 5. Minimum charge: card shows "minimum applied" without replacing the visible total
+PASS - 6. No manual-adjustment UI inside the calculator (that stays quote-level, per architecture)
+PASS - 7. Review flag toggles review_required without touching quantity/section
+PASS - 8a. Add section: creates a measurement and applies default modifiers
+PASS - 8b. Remove section: calls deleteMeasurement after confirm
+PASS - 8c. Duplicate section: copies section + quantity + modifier selections, not label/review/notes
+PASS - 9. Save and reopen: re-rendering from the same stored data reproduces identical state
+PASS - 10. Nothing siding-specific is called for quote creation (no bespoke RPC reference anywhere)
+PASS - 11. Siding and heating-wire coexist as two independent cards, each keeps its own data
+PASS - 12. No per-row dollar figure is invented in the DOM (only the card-level total, from pricedRows)
+PASS - 13. Offline add-section: createMeasurement returning null does not throw
+PASS - 14. Heating-wire calculator still renders correctly in the same session as siding
+PASS - 15. Child services still exclude from "Add a service" and group under their own parent, unaffected by siding
+
+17/17 passed

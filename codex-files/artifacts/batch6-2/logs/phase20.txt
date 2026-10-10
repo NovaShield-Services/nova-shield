@@ -1,0 +1,29 @@
+(node:55534) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("/workspace/.nova-shield/test-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS - 1. Customer list renders real counts and links to each customer
+PASS - 2. Searching reaches the server, debounced, and covers addresses
+PASS - 3. Customer list: no-match, empty, and failure are three different screens
+PASS - 4. Customer detail shows only schema-backed fields, and invents no history
+PASS - 5. Customer edit validates before writing, and never writes on a bad value
+PASS - 6. A valid customer edit writes exactly the real columns, once
+PASS - 7. The dedup keys are stated, not silently changed
+PASS - 8. The Passport renders the field console’s existing structure
+PASS - 9. The admin never writes the passport jsonb
+PASS - 10. An empty passport says so rather than rendering blank rows
+PASS - 11. Every history row keeps the job and date it came from
+PASS - 12. Quote status tones: accepted is the only win
+PASS - 13. Empty history sections each say what is missing
+PASS - 14. Photos use signed URLs from the correct private bucket
+PASS - 15. Customer -> property -> job navigation is wired end to end
+PASS - 16. The job screen links to the customer and the passport without copying them
+PASS - 17. A property reached from a customer sets that customer as its Back target
+PASS - 18. A property whose customer was deleted says so instead of showing a blank
+PASS - 19. Customers list has no horizontal overflow at 390px
+PASS - 20. Customer detail has no horizontal overflow at 390px
+PASS - 21. Property Passport has no horizontal overflow at 390px
+PASS - 19. Customers list has no horizontal overflow at 430px
+PASS - 20. Customer detail has no horizontal overflow at 430px
+PASS - 21. Property Passport has no horizontal overflow at 430px
+
+24/24 passed

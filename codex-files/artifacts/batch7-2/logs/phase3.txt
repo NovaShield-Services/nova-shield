@@ -1,0 +1,16 @@
+(node:154759) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("/workspace/.nova-shield/test-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS - Single eave run: grouped card, badge shows worst state (unpriced, from the empty-pricing baseline)
+PASS - Mixed elevations: two eave runs on different sections both render with their own elevation hint
+PASS - Section heading shows total footage per group, omitted when the group is empty
+PASS - Add eave section defaults to the last run's elevation instead of resetting to blank
+PASS - Add downspout drop: labeled with the Downspout prefix and routed through offline-aware createMeasurement
+PASS - Valley stepper: + creates with review_required, + again updates quantity, - to 0 deletes
+PASS - Gutter condition dropdown calls setMeasurementModifier with the real configured group
+PASS - Bracket authorization checkbox flags the primary run for review, no price attached
+PASS - No optional pre-winter prep toggle exists (no configured pricing for it)
+PASS - An unrelated service is unaffected by the grouping/specialized-calculator logic
+PASS - Add-a-service dropdown excludes child services entirely
+
+11/11 passed

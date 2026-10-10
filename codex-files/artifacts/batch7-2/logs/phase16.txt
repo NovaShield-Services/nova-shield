@@ -1,0 +1,18 @@
+(node:157213) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("/workspace/.nova-shield/test-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS - 1. Mobile nav drawer stays on screen when the page is scrolled
+PASS - 2. Desktop nav is still a static horizontal bar, not a floating drawer
+PASS - 3. Admin dashboard has no horizontal overflow at 390px
+PASS - 3. Admin dashboard has no horizontal overflow at 430px
+PASS - 4. A long unbreakable customer email does not widen the page
+PASS - 5. Field console topbar does not overflow at 390px with a queue badge
+PASS - 5. Field console topbar does not overflow at 430px with a queue badge
+PASS - 6. Toast is not capped at half the viewport width
+PASS - 7. attachmentBucket() routes customer uploads and field photos to different buckets
+PASS - 8. trySave() reverts the control and reports the reason when a write fails
+PASS - 9. trySave() reports a refresh failure distinctly from a write failure
+PASS - 10. Concurrent flush() calls replay each queued item exactly once
+PASS - 11. syncState() distinguishes pending sync from a failed sync
+
+13/13 passed

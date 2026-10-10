@@ -1,0 +1,1142 @@
+From d33d17ec0b98654e42db1e8adda70580e9931b42 Mon Sep 17 00:00:00 2001
+From: sachin shrestha <shresthasachin673@gmail.com>
+Date: Sat, 10 Oct 2026 21:34:27 +0000
+Subject: [PATCH] Batch 8.2: audit native packaging and improve field
+ accessibility
+
+---
+ admin/css/admin.css                      |  15 +-
+ admin/js/field.js                        |  25 ++-
+ admin/js/lib/measurement-entry.js        |  22 +-
+ admin/js/views/field-workspace.js        |  23 +-
+ android/app/capacitor.build.gradle       |   1 +
+ android/app/src/main/AndroidManifest.xml |   3 +
+ android/capacitor.settings.gradle        |   3 +
+ scripts/sync-mobile.js                   |  90 +++++++-
+ tests/native-bundle.test.mjs             |  83 ++++++++
+ tests/native-readiness-fixture.mjs       |  55 +++++
+ tests/native-readiness.md                | 172 +++++++++++++++
+ tests/native-readiness.test.mjs          | 258 +++++++++++++++++++++++
+ tests/screenshot-batch8-2.mjs            |  45 ++++
+ 13 files changed, 779 insertions(+), 16 deletions(-)
+ create mode 100644 tests/native-bundle.test.mjs
+ create mode 100644 tests/native-readiness-fixture.mjs
+ create mode 100644 tests/native-readiness.md
+ create mode 100644 tests/native-readiness.test.mjs
+ create mode 100644 tests/screenshot-batch8-2.mjs
+
+diff --git a/admin/css/admin.css b/admin/css/admin.css
+index c02a0d7..efc4a57 100644
+--- a/admin/css/admin.css
++++ b/admin/css/admin.css
+@@ -7,10 +7,12 @@
+   --surface: #ffffff;
+   --surface-2: #f7f9fa;
+   --text: #16212a;
+-  --muted: #667681;
++  --muted: #5e6e79;
+   --line: #d7dee4;
+   --line-strong: #b9c4cc;
+   --accent: #1d5f7a;
++  --on-accent: #ffffff;
++  --on-danger: #ffffff;
+   --accent-soft: #e6f1f6;
+   --gold: #8a6414;
+   --gold-soft: #fdf6e3;
+@@ -28,6 +30,7 @@
+     --bg: #11171c; --surface: #18212a; --surface-2: #141c24;
+     --text: #e7eef3; --muted: #93a3af; --line: #29353f; --line-strong: #3a4954;
+     --accent: #6cb6d4; --accent-soft: #16303c;
++    --on-accent: #11171c; --on-danger: #11171c;
+     --gold: #d9b569; --gold-soft: #2b2313;
+     --danger: #e98b84; --danger-soft: #34201e;
+     --ok: #7cc9a0; --ok-soft: #162a20;
+@@ -61,6 +64,9 @@ body {
+ button, input, select, textarea { font: inherit; color: inherit; }
+ button { cursor: pointer; }
+ a { color: var(--accent); }
++:is(button, a, [role="button"], input, select, textarea):focus-visible {
++  outline: 2px solid var(--accent); outline-offset: 3px;
++}
+ 
+ /* ---------------------------------------------------------------- topbar -- */
+ .topbar {
+@@ -203,8 +209,9 @@ input[inputmode="decimal"], input[type="number"] {
+   background: var(--surface); font-weight: 600;
+ }
+ .btn:hover { background: var(--surface-2); }
+-.btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
++.btn--primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+ .btn--primary:hover { background: var(--accent); filter: brightness(1.08); }
++.btn.btn--primary[aria-busy="true"] { opacity: 1; cursor: wait; }
+ .btn--danger { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
+ .btn--sm { min-height: var(--tap); min-width: var(--tap); padding: 4px 10px; font-size: .85rem; }
+ /* field.html has an inline 40px override. Keep its compact controls at the
+@@ -336,7 +343,7 @@ input[inputmode="decimal"], input[type="number"] {
+   background: var(--text); color: var(--bg);
+   box-shadow: var(--shadow); font-size: .9rem;
+ }
+-.toast--error { background: var(--danger); color: #fff; }
++.toast--error { background: var(--danger); color: var(--on-danger); }
+ 
+ /* ----------------------------------------------------------------- login -- */
+ .login { width: min(420px, 100%); margin: 8vh auto; }
+@@ -345,6 +352,8 @@ input[inputmode="decimal"], input[type="number"] {
+ 
+ .error-text { color: var(--danger); font-size: .86rem; margin-top: 8px; }
+ .hint { color: var(--muted); font-size: .82rem; }
++.measurement-save-status { display: block; margin: 6px 0 8px; }
++.measurement-save-status:empty { margin: 0; }
+ .sr-only {
+   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+diff --git a/admin/js/field.js b/admin/js/field.js
+index d0e36f1..712aa8f 100644
+--- a/admin/js/field.js
++++ b/admin/js/field.js
+@@ -144,6 +144,11 @@ installBackHandler({
+    now, don't wait for the browser to notice." */
+ const syncBadge = document.getElementById('syncBadge');
+ const syncNowBtn = document.getElementById('syncNow');
++// The badge is an interactive button. Announce changes separately so its
++// role/name remain useful and background replay does not move focus.
++const syncStatus = el('span', { class: 'sr-only', role: 'status', 'aria-live': 'polite',
++  'aria-atomic': 'true', dataset: { syncStatus: '' } });
++syncBadge.after(syncStatus);
+ 
+ /* Four states the tech must be able to tell apart, because they call for
+    different actions:
+@@ -186,7 +191,10 @@ function paintBadge(state) {
+   }
+ }
+ 
+-offlineQueue.subscribe(paintBadge);
++offlineQueue.subscribe(state => {
++  paintBadge(state);
++  if (syncStatus.textContent !== syncBadge.textContent) syncStatus.textContent = syncBadge.textContent;
++});
+ 
+ /* Tapping the badge lists what is actually waiting. The queue has always
+    stored a human label per item; nothing rendered it, so a tech with a stuck
+@@ -213,6 +221,7 @@ function openOutbox() {
+   ]);
+   let sequence = 0;
+   let unsubscribe;
++  let listFocus;
+   const unregister = pushOverlay(close);
+   function close() {
+     sequence++;
+@@ -230,6 +239,11 @@ function openOutbox() {
+     try {
+       const items = await offlineQueue.pending();
+       if (attempt !== sequence || !dialog.isConnected) return;
++      const focusedItem = document.activeElement.closest('[data-outbox-id]');
++      if (focusedItem && list.contains(focusedItem)) {
++        listFocus = { id: focusedItem.dataset.outboxId,
++          index: [...list.children].indexOf(focusedItem) };
++      }
+       clear(list).append(...items.map((item, index) => el('div', { class: 'section-box' }, [
+         el('strong', { text: item.label || item.type }),
+         el('p', { class: 'hint', text: `Saved ${new Date(item.createdAt).toLocaleString()}` }),
+@@ -245,7 +259,16 @@ function openOutbox() {
+           }
+         })
+       ])));
++      [...list.children].forEach((node, index) => { node.dataset.outboxId = String(items[index].id); });
+       if (!items.length) list.append(el('p', { class: 'empty', text: 'Nothing waiting to sync.' }));
++      if (listFocus) {
++        const matching = [...list.children].find(node => node.dataset.outboxId === listFocus.id);
++        const next = matching || list.children[Math.min(listFocus.index, items.length - 1)];
++        if (!current.syncing && !current.discarding) {
++          (next?.querySelector('button') || closeButton).focus();
++          listFocus = null;
++        } else closeButton.focus();
++      }
+     } catch (err) {
+       if (attempt !== sequence || !dialog.isConnected) return;
+       clear(list).append(el('p', { class: 'error-text', text: `Could not read saved actions: ${err.message}` }));
+diff --git a/admin/js/lib/measurement-entry.js b/admin/js/lib/measurement-entry.js
+index d0851cf..0811f0d 100644
+--- a/admin/js/lib/measurement-entry.js
++++ b/admin/js/lib/measurement-entry.js
+@@ -95,7 +95,7 @@ export function createMeasurementEditor({ root, save, onChange, delay = 350 }) {
+     entry.message.textContent = invalid ? 'Not saved — enter a non-negative quantity.'
+       : entry.error ? `Not saved — ${describeWriteError(entry.error)}`
+       : entry.running ? 'Saving quantity…'
+-      : entry.dirty ? 'Quantity not saved yet.' : '';
++      : entry.dirty ? 'Quantity not saved yet.' : entry.savedNotice || '';
+     entry.retry.hidden = !entry.error || invalid;
+     entry.discard.hidden = !entry.dirty || !!entry.running;
+   }
+@@ -104,6 +104,10 @@ export function createMeasurementEditor({ root, save, onChange, delay = 350 }) {
+     clearTimeout(entry.timer);
+     if (entry.running) return entry.running;
+     if (!entry.dirty || !valid(entry)) { paint(entry); return Promise.resolve(); }
++    const retryFocused = document.activeElement === entry.retry;
++    // Blur starts a save during a pointer click. Hiding recovery controls
++    // must not move the button being clicked before its click event fires.
++    entry.recovery.style.minHeight = `${entry.recovery.getBoundingClientRect().height}px`;
+     entry.running = (async () => {
+       while (entry.dirty && valid(entry)) {
+         const value = Number(entry.input.value);
+@@ -112,6 +116,7 @@ export function createMeasurementEditor({ root, save, onChange, delay = 350 }) {
+         try {
+           await write(entry.measurement, value);
+           entry.saved = value;
++          entry.savedNotice = 'Quantity saved.';
+           entry.measurement.quantity = value;
+           if (revision === entry.revision) entry.dirty = false;
+         } catch (err) {
+@@ -121,7 +126,12 @@ export function createMeasurementEditor({ root, save, onChange, delay = 350 }) {
+       }
+     })().finally(() => {
+       entry.running = null;
++      entry.recovery.style.minHeight = '';
+       paint(entry);
++      if (retryFocused &&
++          (document.activeElement === document.body || document.activeElement === entry.retry)) {
++        (entry.dirty && !entry.retry.hidden ? entry.retry : entry.input).focus();
++      }
+       if (!entry.dirty) requestRefresh();
+     });
+     paint(entry);
+@@ -130,7 +140,7 @@ export function createMeasurementEditor({ root, save, onChange, delay = 350 }) {
+ 
+   function quantityInput(measurement, attrs = {}) {
+     const id = `measurement-save-${++statusId}`;
+-    const message = el('span', { id, class: 'hint', role: 'status', 'aria-live': 'polite' });
++    const message = el('span', { id, class: 'hint measurement-save-status', role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' });
+     const input = numberInput(measurement.quantity, null, {
+       ...attrs, 'aria-describedby': id
+     });
+@@ -147,15 +157,19 @@ export function createMeasurementEditor({ root, save, onChange, delay = 350 }) {
+         version++;
+         entry.dirty = false;
+         entry.error = null;
++        entry.savedNotice = 'Using saved quantity.';
+         paint(entry);
++        input.focus();
+         requestRefresh();
+       } });
+-    Object.assign(entry, { retry, discard });
++    const recovery = el('div', { class: 'btn-row' }, [retry, discard]);
++    Object.assign(entry, { retry, discard, recovery });
+     entries.set(measurement.id, entry);
+     input.addEventListener('input', () => {
+       entry.revision++;
+       version++;
+       entry.dirty = true;
++      entry.savedNotice = '';
+       entry.error = null;
+       clearTimeout(entry.timer);
+       paint(entry);
+@@ -165,7 +179,7 @@ export function createMeasurementEditor({ root, save, onChange, delay = 350 }) {
+       if (!entry.dirty) requestRefresh();
+     }); });
+     paint(entry);
+-    return el('div', {}, [input, message, retry, discard]);
++    return el('div', {}, [input, message, recovery]);
+   }
+ 
+   async function changeQuantity(fn) {
+diff --git a/admin/js/views/field-workspace.js b/admin/js/views/field-workspace.js
+index a2e84fe..bcec2ae 100644
+--- a/admin/js/views/field-workspace.js
++++ b/admin/js/views/field-workspace.js
+@@ -53,12 +53,14 @@ function passportPanel(property, onSaved) {
+   }
+ 
+   const preferencesInput = el('textarea', {
+-    rows: '2', placeholder: 'e.g. "Avoid east flower beds", "Rear gate code: 1234"'
++    rows: '2', 'aria-label': 'Customer preferences', placeholder: 'e.g. "Avoid east flower beds", "Rear gate code: 1234"'
+   });
+   preferencesInput.value = p.preferences || '';
+   const contents = () => JSON.stringify([Object.values(fields).map(read => read()), preferencesInput.value.trim()]);
+   let savedContents;
+   let saving = false;
++  const saveStatus = el('p', { class: 'hint', role: 'status', 'aria-live': 'polite',
++    'aria-atomic': 'true', dataset: { passportStatus: '' } });
+ 
+   const root = el('div', { class: 'card' }, [
+     el('div', { class: 'card__head' }, [
+@@ -109,6 +111,8 @@ function passportPanel(property, onSaved) {
+           const button = event.currentTarget;
+           if (button.disabled) return;
+           saving = true;
++          button.setAttribute('aria-busy', 'true');
++          saveStatus.textContent = 'Saving passport…';
+           button.disabled = true;
+           button.textContent = 'Saving passport…';
+           const submittedContents = contents();
+@@ -134,18 +138,22 @@ function passportPanel(property, onSaved) {
+               'updateProperty', { id: property.id, patch: { passport } }, 'Save Property Passport');
+             property.passport = passport;
+             savedContents = submittedContents;
++            saveStatus.textContent = queued ? 'Passport saved on this device — waiting to sync.' : 'Property Passport saved.';
+             queueToast(queued, 'Property Passport saved');
+             await onSaved?.();
+           } catch (err) {
++            saveStatus.textContent = `Passport not saved: ${describeWriteError(err)}`;
+             toast(err.message, 'error');
+           } finally {
+             saving = false;
++            button.setAttribute('aria-busy', 'false');
+             button.disabled = false;
+             button.textContent = 'Save passport';
+           }
+         }
+       })
+-    ])
++    ]),
++    saveStatus
+   ]);
+   savedContents = contents();
+   return { root, hasDraft: () => saving || contents() !== savedContents };
+@@ -373,7 +381,8 @@ export async function renderVisit({ mount, navigate }, jobId) {
+   );
+   const noteBtn = el('button', { class: 'btn', text: 'Save note' });
+   const notesList = el('div', {});
+-  const notesStatus = el('div', {});
++  const notesStatus = el('div', { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true',
++    dataset: { notesStatus: '' } });
+   let notesAttempt = 0;
+ 
+   noteBtn.addEventListener('click', async () => {
+@@ -395,11 +404,13 @@ export async function renderVisit({ mount, navigate }, jobId) {
+ 
+   async function refreshNotes() {
+     const attempt = ++notesAttempt;
+-    clear(notesStatus).append(el('p', { class: 'hint', role: 'status', text: 'Loading notes…' }));
++    const retryFocused = notesStatus.contains(document.activeElement);
++    clear(notesStatus).append(el('p', { class: 'hint', text: 'Loading notes…' }));
+     try {
+       const notes = await api.listNotes(job.id);
+       if (attempt !== notesAttempt || !notesList.isConnected) return;
+       clear(notesStatus);
++      if (retryFocused && document.activeElement === document.body) noteBody.focus();
+       clear(notesList).append(
+         notes.length
+           ? el('div', {}, notes.map(n => el('div', { class: 'section-box' }, [
+@@ -417,6 +428,7 @@ export async function renderVisit({ mount, navigate }, jobId) {
+         el('p', { class: 'error-text', text: `Could not load notes: ${readError(err)}` }),
+         el('button', { class: 'btn btn--sm', text: 'Retry notes', onClick: () => refreshNotes() })
+       );
++      if (retryFocused && document.activeElement === document.body) notesStatus.querySelector('button')?.focus();
+     }
+   }
+ 
+@@ -441,6 +453,7 @@ export async function renderVisit({ mount, navigate }, jobId) {
+   }
+ 
+   async function reload({ initial = false } = {}) {
++    const retryFocused = refreshStatus.contains(document.activeElement);
+     const refresh = measurementsPanel.refreshToken();
+     clear(refreshStatus).append(el('p', { class: 'hint', text: 'Loading visit data…' }));
+     let sections = refs.sections, measurements = lastMeasurements, pricing = lastPricing, quotes = lastQuotes;
+@@ -464,11 +477,13 @@ export async function renderVisit({ mount, navigate }, jobId) {
+       // A permission failure is an error too; never call it an offline save.
+       if (initial || !hasVisitData) throw err;
+       showRefreshError(err);
++      if (retryFocused && document.activeElement === document.body) refreshStatus.querySelector('button')?.focus();
+       return;
+     }
+ 
+     if (!measurementsPanel.isCurrent(refresh)) return;
+     clear(refreshStatus);
++    if (retryFocused && document.activeElement === document.body) statusSelect.focus();
+     clear(sectionsHost).append(sectionsPanel(job, refs, reload));
+     // Do not replace an editable passport after an unrelated refresh or a
+     // slow save: the tech may already be typing their next change.
+diff --git a/android/app/capacitor.build.gradle b/android/app/capacitor.build.gradle
+index 9a6d944..0d6cbd9 100644
+--- a/android/app/capacitor.build.gradle
++++ b/android/app/capacitor.build.gradle
+@@ -9,6 +9,7 @@ android {
+ 
+ apply from: "../capacitor-cordova-android-plugins/cordova.variables.gradle"
+ dependencies {
++    implementation project(':capacitor-app')
+     implementation project(':capacitor-camera')
+     implementation project(':capacitor-filesystem')
+     implementation project(':capacitor-geolocation')
+diff --git a/android/app/src/main/AndroidManifest.xml b/android/app/src/main/AndroidManifest.xml
+index b06ddbf..3ad5866 100644
+--- a/android/app/src/main/AndroidManifest.xml
++++ b/android/app/src/main/AndroidManifest.xml
+@@ -38,4 +38,7 @@
+     <!-- Permissions -->
+ 
+     <uses-permission android:name="android.permission.INTERNET" />
++    <!-- Foreground location only: arrival checks and the property location pin. -->
++    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
++    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+ </manifest>
+diff --git a/android/capacitor.settings.gradle b/android/capacitor.settings.gradle
+index 9b0acd1..48bad1a 100644
+--- a/android/capacitor.settings.gradle
++++ b/android/capacitor.settings.gradle
+@@ -2,6 +2,9 @@
+ include ':capacitor-android'
+ project(':capacitor-android').projectDir = new File('../node_modules/@capacitor/android/capacitor')
+ 
++include ':capacitor-app'
++project(':capacitor-app').projectDir = new File('../node_modules/@capacitor/app/android')
++
+ include ':capacitor-camera'
+ project(':capacitor-camera').projectDir = new File('../node_modules/@capacitor/camera/android')
+ 
+diff --git a/scripts/sync-mobile.js b/scripts/sync-mobile.js
+index 1857d10..246749e 100644
+--- a/scripts/sync-mobile.js
++++ b/scripts/sync-mobile.js
+@@ -24,18 +24,100 @@ function copyDir(src, dest) {
+   fs.cpSync(src, dest, { recursive: true });
+ }
+ 
+-copyDir(path.join(ROOT, 'admin'), path.join(WWW, 'admin'));
+-copyDir(path.join(ROOT, 'shared'), path.join(WWW, 'shared'));
++// Check literal runtime references in the actual staging tree, not the repo
++// that happened to supply it. Data URLs, hash routes and remote URLs are not
++// packaged files. Runtime API/signed-photo/camera URLs still need their own
++// network/plugin contracts; this is deliberately not an offline-read cache.
++function auditBundle(www) {
++  const local = [], remote = new Set(), excluded = [], missing = [];
++  const stripComments = source => source.replace(
++    /\/\*[\s\S]*?\*\/|\/\/[^\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`/g,
++    match => match.startsWith('/*') || match.startsWith('//') ? ' ' : match);
++  function reference(source, value, base = source) {
++    if (!value || value.startsWith('#') || /^(data|blob|tel|sms|mailto):/.test(value)) return;
++    if (/^(https?:)?\/\//.test(value)) { remote.add(value); return; }
++    // Templates beginning with a runtime value (signed photos, public quote
++    // host, etc.) cannot be validated as packaged file names.
++    if (value.startsWith('${')) return;
++    const pathname = value.split(/[?#]/)[0];
++    if (pathname.includes('${')) throw new Error(`Unresolved local path in ${source}: ${value}`);
++    const resolved = path.posix.normalize(pathname.startsWith('/') ? pathname.slice(1)
++      : path.posix.join(path.posix.dirname(base), pathname));
++    const entry = { source, value, resolved };
++    local.push(entry);
++    if (resolved.startsWith('../') || !fs.existsSync(path.join(www, resolved)) ||
++        !fs.statSync(path.join(www, resolved)).isFile()) missing.push(entry);
++  }
++  function walk(dir) {
++    for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
++      const absolute = path.join(dir, item.name);
++      if (item.isDirectory()) { walk(absolute); continue; }
++      const source = path.relative(www, absolute).split(path.sep).join('/');
++      if (!/\.(js|html|css|webmanifest)$/.test(source)) continue;
++      const body = stripComments(fs.readFileSync(absolute, 'utf8').replace(/<!--[\s\S]*?-->/g, ' '));
++      if (source.endsWith('.js')) {
++        for (const match of body.matchAll(/\bfrom\s*['"]([^'"]+)['"]|\bimport\s*\(?\s*['"]([^'"]+)['"]/g)) {
++          reference(source, match[1] || match[2]);
++        }
++        // DOM URLs resolve against the document, not against the module.
++        for (const match of body.matchAll(/\b(?:src|href)\s*:\s*(['"`])([^'"`]+)\1|\bfetch\s*\(\s*(['"`])([^'"`]+)\3/g)) {
++          reference(source, match[2] || match[4], 'admin/field.html');
++        }
++        // This browser-only quote path is intentionally absent. Assert its
++        // native branch stays absolute instead of silently exempting a miss.
++        if (source === 'admin/js/views/quote.js') {
++          const match = body.match(/const quoteUrl = `([^`]+)`/);
++          if (match) {
++            if (!/const previewUrl = isNative\(\) \? publicUrl : quoteUrl;/.test(body) ||
++                !/const publicUrl = `\$\{canonicalBase\(\)\}\/quote\.html\?id=/.test(body)) {
++              throw new Error('Native quote link must use the absolute customer URL');
++            }
++            excluded.push({ source, value: match[1], reason: 'Browser-only quote fallback; native uses publicUrl' });
++          }
++        }
++      }
++      if (source.endsWith('.html')) {
++        for (const match of body.matchAll(/\b(?:src|href)\s*=\s*['"]([^'"]+)['"]/g)) reference(source, match[1]);
++        for (const match of body.matchAll(/(?:url=|location\.replace\(['"])([^'";<>]+)/g)) reference(source, match[1]);
++      }
++      for (const match of body.matchAll(/\burl\(\s*['"]?([^'"\s)]+)['"]?\s*\)/g)) reference(source, match[1]);
++      if (/\.(css|html)$/.test(source)) {
++        for (const match of body.matchAll(/@import\s*['"]([^'"]+)['"]/g)) reference(source, match[1]);
++      }
++      if (source.endsWith('.webmanifest')) {
++        const manifest = JSON.parse(body);
++        reference(source, manifest.start_url);
++        for (const icon of manifest.icons || []) reference(source, icon.src);
++      }
++      // Includes lazy plugin URLs declared in PINNED, alongside eager imports.
++      for (const match of body.matchAll(/['"](https:\/\/cdn\.jsdelivr\.net\/[^'"]+)['"]/g)) remote.add(match[1]);
++    }
++  }
++  walk(www);
++  if (missing.length) throw new Error('Missing native bundle references:\n' + missing.map(item =>
++    `${item.source}: ${item.value} -> ${item.resolved}`).join('\n'));
++  return { local, remote: [...remote].sort(), excluded };
++}
++
++function syncMobile(www = WWW) {
++  copyDir(path.join(ROOT, 'admin'), path.join(www, 'admin'));
++  copyDir(path.join(ROOT, 'shared'), path.join(www, 'shared'));
+ 
+ // The native app's actual screen is admin/field.html, not a root index.html
+ // -- Capacitor expects an index.html at webDir's root as the load target,
+ // so this is a one-line redirect rather than a second copy of field.html
+ // (which would be exactly the duplicated-source-of-truth problem this
+ // whole script exists to avoid).
+-fs.writeFileSync(path.join(WWW, 'index.html'),
++  fs.writeFileSync(path.join(www, 'index.html'),
+   '<!doctype html><html><head><meta charset="utf-8">' +
+   '<meta http-equiv="refresh" content="0;url=admin/field.html">' +
+   '<script>location.replace("admin/field.html");</script></head>' +
+   '<body>Loading Nova Shield Field…</body></html>\n');
+ 
+-console.log(`Synced admin/ + shared/ -> ${path.relative(ROOT, WWW)}/`);
++  const report = auditBundle(www);
++  console.log(`Synced admin/ + shared/ -> ${path.relative(ROOT, www)}/; checked ${report.local.length} local references`);
++  return report;
++}
++
++module.exports = { auditBundle, syncMobile };
++if (require.main === module) syncMobile();
+diff --git a/tests/native-bundle.test.mjs b/tests/native-bundle.test.mjs
+new file mode 100644
+index 0000000..3470f93
+--- /dev/null
++++ b/tests/native-bundle.test.mjs
+@@ -0,0 +1,83 @@
++import assert from 'node:assert/strict';
++import { createRequire } from 'node:module';
++import { mkdtempSync, mkdirSync, cpSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
++import { tmpdir } from 'node:os';
++import { join } from 'node:path';
++import { execFileSync } from 'node:child_process';
++const require = createRequire(import.meta.url);
++const baseline = process.env.READINESS_BASELINE === '1';
++const { auditBundle, syncMobile } = require('../scripts/sync-mobile.js');
++const scratch = mkdtempSync(join(tmpdir(), 'nova-native-bundle-'));
++const results = [];
++function record(name, fn) {
++  try { fn(); results.push({ name, ok: true }); } catch (err) { results.push({ name, ok: false, error: err.message }); }
++}
++const current = file => baseline ? execFileSync('git', ['show', `a8b573f:${file}`], { encoding: 'utf8' })
++  : readFileSync(new URL('../' + file, import.meta.url), 'utf8');
++try {
++  let report;
++  record('The synced admin/shared bundle resolves all literal local runtime references', () => {
++    report = syncMobile(scratch);
++    assert.ok(report.local.length > 70);
++    assert.ok(report.local.some(item => item.resolved === 'admin/completion-report.html'));
++    assert.ok(report.local.some(item => item.resolved === 'admin/manifest.webmanifest'));
++  });
++  record('Deleting a required shared module makes the audit fail', () => {
++    const file = join(scratch, 'shared/dom.js'), body = readFileSync(file);
++    rmSync(file);
++    try { assert.throws(() => auditBundle(scratch), /shared\/dom.js/); } finally { writeFileSync(file, body); }
++  });
++  record('A literal dynamic import outside the bundle is rejected', () => {
++    const file = join(scratch, 'admin/js/field.js'), body = readFileSync(file);
++    writeFileSync(file, body + '\nimport("./missing-runtime.js");\n');
++    try { assert.throws(() => auditBundle(scratch), /missing-runtime/); } finally { writeFileSync(file, body); }
++  });
++  record('New local HTML assets and CSS URLs cannot disappear silently', () => {
++    const file = join(scratch, 'admin/field.html'), body = readFileSync(file);
++    writeFileSync(file, body + '<img src="missing.png"><style>@import "missing-theme.css";.x{background:url(missing-bg.svg)}</style>');
++    try { assert.throws(() => auditBundle(scratch), /missing.png[\s\S]*missing-bg.svg[\s\S]*missing-theme.css/); } finally { writeFileSync(file, body); }
++  });
++  record('The old sync silently copies a broken runtime import; the new sync refuses it', () => {
++    const root = join(scratch, 'probe-repo');
++    mkdirSync(join(root, 'scripts'), { recursive: true });
++    cpSync(join(scratch, 'admin'), join(root, 'admin'), { recursive: true });
++    cpSync(join(scratch, 'shared'), join(root, 'shared'), { recursive: true });
++    const file = join(root, 'admin/js/field.js');
++    writeFileSync(file, readFileSync(file, 'utf8') + '\nimport("./missing-runtime.js");\n');
++    const script = join(root, 'scripts/sync-mobile.js');
++    writeFileSync(script, execFileSync('git', ['show', 'a8b573f:scripts/sync-mobile.js']));
++    assert.match(execFileSync(process.execPath, [script], { encoding: 'utf8' }), /Synced/);
++    writeFileSync(script, readFileSync(new URL('../scripts/sync-mobile.js', import.meta.url)));
++    assert.throws(() => execFileSync(process.execPath, [script], { stdio: 'pipe' }),
++      error => String(error.stderr).includes('missing-runtime.js'));
++    rmSync(root, { recursive: true, force: true });
++  });
++  record('Native quote preview cannot fall back to the excluded site directory', () => {
++    assert.equal(report.excluded.length, 1);
++    const file = join(scratch, 'admin/js/views/quote.js'), body = readFileSync(file, 'utf8');
++    writeFileSync(file, body.replace('isNative() ? publicUrl : quoteUrl', 'quoteUrl'));
++    try { assert.throws(() => auditBundle(scratch), /Native quote link/); } finally { writeFileSync(file, body); }
++  });
++  record('The audit reports eager core/Supabase and all seven lazy CDN plugin dependencies', () => {
++    assert.equal(report.remote.filter(url => url.startsWith('https://cdn.jsdelivr.net/')).length, 9);
++    assert.ok(report.remote.some(url => url.includes('@capacitor/app@8.1.2')));
++    assert.ok(report.remote.some(url => url.includes('@supabase/supabase-js@2')));
++  });
++  record('Android declares foreground coarse and fine location used by high-accuracy GPS', () => {
++    const manifest = current('android/app/src/main/AndroidManifest.xml');
++    for (const permission of ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION']) assert.match(manifest, new RegExp('android.permission.' + permission));
++    assert.doesNotMatch(manifest, /ACCESS_BACKGROUND_LOCATION|READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|android.permission.CAMERA/);
++  });
++  record('The generated Android plugin settings and dependencies include App for hardware Back', () => {
++    assert.match(current('android/capacitor.settings.gradle'), /include ':capacitor-app'/);
++    assert.match(current('android/app/capacitor.build.gradle'), /implementation project\(':capacitor-app'\)/);
++  });
++  record('HTTPS local scheme and cache sharing remain configured', () => {
++    const config = JSON.parse(current('capacitor.config.json'));
++    assert.equal(config.webDir, 'mobile/www'); assert.equal(config.server.androidScheme, 'https');
++    assert.match(current('android/app/src/main/res/xml/file_paths.xml'), /cache-path/);
++  });
++} finally { rmSync(scratch, { recursive: true, force: true }); }
++for (const r of results) console.log(`${r.ok ? 'PASS' : 'FAIL'} - ${r.name}${r.error ? '\n  ' + r.error : ''}`);
++console.log(`\n${results.filter(r => r.ok).length}/${results.length} passed`);
++if (results.some(r => !r.ok)) process.exitCode = 1;
+diff --git a/tests/native-readiness-fixture.mjs b/tests/native-readiness-fixture.mjs
+new file mode 100644
+index 0000000..c22d3f8
+--- /dev/null
++++ b/tests/native-readiness-fixture.mjs
+@@ -0,0 +1,55 @@
++import { execFileSync } from 'node:child_process';
++import { fieldFixture, JOB_A, queueAction } from './field-resilience-fixture.mjs';
++export { JOB_A, queueAction };
++
++export async function readinessFixture(browser, options = {}) {
++  const adapter = { newContext: async settings => {
++    const context = await browser.newContext(settings);
++    if (process.env.READINESS_BASELINE === '1') {
++      for (const file of ['admin/js/field.js', 'admin/js/views/field-workspace.js',
++        'admin/js/lib/measurement-entry.js', 'admin/css/admin.css']) {
++        const body = execFileSync('git', ['show', `a8b573f:${file}`], { encoding: 'utf8' });
++        await context.route(`http://localhost:8743/${file}`, route => route.fulfill({ status: 200,
++          contentType: file.endsWith('.css') ? 'text/css' : 'application/javascript', body }));
++      }
++    }
++    return context;
++  } };
++  const fixture = await fieldFixture(adapter, { hash: '#/visit/' + JOB_A, ...options });
++  if (!options.config?.__fail?.session) {
++    await fixture.page.getByRole('heading', { name: 'Notes', exact: true }).waitFor();
++    // Headings mount before the initial reads finish. Wait for those reads,
++    // or a keyboard traversal can count an incomplete set of controls.
++    await fixture.page.getByRole('button', { name: '+ Add photo', exact: true }).waitFor();
++    if (options.config?.__fail?.listNotes) await fixture.page.getByText(/Could not load notes:/).waitFor();
++    else await fixture.page.getByText('No notes on this job yet.', { exact: true }).waitFor();
++  }
++  return fixture;
++}
++
++export async function contrast(locator) {
++  return locator.evaluate(node => {
++    const rgb = css => css.match(/[\d.]+/g).slice(0, 3).map(Number);
++    const lum = color => {
++      const values = color.map(v => {
++        const n = Number(v) / 255; return n <= .04045 ? n / 12.92 : ((n + .055) / 1.055) ** 2.4;
++      });
++      return values[0] * .2126 + values[1] * .7152 + values[2] * .0722;
++    };
++    const style = getComputedStyle(node);
++    function background(element) {
++      while (element) {
++        const color = getComputedStyle(element).backgroundColor;
++        if (color !== 'rgba(0, 0, 0, 0)' && color !== 'transparent') return rgb(color);
++        element = element.parentElement;
++      }
++      return [255, 255, 255];
++    }
++    const beneath = background(node.parentElement), opacity = Number(style.opacity);
++    const brightness = Number(style.filter.match(/brightness\(([\d.]+)\)/)?.[1] || 1);
++    const composite = color => color.map((value, i) =>
++      Math.min(255, value * brightness) * opacity + beneath[i] * (1 - opacity));
++    const a = lum(composite(rgb(style.color))), b = lum(composite(background(node)));
++    return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
++  });
++}
+diff --git a/tests/native-readiness.md b/tests/native-readiness.md
+new file mode 100644
+index 0000000..0aa51ff
+--- /dev/null
++++ b/tests/native-readiness.md
+@@ -0,0 +1,172 @@
++# Batch 8.2 — Native readiness and Field Console accessibility
++
++## Browser execution comes first
++
++A real browser ran during both 6.2 and 7.2, and runs during this batch:
++Chromium **151.0.7922.173**, Playwright **1.58.2**. Before editing product
++files, these suites reproduced: **measurement-entry 29/29**,
++**mobile-reliability 22/22**, **field-resilience 27/27**. The brief's
++missing-Chromium premise does not describe this workspace. System Chromium
++is `/usr/bin/chromium`; the shared tests' `/opt` paths are absent. An
++external loader adapts those paths without changing the harness or runner.
++
++Independent branch **codex/batch-8-2**, based on **a8b573f**. Read the
++repository instructions and both owned handoffs before implementation.
++No Claude work was integrated, rebased onto, or used as a prerequisite.
++
++## Part A: confirmed hypotheses and limits
++
++| Hypothesis | Evidence and disposition |
++| --- | --- |
++| Local runtime files are missing from the wrapper | **Not reproduced for native paths.** Both the staging tree and Capacitor's copied Android web assets resolve 204 literal local references: JS imports, HTML/CSS assets, manifest icons/start URL, document links and literal fetches. Completion report and desktop winter navigation are bundled. No local asset was added. |
++| The customer quote path fails inside the wrapper | **Already handled on this branch.** `site/` is deliberately absent. The native quote branch uses the absolute customer URL; the browser-only relative fallback is explicitly classified. Breaking that branch makes the audit fail. The existing native-wrapper suite exercises its rendered native link using plugin doubles. |
++| Native startup depends on connectivity | **Reproduced for the bundled web application with an empty browser context and blocked HTTPS.** The actual bundled field page requests eager Capacitor core and Supabase CDN imports; both fail, field.js never initialises, and the page remains `Loading…`. This is a browser/module-loading observation, not a handset observation. No plugin-loading redesign was made. |
++| Native Back's App plugin is packaged | **Failed before the fix.** `package.json` declares App, but tracked Android Gradle settings/dependencies omitted it. Android-only Capacitor sync now registers all seven plugins, including App; generated Gradle paths remain checkout-relative. |
++| Geolocation permissions are declared | **Failed before the fix.** Neither the app manifest nor the pinned plugin manifest declared coarse/fine location. The plugin README and native annotations require both for the existing high-accuracy calls. Both foreground permissions were added. No background location or mandatory GPS feature was added. |
++| Camera/filesystem/share need additional broad permissions | **Not reproduced.** The pinned Camera package documents no permission for the current `saveToGallery: false` operation. Filesystem uses sandbox Data/Cache; sharing uses the already-configured cache FileProvider path. Broad camera/gallery/storage permissions were not added. INTERNET is used; the Haptics library contributes VIBRATE and the app calls it. No unused requested permission was confirmed. |
++
++The audit reports nine CDN module URLs (core, Supabase, seven lazy plugins)
++and the Maps URL. Dynamic backend/signed-photo URLs, camera `webPath`, Blob
++URLs, generated shared-report filenames, tel/sms links and hash routes were
++reviewed separately: they are runtime data or external capabilities, not
++files to copy from the repository. The scanner checks literal references and
++the current quote branch; it is not a general JavaScript interpreter and
++cannot prove arbitrary future URL expressions. It rejects unresolved local
++template paths rather than treating them as verified files.
++
++`sync-mobile.js` now audits after copying and fails on missing references.
++Tests delete a required shared module, inject an absent dynamic import and
++HTML/CSS assets, and break native quote selection. A separate isolated probe
++executes the **old sync script from a8b573f** against a broken import: it
++succeeds. The new sync script refuses the same source. No source checkout is
++reset or temporarily changed for these probes.
++
++### An unresolved dependency outside owned files
++
++**A clean `npm ci` fails:** the existing lockfile lacks the App dependency
++already declared in package.json. Package/lockfile changes are outside the
++assigned ownership, so neither was changed. Exact pinned native packages
++were installed outside the checkout, then copied into ignored node_modules
++to run Android-only sync without persisting environment-specific paths.
++`cap sync android` succeeded; the copied asset audit and generated
++capacitor.plugins.json confirm App plus the other six plugins.
++
++Proposed later: reconcile the package/lockfile, then ship locally resolved,
++version-matched Capacitor core/plugin modules in the web bundle instead of
++depending on CDN imports. Supabase also needs a bundled/pinned import, which
++requires shared/supabase.js ownership. Fixing module bootstrap alone would
++not supply offline authentication or cached visit reads: those still need
++their existing server paths. The outbox is a write queue, not full offline
++reopening. These proposals were **not implemented**.
++
++No configured Android SDK was available, so Gradle compilation, manifest merge and APK
++installation are **unrun**. Successful Capacitor sync does not establish
++those results. Real permission prompts and native plugin behavior require a
++device.
++
++## Part B: accessibility findings and changes
++
++- Quantity saving/failure already exposed a polite live region. Successful
++  saving now announces completion; its status is atomic. Recovery actions
++  return focus to the quantity when their button disappears. A delayed retry
++  does not reclaim focus after the user has moved to another control.
++- Passport preferences now have a programmatic name. A persistent live
++  region reports saving, server success, locally queued success and failure.
++  Only the save button is aria-busy: its sibling progress announcement is
++  not deferred by a busy ancestor. Duplicate writes remain blocked.
++- Sync changes now have a separate atomic live region. The badge remains a
++  keyboard button, with its existing dialog name and Enter/Space behavior.
++  Dialog list refresh/discard preserves focus on the surviving action, or
++  Close when no action remains. Tab trapping and Escape focus return already
++  worked and remain covered.
++- Notes read errors update a persistent live region. Notes/visit Retry
++  controls restore focus when removed, or focus the renewed Retry on failure.
++- A visible two-pixel focus indicator covers links/buttons, including the
++  badge. At 390px, keyboard traversal reaches the visit and note controls;
++  rendered default-fixture controls have names and no positive tabindex.
++  Window/winter icon steppers already had accessible button labels.
++- Light muted text was too faint on the measurement row surface; its token
++  is darker. Dark primary white text measured **2.26:1**, and dark error
++  toast white text **2.47:1**. Theme-specific foreground tokens fix both.
++  Tests cover primary/progress text, error toasts, sync states, warnings,
++  quantity hints and failed-outbox text against their rendered backgrounds.
++  Contrast probes include the element's opacity and brightness filter.
++- Screenshot inspection found recovery rings crowding adjacent text and
++  faded progress buttons. Status spacing/recovery rows and an unfaded busy
++  primary button fix these within owned CSS/editor files.
++
++Chromium's accessibility tree exposes the tested live-region text and
++politeness properties. That establishes browser accessibility semantics,
++not spoken TalkBack/VoiceOver delivery. The tests do not certify every
++calculator, photo/signature canvas or customer page. No issue needing a
++forbidden accessibility file was established in the tested controls.
++
++## Changed files and boundaries
++
++Product changes: `admin/js/field.js`, `admin/js/views/field-workspace.js`,
++`admin/js/lib/measurement-entry.js`, `admin/css/admin.css`,
++`scripts/sync-mobile.js`, Android manifest and the two generated Android
++plugin Gradle files. New owned files: native-readiness fixture/suite,
++native-bundle suite, screenshot script and this handoff.
++
++Plugin imports, shared files, API/quote/settings code, pricing calculations,
++outbox handlers and schema, database files, dependencies/lockfile and the
++shared harness/runner were not changed. No live writes, migrations, merge,
++deploy or later-batch work occurred.
++
++## Validation and reproducibility
++
++- **native-readiness: 24/24 browser checks.** Exact prior product files from
++  a8b573f: **8/24 preservation/known-limitation checks pass, 16 fail**.
++- **native-bundle: 10/10 Node checks.** Prior Android configuration:
++  **8/10 pass, 2 fail**. The old/new sync injection probe separately proves
++  the new missing-reference guard is meaningful.
++- Existing explicit mocked suites: phases 2–20 including 10-5,
++  native-wrapper, reload-offline, measurement-entry, mobile-reliability,
++  field-resilience and geofence. Database tests are not in this selection.
++- Existing counted checks: **440/440**, plus geofence assertions. Combined
++  with the new suites: **474/474** counted checks, plus geofence.
++- **18 screenshots captured and inspected** at 390, 430 and 1200px:
++  quantity recovery, passport progress and failed outbox, each in light and
++  dark mode. Focus rings, progress text and recovery spacing were examined;
++  all fit the viewport. A fixture startup race in the added keyboard test
++  was corrected; that failure is not counted as an application defect.
++- Existing guarded-click tests caught a regression in the new recovery-row
++  spacing: blur could collapse the row and move Build quote before click.
++  Its height is now retained during the save, and measurement-entry 29/29
++  plus mobile-reliability 22/22 re-pass after that correction.
++- Syntax checks and git diff --check pass. Android-only sync and copied
++  asset audit pass. Compilation/device/production/database checks are unrun.
++
++Run a static server from the repository on port 8743 first. Normal tool paths:
++
++```sh
++node scripts/sync-mobile.js
++node tests/native-bundle.test.mjs
++node tests/native-readiness.test.mjs
++node tests/screenshot-batch8-2.mjs /tmp/nova-shield-batch8-2-screenshots
++```
++
++Actual browser command here, with the existing external adapter required by
++the reused fixture's shared harness import:
++
++```sh
++PLAYWRIGHT_CHROMIUM=/usr/bin/chromium \
++PLAYWRIGHT_MODULE=/workspace/.nova-shield/test-tools/node_modules/playwright/index.mjs \
++node --loader /workspace/.nova-shield/test-loader.mjs tests/native-readiness.test.mjs
++```
++
++Use the same flags/loader for the screenshot script. Prefix either new suite
++with `READINESS_BASELINE=1` to reproduce the recorded expected failures.
++Logs, counts and screenshots are in `/workspace/.nova-shield/batch8-2/`.
++
++At integration, add **native-readiness** and **native-bundle** to the
++explicit mocked/local suite list. Both names need registering; the existing
++mobile-reliability and field-resilience suites also remain unregistered on
++this independent track. Keep screenshots and database suites separate; do
++not substitute a blanket glob. The shared runner remains unchanged.
++
++Physical-device follow-up still includes hardware Back, keyboard interaction,
++TalkBack announcements, permission denial/grant, clipboard/popup/share sheet,
++camera/filesystem behavior, cold/warm restart, storage eviction and cellular
++offline. Browser doubles and packaging audits do not establish these.
+diff --git a/tests/native-readiness.test.mjs b/tests/native-readiness.test.mjs
+new file mode 100644
+index 0000000..364270e
+--- /dev/null
++++ b/tests/native-readiness.test.mjs
+@@ -0,0 +1,258 @@
++import assert from 'node:assert/strict';
++import { readinessFixture, contrast, queueAction } from './native-readiness-fixture.mjs';
++const { default: pkg } = await import(process.env.PLAYWRIGHT_MODULE || '/opt/node-tools/node_modules/playwright/index.js');
++const browser = await pkg.chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM || '/opt/pw-browsers/chromium' });
++console.log('Browser:', browser.version());
++const results = [];
++async function record(name, fn) {
++  try { await fn(); results.push({ name, ok: true }); }
++  catch (err) { results.push({ name, ok: false, error: err.message }); }
++}
++async function visit(fn, options) {
++  const fixture = await readinessFixture(browser, options);
++  try { await fn(fixture); } finally { await fixture.context.close(); }
++}
++async function axLive(page, text) {
++  const cdp = await page.context().newCDPSession(page);
++  try {
++    const { nodes } = await cdp.send('Accessibility.getFullAXTree');
++    const leaves = nodes.filter(node => node.role?.value === 'StaticText' && node.name?.value === text);
++    assert.ok(leaves.length, `Text absent from Chromium accessibility tree: ${text}`);
++    for (const leaf of leaves) {
++      let node = leaf;
++      while (node) {
++        if (node.properties?.some(prop => prop.name === 'live' && ['polite', 'assertive'].includes(prop.value.value))) return;
++        node = nodes.find(parent => parent.nodeId === node.parentId);
++      }
++    }
++    assert.fail('No live ancestor in Chromium accessibility tree');
++  } finally { await cdp.detach(); }
++}
++
++await record('Quantity saving and failure already reach a polite live region', () => visit(async ({ page }) => {
++  await page.evaluate(() => { __defer.updateMeasurement = true; });
++  const input = page.getByRole('spinbutton', { name: 'Quantity', exact: true });
++  await input.fill('9');
++  await page.getByText('Saving quantity…', { exact: true }).waitFor();
++  await axLive(page, 'Saving quantity…');
++  await page.evaluate(() => { __fail.updateMeasurement = 'permission denied'; __writes.find(w => w.finish)?.finish(); });
++  await page.getByRole('button', { name: 'Retry quantity save', exact: true }).waitFor();
++  const id = await input.getAttribute('aria-describedby');
++  await axLive(page, await page.locator('#' + id).innerText());
++}));
++await record('A successful quantity save announces completion', () => visit(async ({ page }) => {
++  await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('9');
++  await page.getByText('Quantity saved.', { exact: true }).waitFor();
++  await axLive(page, 'Quantity saved.');
++}));
++await record('Quantity recovery restores focus to its input when the button disappears', () => visit(async ({ page }) => {
++  const input = page.getByRole('spinbutton', { name: 'Quantity', exact: true });
++  await input.fill('');
++  const button = page.getByRole('button', { name: 'Use saved quantity', exact: true });
++  await button.focus(); await page.keyboard.press('Enter');
++  assert.equal(await input.evaluate(node => node === document.activeElement), true);
++  assert.equal(await input.inputValue(), '7');
++}));
++await record('Successful keyboard retry restores quantity focus', () => visit(async ({ page }) => {
++  await page.evaluate(() => { __fail.updateMeasurement = 'permission denied'; });
++  const input = page.getByRole('spinbutton', { name: 'Quantity', exact: true });
++  await input.fill('9');
++  const retry = page.getByRole('button', { name: 'Retry quantity save', exact: true });
++  await retry.waitFor();
++  await page.evaluate(() => { __fail.updateMeasurement = null; });
++  await retry.focus(); await page.keyboard.press('Enter');
++  await retry.waitFor({ state: 'hidden' });
++  await page.waitForFunction(() => __writes.length >= 2 && !document.body.textContent.includes('Saving quantity…'));
++  assert.equal(await input.evaluate(node => node === document.activeElement), true);
++}));
++await record('A failed keyboard quantity retry keeps the renewed recovery button focused', () => visit(async ({ page }) => {
++  await page.evaluate(() => { __fail.updateMeasurement = 'permission denied'; });
++  await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('9');
++  const retry = page.getByRole('button', { name: 'Retry quantity save', exact: true }); await retry.waitFor();
++  await retry.focus(); await page.keyboard.press('Enter');
++  await page.waitForFunction(() => __writes.length >= 2 && !document.body.textContent.includes('Saving quantity…'));
++  assert.equal(await retry.evaluate(node => node === document.activeElement), true);
++}));
++await record('A delayed quantity retry does not reclaim focus from the next field', () => visit(async ({ page }) => {
++  await page.evaluate(() => { __fail.updateMeasurement = 'permission denied'; });
++  await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('9');
++  const retry = page.getByRole('button', { name: 'Retry quantity save', exact: true }); await retry.waitFor();
++  await page.evaluate(() => { __fail.updateMeasurement = null; __defer.updateMeasurement = true; });
++  await retry.focus(); await page.keyboard.press('Enter');
++  await page.waitForFunction(() => __writes.some(write => write.finish));
++  const note = page.getByRole('textbox', { name: 'Note', exact: true }); await note.focus();
++  await page.evaluate(() => __writes.find(write => write.finish).finish());
++  await page.waitForFunction(() => !document.body.textContent.includes('Saving quantity…'));
++  assert.equal(await note.evaluate(node => node === document.activeElement), true);
++}));
++await record('Passport save progress has its own live region and busy state', () => visit(async ({ page }) => {
++  await page.evaluate(() => { __defer.updateProperty = true; });
++  await page.getByRole('button', { name: 'Save passport', exact: true }).click();
++  const status = page.locator('[data-passport-status]');
++  await status.waitFor(); assert.equal(await status.innerText(), 'Saving passport…');
++  await axLive(page, 'Saving passport…');
++  assert.equal(await page.getByRole('button', { name: 'Saving passport…', exact: true }).getAttribute('aria-busy'), 'true');
++  assert.ok(await contrast(page.getByRole('button', { name: 'Saving passport…', exact: true })) >= 4.5);
++}));
++await record('Passport preferences have a programmatic label', () => visit(async ({ page }) => {
++  assert.equal(await page.getByRole('textbox', { name: 'Customer preferences', exact: true }).count(), 1);
++}));
++await record('Outbox badge stays a keyboard button and changes have a separate live region', () => visit(async ({ page }) => {
++  await queueAction(page);
++  assert.equal(await page.locator('#syncBadge').getAttribute('role'), 'button');
++  const status = page.locator('[data-sync-status]');
++  await status.waitFor();
++  assert.match(await status.innerText(), /sync|saved here/i);
++  await axLive(page, await status.innerText());
++  await page.locator('#syncBadge').focus(); await page.keyboard.press('Space');
++  await page.getByRole('dialog', { name: 'Saved on this device' }).waitFor();
++}));
++await record('Outbox refresh preserves keyboard focus on the next remaining action', () => visit(async ({ page }) => {
++  await queueAction(page, 'First'); await queueAction(page, 'Second');
++  await page.locator('#syncBadge').click();
++  const button = page.getByRole('button', { name: 'Discard First', exact: true });
++  await button.focus();
++  page.once('dialog', dialog => dialog.accept());
++  await page.keyboard.press('Enter');
++  await button.waitFor({ state: 'detached' });
++  await page.getByRole('button', { name: 'Discard Second', exact: true }).waitFor();
++  assert.equal(await page.getByRole('button', { name: 'Discard Second', exact: true }).evaluate(node => node === document.activeElement), true);
++}));
++await record('Notes errors update a persistent live region', () => visit(async ({ page }) => {
++  await page.getByRole('button', { name: 'Retry notes', exact: true }).waitFor();
++  const text = page.getByText(/Could not load notes:/);
++  const region = await text.evaluate(node => node.closest('[role="alert"], [role="status"]')?.getAttribute('data-notes-status'));
++  assert.equal(region, '');
++  await axLive(page, await text.innerText());
++}, { config: { __fail: { listNotes: 'permission denied' } } }));
++await record('Keyboard notes retry restores a usable focus target on failure and success', () => visit(async ({ page }) => {
++  const retry = page.getByRole('button', { name: 'Retry notes', exact: true });
++  await retry.focus(); await page.keyboard.press('Enter');
++  await page.waitForFunction(() => __reads.filter(read => read.name === 'listNotes').length >= 2 &&
++    document.body.textContent.includes('Could not load notes:'));
++  assert.equal(await retry.evaluate(node => node === document.activeElement), true);
++  await page.evaluate(() => { __fail.listNotes = null; });
++  await retry.focus(); await page.keyboard.press('Enter');
++  await page.getByText('No notes on this job yet.', { exact: true }).waitFor();
++  assert.equal(await page.getByRole('textbox', { name: 'Note', exact: true }).evaluate(node => node === document.activeElement), true);
++}, { config: { __fail: { listNotes: 'permission denied' } } }));
++await record('Stale visit warning already has a live region and working keyboard Retry', () => visit(async ({ page }) => {
++  await page.evaluate(() => { __fail.listMeasurements = 'Failed to fetch'; });
++  await page.getByRole('button', { name: 'Save passport', exact: true }).click();
++  const retry = page.getByRole('button', { name: 'Retry visit data', exact: true }); await retry.waitFor();
++  await axLive(page, 'Could not refresh visit data');
++  await page.evaluate(() => { __fail.listMeasurements = null; });
++  await retry.focus(); await page.keyboard.press('Enter'); await retry.waitFor({ state: 'detached' });
++  assert.notEqual(await page.evaluate(() => document.activeElement.tagName), 'BODY');
++}));
++await record('At 390px Tab follows header controls and gives the badge a visible focus ring', () => visit(async ({ page }) => {
++  await page.keyboard.press('Tab');
++  assert.equal(await page.locator('.field-topbar__brand').evaluate(node => node === document.activeElement), true);
++  await page.keyboard.press('Tab');
++  assert.equal(await page.locator('#syncBadge').evaluate(node => node === document.activeElement), true);
++  const ring = await page.locator('#syncBadge').evaluate(node => {
++    const s = getComputedStyle(node); return { width: s.outlineWidth, style: s.outlineStyle };
++  });
++  assert.ok(parseFloat(ring.width) >= 2 && ring.style !== 'none', JSON.stringify(ring));
++}));
++await record('Outbox modal traps Tab, dismisses with Escape and restores badge focus', () => visit(async ({ page }) => {
++  await queueAction(page); await page.locator('#syncBadge').click();
++  await page.getByRole('button', { name: 'Discard Save Property Passport', exact: true }).waitFor();
++  for (let i = 0; i < 5; i++) await page.keyboard.press('Tab');
++  assert.equal(await page.evaluate(() => !!document.activeElement.closest('dialog')), true);
++  await page.keyboard.press('Escape');
++  assert.equal(await page.locator('#syncBadge').evaluate(node => node === document.activeElement), true);
++}));
++await record('At 390px keyboard traversal reaches the visit controls with visible focus and no unnamed controls', () => visit(async ({ page, context }) => {
++  assert.equal(await page.locator('[tabindex]').evaluateAll(nodes => nodes.some(node => node.tabIndex > 0)), false);
++  const cdp = await context.newCDPSession(page);
++  const { nodes } = await cdp.send('Accessibility.getFullAXTree'); await cdp.detach();
++  const controls = nodes.filter(node => ['button', 'link', 'textbox', 'spinbutton', 'combobox', 'checkbox'].includes(node.role?.value));
++  assert.ok(controls.length > 20);
++  assert.deepEqual(controls.filter(node => !node.name?.value).map(node => node.role.value), []);
++  const visited = new Set();
++  for (let i = 0; i < controls.length * 2; i++) {
++    await page.keyboard.press('Tab');
++    const focus = await page.evaluate(() => {
++      const node = document.activeElement, style = getComputedStyle(node);
++      return { tag: node.tagName, text: node.getAttribute('aria-label') || node.textContent || '',
++        width: style.outlineWidth, outline: style.outlineStyle };
++    });
++    if (focus.tag === 'BODY') continue;
++    assert.ok(parseFloat(focus.width) >= 2 && focus.outline !== 'none', JSON.stringify(focus));
++    visited.add(focus.text.trim());
++    if (visited.has('Save note')) break;
++  }
++  assert.ok(visited.has('Quantity')); assert.ok(visited.has('Customer preferences')); assert.ok(visited.has('Save note'));
++}));
++await record('Window and winter icon steppers already expose named buttons', () => visit(async ({ page }) => {
++  const labels = await page.evaluate(async () => {
++    const { createMeasurementsPanel } = await import('/admin/js/views/measurements.js');
++    const roots = [];
++    for (const key of ['windows', 'winter_property_care']) {
++      const service = { id: key, key, name: key, unit: 'each' };
++      const panel = createMeasurementsPanel({ job: { id: 'fixture', properties: {} },
++        refs: { services: [service], modifiers: [], siteFactors: [], flags: [], flagMap: [], sections: [],
++          pricingRules: [{ service_id: key, approval_status: 'approved' }] }, onChange: async () => {} });
++      document.body.append(panel.root); roots.push(panel.root);
++      panel.render({ measurements: [{ id: key, service_id: key, label: 'Area', quantity: 2,
++        measurement_modifiers: [], job_measurement_addons: [] }], pricing: [] });
++    }
++    const labels = roots.flatMap(root => [...root.querySelectorAll('button')]
++      .filter(button => ['−', '+'].includes(button.textContent)).map(button => button.getAttribute('aria-label')));
++    roots.forEach(root => root.remove()); return labels;
++  });
++  assert.deepEqual(labels, ['Fewer', 'More', 'Fewer visits', 'More visits']);
++}));
++for (const theme of ['light', 'dark']) {
++  await record(`${theme}: primary save text meets 4.5:1 contrast`, () => visit(async ({ page }) => {
++    await page.emulateMedia({ colorScheme: theme });
++    const ratio = await contrast(page.getByRole('button', { name: 'Save passport', exact: true }));
++    assert.ok(ratio >= 4.5, `Contrast ${ratio}`);
++  }));
++  await record(`${theme}: error toast text meets 4.5:1 contrast`, () => visit(async ({ page }) => {
++    await page.emulateMedia({ colorScheme: theme });
++    await page.evaluate(async () => { (await import('/shared/dom.js')).toast('Failure message', 'error'); });
++    const ratio = await contrast(page.locator('#toast'));
++    assert.ok(ratio >= 4.5, `Contrast ${ratio}`);
++  }));
++  await record(`${theme}: sync states, warning, quantity hint and error text meet 4.5:1`, () => visit(async ({ page }) => {
++    await page.emulateMedia({ colorScheme: theme });
++    await queueAction(page);
++    for (const state of ['ok', 'queued', 'error']) {
++      await page.locator('#syncBadge').evaluate((node, state) => node.className = 'sync-badge sync-badge--' + state, state);
++      assert.ok(await contrast(page.locator('#syncBadge')) >= 4.5, state);
++    }
++    await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('');
++    assert.ok(await contrast(page.getByText('Not saved — enter a non-negative quantity.', { exact: true })) >= 4.5);
++    await page.evaluate(() => { __fail.listNotes = 'permission denied'; });
++    // The existing tokens also drive warning and failed outbox text.
++    assert.ok(await contrast(page.locator('.badge--warn').first()) >= 4.5);
++    await page.evaluate(async () => {
++      __fail.updateProperty = 'permission denied';
++      await (await import('/admin/js/lib/offline-queue.js')).flush();
++    });
++    await page.locator('#syncBadge').click();
++    const error = page.getByText('Last sync failed: permission denied', { exact: true });
++    await error.waitFor(); assert.ok(await contrast(error) >= 4.5);
++  }));
++}
++
++await record('Cold bundled start cannot initialise when both CDN entry imports are unavailable (known limitation)', async () => {
++  const context = await browser.newContext({ serviceWorkers: 'block' });
++  try {
++    const page = await context.newPage(); const failures = [];
++    await context.route('https://**', route => route.abort('internetdisconnected'));
++    page.on('requestfailed', request => failures.push(request.url()));
++    await page.goto('http://localhost:8743/mobile/www/admin/field.html');
++    await page.waitForTimeout(500);
++    assert.ok(failures.some(url => url.includes('@capacitor/core@8.5.2')));
++    assert.ok(failures.some(url => url.includes('@supabase/supabase-js@2')));
++    assert.equal(await page.locator('#view').innerText(), 'Loading…');
++    assert.equal(await page.locator('#syncBadge').getAttribute('role'), null);
++  } finally { await context.close(); }
++});
++await browser.close();
++for (const r of results) console.log(`${r.ok ? 'PASS' : 'FAIL'} - ${r.name}${r.error ? '\n  ' + r.error : ''}`);
++console.log(`\n${results.filter(r => r.ok).length}/${results.length} passed`);
++if (results.some(r => !r.ok)) process.exitCode = 1;
+diff --git a/tests/screenshot-batch8-2.mjs b/tests/screenshot-batch8-2.mjs
+new file mode 100644
+index 0000000..e97bd66
+--- /dev/null
++++ b/tests/screenshot-batch8-2.mjs
+@@ -0,0 +1,45 @@
++import { mkdirSync, writeFileSync } from 'node:fs';
++import { join } from 'node:path';
++import { readinessFixture, queueAction } from './native-readiness-fixture.mjs';
++const { default: pkg } = await import(process.env.PLAYWRIGHT_MODULE || '/opt/node-tools/node_modules/playwright/index.js');
++const browser = await pkg.chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM || '/opt/pw-browsers/chromium' });
++const output = process.argv[2] || '/tmp/nova-shield-batch8-2-screenshots';
++mkdirSync(output, { recursive: true });
++const views = [];
++try {
++  for (const width of [390, 430, 1200]) for (const theme of ['light', 'dark']) {
++    for (const scenario of ['quantity-recovery', 'passport-progress', 'outbox-error']) {
++      const { context, page } = await readinessFixture(browser, { width,
++        config: scenario === 'quantity-recovery' ? { __fail: { updateMeasurement: 'permission denied' } } : {} });
++      try {
++        await page.emulateMedia({ colorScheme: theme });
++        if (scenario === 'quantity-recovery') {
++          await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('9');
++          const retry = page.getByRole('button', { name: 'Retry quantity save', exact: true });
++          await retry.waitFor(); await retry.focus();
++          await retry.scrollIntoViewIfNeeded();
++        } else if (scenario === 'passport-progress') {
++          await page.evaluate(() => { __defer.updateProperty = true; });
++          await page.getByRole('button', { name: 'Save passport', exact: true }).click();
++          await page.locator('[data-passport-status]').scrollIntoViewIfNeeded();
++        } else {
++          await queueAction(page, 'Save Property Passport');
++          await page.evaluate(async () => {
++            __fail.updateProperty = 'permission denied';
++            await (await import('/admin/js/lib/offline-queue.js')).flush();
++          });
++          await page.locator('#syncBadge').focus(); await page.keyboard.press('Space');
++          await page.getByText('Last sync failed: permission denied', { exact: true }).waitFor();
++          await page.getByRole('button', { name: 'Discard Save Property Passport', exact: true }).focus();
++        }
++        const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
++        if (overflow) throw new Error(`Overflow at ${width}/${theme}/${scenario}`);
++        const file = `${width}-${theme}-${scenario}.png`;
++        await page.screenshot({ path: join(output, file) });
++        views.push({ width, theme, scenario, file, overflow });
++      } finally { await context.close(); }
++    }
++  }
++} finally { await browser.close(); }
++writeFileSync(join(output, 'views.json'), JSON.stringify(views, null, 2));
++console.log(`Captured ${views.length} views in ${output}`);
+-- 
+2.52.0
+

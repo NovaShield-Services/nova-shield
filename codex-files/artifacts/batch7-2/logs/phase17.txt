@@ -1,0 +1,21 @@
+(node:158270) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("/workspace/.nova-shield/test-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS - 1. Setting a date persists it as an ISO timestamp via scheduleJob
+PASS - 2. An invalid or empty date is rejected before any write
+PASS - 3. Double-clicking Save date fires exactly one write
+PASS - 4. A scheduled job states when it is booked for
+PASS - 5. Mark job complete persists completed_at
+PASS - 6. An already-complete job cannot be completed again
+PASS - 7. Adding a note persists body and visibility
+PASS - 8. An empty note is refused without a write
+PASS - 9. Notes render newest-first with their visibility and attribution
+PASS - 10. A note typed against a ticked inspection flag is persisted
+PASS - 11. No note input is offered for a flag that is not ticked
+PASS - 12. The job shows what the customer originally requested
+PASS - 13. A job with no originating request shows no requested-services card
+PASS - 14. Next-step guidance is derived only from real job data
+PASS - 15. The job page renders the current step as an action prompt
+PASS - 16. The customer page withholds Accept on a quote with no lines
+
+16/16 passed

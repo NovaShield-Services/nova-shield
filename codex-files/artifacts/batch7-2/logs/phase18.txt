@@ -1,0 +1,44 @@
+(node:159561) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("/workspace/.nova-shield/test-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:159561) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/nova-shield/admin/js/components/job-activity.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/nova-shield/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS - 1. Activity rows are ordered newest-first regardless of input order
+PASS - 2. An event with no timestamp is dropped rather than placed arbitrarily
+PASS - 3. Known kinds get their real label and tone; a loss never reads as a win
+PASS - 4. An unrecognised kind is passed through, not relabelled or dropped
+PASS - 5. scheduled_for is marked as a target date, not as "when it was booked"
+PASS - 6. Supersession appears as context on the quote, not as a dated event
+PASS - 7. An actor uuid never becomes a name
+PASS - 8. Note visibility and body are carried through verbatim
+PASS - 9. Rows group by calendar day and keep the newest-first order
+PASS - 10. Dashboard loads in exactly one round trip
+PASS - 11. Every dashboard count comes from the summary and links to its records
+PASS - 12. Actionable non-zero tiles sort ahead of neutral ones
+PASS - 13. A failed dashboard load shows the error and NO counts
+PASS - 14. A genuinely idle business reads as idle, not as an error
+PASS - 15. Recent activity lists only recorded events, each openable
+PASS - 16. Searching sends the text to the server, debounced to one request
+PASS - 17. Status, schedule-bucket and review filters are all evaluated server-side
+PASS - 18. Sorting is a server-side parameter, not a client-side re-shuffle
+PASS - 19. A dashboard deep link pre-applies its filters on the first request
+PASS - 20. A job row shows its review rollup, and a declined quote is not styled as a win
+PASS - 21. Jobs list distinguishes "no matches" from "no jobs at all"
+PASS - 22. A failed jobs query shows the reason and a retry, never an empty list
+PASS - 23. The job timeline renders recorded events newest-first, grouped by day
+PASS - 24. Internal and customer-visible notes are unmistakably different on screen
+PASS - 25. A failed activity query degrades to an error inside the card, not a blank one
+PASS - 26. An empty timeline says so plainly
+PASS - 27. The review rollup lists every flagged item with its actual reason
+PASS - 28. No review card appears when nothing is flagged, and quoting is never blocked
+PASS - 29. Dashboard has no horizontal overflow at 390px
+PASS - 30. Jobs list has no horizontal overflow at 390px
+PASS - 31. Job timeline has no horizontal overflow at 390px
+PASS - 29. Dashboard has no horizontal overflow at 430px
+PASS - 30. Jobs list has no horizontal overflow at 430px
+PASS - 31. Job timeline has no horizontal overflow at 430px
+PASS - 32. Desktop dashboard lays its tiles out in more than one column
+
+35/35 passed

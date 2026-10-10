@@ -1,0 +1,786 @@
+From d71f467ca72160092ef3b3ace2e50ae63bd512ee Mon Sep 17 00:00:00 2001
+From: sachin shrestha <shresthasachin673@gmail.com>
+Date: Fri, 9 Oct 2026 04:50:44 +0000
+Subject: [PATCH] Protect measurement saves during mobile actions and exit
+
+---
+ admin/css/admin.css                  |   5 +-
+ admin/js/field.js                    |   1 +
+ admin/js/lib/measurement-entry.js    |  46 ++++-
+ admin/js/lib/navigation.js           |  25 ++-
+ admin/js/main.js                     |   1 +
+ admin/js/views/field-workspace.js    |   2 +-
+ admin/js/views/job.js                |   2 +-
+ tests/mobile-reliability-fixture.mjs |  93 +++++++++
+ tests/mobile-reliability.md          |  95 +++++++++
+ tests/mobile-reliability.test.mjs    | 279 +++++++++++++++++++++++++++
+ tests/screenshot-batch6-2.mjs        |  43 +++++
+ 11 files changed, 585 insertions(+), 7 deletions(-)
+ create mode 100644 tests/mobile-reliability-fixture.mjs
+ create mode 100644 tests/mobile-reliability.md
+ create mode 100644 tests/mobile-reliability.test.mjs
+ create mode 100644 tests/screenshot-batch6-2.mjs
+
+diff --git a/admin/css/admin.css b/admin/css/admin.css
+index 4360775..307ffc8 100644
+--- a/admin/css/admin.css
++++ b/admin/css/admin.css
+@@ -206,7 +206,10 @@ input[inputmode="decimal"], input[type="number"] {
+ .btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+ .btn--primary:hover { filter: brightness(1.08); }
+ .btn--danger { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
+-.btn--sm { min-height: 34px; padding: 4px 10px; font-size: .85rem; }
++.btn--sm { min-height: var(--tap); min-width: var(--tap); padding: 4px 10px; font-size: .85rem; }
++/* field.html has an inline 40px override. Keep its compact controls at the
++   same minimum tap size without changing that page's owned markup. */
++.field-view .btn.btn--sm { min-height: var(--tap); }
+ .btn[disabled] { opacity: .55; cursor: not-allowed; }
+ .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+ 
+diff --git a/admin/js/field.js b/admin/js/field.js
+index a746650..3513429 100644
+--- a/admin/js/field.js
++++ b/admin/js/field.js
+@@ -120,6 +120,7 @@ document.getElementById('signOut')?.addEventListener('click', async () => {
+ installEscapeHandler();
+ 
+ installBackHandler({
++  beforeExit: flushMeasurementEdits,
+   currentPath,
+   navigate,
+   canGoBack: () => navDepth > 1,
+diff --git a/admin/js/lib/measurement-entry.js b/admin/js/lib/measurement-entry.js
+index 9abbbbe..d0851cf 100644
+--- a/admin/js/lib/measurement-entry.js
++++ b/admin/js/lib/measurement-entry.js
+@@ -1,5 +1,6 @@
+ import { el, numberInput, toast } from '../../../shared/dom.js';
+ import { describeWriteError } from './save.js';
++import { looksOffline } from './offline-queue.js';
+ 
+ const editors = new Set();
+ let statusId = 0;
+@@ -19,6 +20,15 @@ export async function flushMeasurementEdits() {
+   for (const editor of [...editors]) {
+     if (!editor.root.isConnected) { editors.delete(editor); continue; }
+     if (!await editor.flush()) {
++      // Quantity edits are not part of the field outbox. Leaving offline
++      // must be an explicit local discard, never a claim that they synced.
++      if (editor.hasOfflineDraft() && window.confirm(
++        'Measurement quantities could not be saved because there is no connection. ' +
++        'Discard the unsaved quantity edits and continue? Cancel to stay and retry when connected.'
++      )) {
++        editor.discardDrafts();
++        continue;
++      }
+       if (window.location.hash !== editor.route) {
+         history.replaceState(history.state, '', editor.route || window.location.pathname);
+       }
+@@ -36,6 +46,7 @@ export function createMeasurementEditor({ root, save, onChange, delay = 350 }) {
+   let version = 0;
+   let refreshSequence = 0;
+   let refreshTimer;
++  let refreshNeeded = false;
+   let suspended = 0;
+   let guarding = false;
+   const replaying = new WeakSet();
+@@ -45,10 +56,12 @@ export function createMeasurementEditor({ root, save, onChange, delay = 350 }) {
+   }
+ 
+   function requestRefresh() {
++    refreshNeeded = true;
+     if (suspended || !root.isConnected) return;
+     clearTimeout(refreshTimer);
+     refreshTimer = setTimeout(async () => {
+       if (pending() || suspended || !root.isConnected) return;
++      refreshNeeded = false;
+       try { await onChange(); }
+       catch (err) { toast(`Quantity saved, but the screen could not refresh: ${describeWriteError(err)}`, 'error'); }
+     }, 0);
+@@ -190,16 +203,28 @@ export function createMeasurementEditor({ root, save, onChange, delay = 350 }) {
+         return false;
+       }
+       return true;
+-    } finally { suspended--; }
++    } finally {
++      suspended--;
++      if (!suspended && refreshNeeded) requestRefresh();
++    }
+   }
+ 
+   /** Save before delete/duplicate/quote actions, without changing their logic.
+    * Keep the original controls mounted until their original handler runs. */
+-  function guardActions(host) {
++  function guardActions(host, { allowQuoteDelivery = false } = {}) {
+     host.addEventListener('click', async event => {
+       const target = event.target.closest('button, a');
+       if (!target || !host.contains(target) || target.disabled ||
+           target.dataset.measurementRecovery || replaying.has(target)) return;
++      // These controls read an existing quote; they do not calculate one
++      // from pending quantities. Preserve the genuine gesture needed by
++      // popups, clipboard and native sharing. Same-tab navigation and all
++      // mutations keep the save guard. This policy is only enabled by the
++      // quote-panel callers, never by the measurement controls themselves.
++      if (allowQuoteDelivery && (
++        target.matches('a[target="_blank"]') ||
++        ['Copy Link', 'Copy SMS Text', 'Text Quote', 'Share / Print'].includes(target.textContent.trim())
++      )) return;
+       if (!pending() && !guarding) return;
+       event.preventDefault();
+       event.stopImmediatePropagation();
+@@ -219,6 +244,23 @@ export function createMeasurementEditor({ root, save, onChange, delay = 350 }) {
+     refreshToken: () => ({ version, sequence: ++refreshSequence }),
+     isCurrent: token => token.version === version && token.sequence === refreshSequence && root.isConnected,
+     canRender: () => !pending() && ![...entries.values()].some(entry => entry.input === document.activeElement),
++    hasOfflineDraft: () => [...entries.values()].some(entry => entry.dirty && entry.error && looksOffline(entry.error)),
++    discardDrafts: () => {
++      // Called only after flush has settled and the user confirmed leaving.
++      // Restore local confirmed values without issuing any rollback writes.
++      for (const entry of entries.values()) {
++        clearTimeout(entry.timer);
++        entry.input.value = String(entry.saved);
++        entry.measurement.quantity = entry.saved;
++        entry.revision++;
++        entry.dirty = false;
++        entry.error = null;
++        paint(entry);
++      }
++      version++;
++      clearTimeout(refreshTimer);
++      refreshNeeded = false;
++    },
+     reset: () => { for (const entry of entries.values()) clearTimeout(entry.timer); entries.clear(); }
+   };
+   editors.add(editor);
+diff --git a/admin/js/lib/navigation.js b/admin/js/lib/navigation.js
+index 0aadeef..8d5d22b 100644
+--- a/admin/js/lib/navigation.js
++++ b/admin/js/lib/navigation.js
+@@ -255,6 +255,7 @@ export function installEscapeHandler(target = window) {
+  *  @param contextParent  () => a better parent for the current screen, or null
+  *  @param loadApp        () => Promise<{ App }>, injectable for tests
+  *  @param native         () => boolean, injectable for tests
++ *  @param beforeExit     () => boolean | Promise<boolean>; false keeps the app open
+  */
+ export async function installBackHandler({
+   currentPath,
+@@ -267,6 +268,7 @@ export async function installBackHandler({
+   keyboardOpen = () => isKeyboardLikelyOpen(),
+   blurActive = () => document.activeElement?.blur?.(),
+   resolveParent = parentOf,
++  beforeExit = () => true,
+   loadApp,
+   native
+ } = {}) {
+@@ -282,6 +284,25 @@ export async function installBackHandler({
+     return null;
+   }
+ 
++  let exiting = false;
++  function exitSafely() {
++    if (exiting) return;
++    try {
++      const allowed = beforeExit();
++      if (allowed && typeof allowed.then === 'function') {
++        exiting = true;
++        return Promise.resolve(allowed).then(ok => {
++          if (ok) return App.exitApp();
++        }).catch(error => {
++          console.error('Could not check pending edits before exit', error);
++        }).finally(() => { exiting = false; });
++      }
++      if (allowed) return App.exitApp();
++    } catch (error) {
++      console.error('Could not check pending edits before exit', error);
++    }
++  }
++
+   const handler = () => {
+     const decision = decideBack({
+       path: currentPath(),
+@@ -303,8 +324,8 @@ export async function installBackHandler({
+       case BACK_DISMISS_KEYBOARD: blurActive(); return;
+       case BACK_HISTORY:          historyBack(); return;
+       case BACK_GO_PARENT:        navigate(decision.target); return;
+-      case BACK_EXIT:             App.exitApp(); return;
+-      default:                    App.exitApp();
++      case BACK_EXIT:             return exitSafely();
++      default:                    return exitSafely();
+     }
+   };
+ 
+diff --git a/admin/js/main.js b/admin/js/main.js
+index 5772d6c..4c2923f 100644
+--- a/admin/js/main.js
++++ b/admin/js/main.js
+@@ -243,6 +243,7 @@ installEscapeHandler();
+    than wait on a CDN plugin fetch, and until the listener attaches Back
+    behaves exactly as it did before (plain WebView history). */
+ installBackHandler({
++  beforeExit: flushMeasurementEdits,
+   currentPath: () => currentLocation().path,
+   navigate,
+   canGoBack,
+diff --git a/admin/js/views/field-workspace.js b/admin/js/views/field-workspace.js
+index f3908c3..0b277b8 100644
+--- a/admin/js/views/field-workspace.js
++++ b/admin/js/views/field-workspace.js
+@@ -273,7 +273,7 @@ export async function renderVisit({ mount, navigate }, jobId) {
+     saveSignatureFn: async (jobId, quoteId, pngBlob, signerName) =>
+       offlineQueue.callOrQueue('saveSignature', { jobId, quoteId, pngBlob, signerName }, 'Customer signature')
+   });
+-  measurementsPanel.guardActions(quotePanel.root);
++  measurementsPanel.guardActions(quotePanel.root, { allowQuoteDelivery: true });
+   const photosPanel = createPhotosPanel({
+     jobId: job.id,
+     uploadFn: async (jobId, file, opts) => {
+diff --git a/admin/js/views/job.js b/admin/js/views/job.js
+index 45bdd51..f2282d8 100644
+--- a/admin/js/views/job.js
++++ b/admin/js/views/job.js
+@@ -315,7 +315,7 @@ export async function renderJob({ mount }, jobId) {
+   const activityHost = el('div', {});
+   const measurementsPanel = createMeasurementsPanel({ job, refs, onChange: reload });
+   const quotePanel = createQuotePanel({ job, onChange: reload });
+-  measurementsPanel.guardActions(quotePanel.root);
++  measurementsPanel.guardActions(quotePanel.root, { allowQuoteDelivery: true });
+ 
+   /* ------------------------------------------------------------ sections -- */
+ 
+diff --git a/tests/mobile-reliability-fixture.mjs b/tests/mobile-reliability-fixture.mjs
+new file mode 100644
+index 0000000..5536e42
+--- /dev/null
++++ b/tests/mobile-reliability-fixture.mjs
+@@ -0,0 +1,93 @@
++import { BASE, FAKE_CAPACITOR_CORE, DEFAULT_FAKE_SUPABASE } from './test-harness.mjs';
++
++const api = `
++  export async function getSettings() { return { company: { website: 'https://example.test' } }; }
++  export async function updateMeasurement(id, patch) {
++    return new Promise((resolve, reject) => {
++      const request = { id, patch, finish(error) {
++        if (error) reject(new Error(error));
++        else { Object.assign(globalThis.__measurement, patch); resolve({ id, ...patch }); }
++      }};
++      globalThis.__saves.push(request);
++      if (globalThis.__saveDelay) setTimeout(() => {
++        globalThis.__activationAtSaveFinish = navigator.userActivation.isActive;
++        request.finish();
++      }, globalThis.__saveDelay);
++    });
++  }
++  export async function listChangeOrders() { return []; }
++  export async function createQuoteFromCalculation() { globalThis.__builds++; }
++`;
++
++export async function mobileFixture(browser, { width = 1200, height = 900, layout = 'admin' } = {}) {
++  const context = await browser.newContext({ viewport: { width, height } });
++  const page = await context.newPage();
++  const mock = (url, body) => context.route(url, route => route.fulfill({
++    status: 200, contentType: 'application/javascript', body
++  }));
++  await mock('**/cdn.jsdelivr.net/npm/@capacitor/core@8.5.2/+esm', FAKE_CAPACITOR_CORE);
++  await mock(`${BASE}/shared/supabase.js`, DEFAULT_FAKE_SUPABASE);
++  await mock(`${BASE}/admin/js/lib/api.js`, api);
++  await context.route('**/site/quote.html*', route => route.fulfill({
++    status: 200, contentType: 'text/html', body: '<h1>Customer quote fixture</h1>'
++  }));
++  await page.goto(`${BASE}/admin/${layout === 'field' ? 'field' : 'index'}.html`);
++  await page.evaluate(async layout => {
++    const { createMeasurementEditor } = await import('/admin/js/lib/measurement-entry.js');
++    const { createQuotePanel } = await import('/admin/js/views/quote.js');
++    const { el, clear } = await import('/shared/dom.js');
++    const mount = document.getElementById('view');
++    clear(mount);
++    __saves = []; __builds = 0; __refreshes = 0; __saveDelay = 0;
++    __measurement = { id: 'measurement', quantity: 7, unit: 'linear_ft' };
++    const root = el('div', { class: 'card' });
++    const price = el('p', { role: 'status', text: 'Backend total: $70', dataset: { testPrice: 'true' } });
++    const editor = createMeasurementEditor({ root,
++      save: async (...args) => (await import('/admin/js/lib/api.js')).updateMeasurement(...args),
++      onChange: () => { __refreshes++; price.textContent = 'Backend total: $' + (__measurement.quantity * 10); }
++    });
++    root.append(el('h1', { text: 'Measurement entry' }), el('label', { class: 'field' }, [
++      el('span', { text: 'Quantity (linear feet)' }),
++      editor.quantityInput(structuredClone(__measurement), { 'aria-label': 'Quantity', step: '1' })
++    ]), price);
++    const action = el('button', { class: 'btn btn--sm', text: 'Inspect saved quantity',
++      onClick: () => { __actionQuantity = __measurement.quantity; }
++    });
++    root.append(action);
++    const quote = createQuotePanel({ job: { id: 'job', customers: { name: 'Test Customer',
++      email: 'customer@example.test', phone: '5550100' }, properties: { address_line1: 'Test address' } },
++      onChange: () => {} });
++    editor.guardActions(quote.root, { allowQuoteDelivery: true });
++    quote.render({ quotes: [{ id: 'quote-1', kind: 'final', status: 'draft', version: 1,
++      subtotal: 70, total: 70, tax_total: 0, quote_line_items: [{ id: 'line',
++        description: 'Test service', quantity: 7, unit: 'linear_ft', unit_rate: 10,
++        modifier_factor: 1, addons_amount: 0, amount: 70, pricing_approved: true }], quote_adjustments: [] }] });
++    mount.append(root, el('div', { class: 'card' }, [quote.root]));
++    __editor = editor;
++  }, layout);
++  return { context, page };
++}
++
++export async function finishSave(page, error) {
++  await page.waitForFunction(() => __saves.length > 0);
++  await page.evaluate(error => __saves.at(-1).finish(error), error);
++}
++
++export async function backHandler(page, { beforeExit = true, overlay = false, keyboard = false } = {}) {
++  await page.evaluate(async ({ beforeExit, overlay, keyboard }) => {
++    const { installBackHandler, pushOverlay } = await import('/admin/js/lib/navigation.js');
++    const { flushMeasurementEdits } = await import('/admin/js/lib/measurement-entry.js');
++    __exits = 0; __exitQuantity = null; __overlayClosed = 0; __blurred = 0;
++    if (overlay) pushOverlay(() => { __overlayClosed++; });
++    __back = await installBackHandler({
++      currentPath: () => '/dashboard', canGoBack: () => false,
++      keyboardOpen: () => keyboard, blurActive: () => { __blurred++; },
++      beforeExit: beforeExit ? flushMeasurementEdits : undefined,
++      native: () => true,
++      loadApp: async () => ({ App: {
++        addListener: async () => ({ remove() {} }),
++        exitApp: () => { __exits++; __exitQuantity = __measurement.quantity; }
++      } })
++    });
++  }, { beforeExit, overlay, keyboard });
++}
+diff --git a/tests/mobile-reliability.md b/tests/mobile-reliability.md
+new file mode 100644
+index 0000000..ccacc59
+--- /dev/null
++++ b/tests/mobile-reliability.md
+@@ -0,0 +1,95 @@
++# Batch 6.2: measurement and mobile interaction reliability
++
++Implemented independently on `codex/batch-6-2`, based on `f4cdbe5`.
++Claude's Batch 6.1 is not a prerequisite and was not integrated.
++
++## Findings and changes
++
++All four concerns reproduced on the baseline, using mocked API writes.
++The original 12 targeted checks failed before the fixes (0/12).
++
++| Concern | Baseline evidence | Result |
++| --- | --- | --- |
++| User activation | After a browser-timed 6.1-second save, activation had expired; Preview and PDF opened zero tabs with normal popup blocking. Real Chromium Copy Link rejected with `NotAllowedError`. Copy Link and SMS also failed a gesture-requiring clipboard double. | Viewing/copying an existing quote keeps the original click. Quote mutations and same-tab navigation still wait for saves. |
++| Dropped refresh | A guarded save completed with quantity 9 but the fixture's backend-total response remained displayed as $70 instead of $90. | A deferred refresh is re-armed after the guard finishes. Pricing remains in backend RPCs; the arithmetic here is only a test double. |
++| Offline navigation | The route guard returned false with no deliberate leave choice after a failed quantity write. | Confirmed offline failures offer discard-and-continue or cancel-and-retry. Discard restores the last confirmed local quantities without rollback writes or an outbox entry. Permission errors retain the draft. |
++| Android root exit | The native-plugin double exited immediately before a pending save completed. | Both entry points pass the existing quantity flush guard to native Back. Exit waits for a successful save or explicit offline discard; repeated presses share one attempt. Overlay/keyboard/history/parent priorities are preserved. |
++| Touch targets | Admin buttons were 34px high; field buttons were mostly 40px, including a 34px header control. | Small buttons have at least the existing 44px tap-token height and width. |
++
++The claim that clipboard failures were **silent** did not reproduce: the
++existing quote handlers already provide error/fallback messaging. No fix
++was made to those handlers. Firefox and WebKit were not tested.
++
++Existing quote controls operate on an already-created quote, so viewing,
++copying and native sharing do not need to calculate from unsaved quantity
++edits. Their guard exception is enabled only by quote-panel callers.
++Preview's native same-tab path still uses the navigation guard. Saves keep
++running, and unsaved quantities still block mutations or protected exits.
++
++## Changed files
++
++- `admin/js/lib/measurement-entry.js`: refresh, quote gesture policy, offline discard.
++- `admin/js/lib/navigation.js`: optional, coalesced exit guard.
++- `admin/js/main.js`, `admin/js/field.js`: register the exit guard.
++- `admin/js/views/job.js`, `admin/js/views/field-workspace.js`: change only the guard registration lines introduced in `f4cdbe5`.
++- `admin/css/admin.css`: small-button tap size, including the field override.
++- New test files: `mobile-reliability.test.mjs`, `mobile-reliability-fixture.mjs`, `screenshot-batch6-2.mjs`, and this handoff.
++
++No quote/settings/API/outbox implementation, migrations, public-site files,
++phase tests, dependencies, or shared regression runner were changed.
++
++## Validation
++
++Chromium **151.0.7922.173**, Playwright **1.58.2**. Popup tests remove
++Playwright's default `--disable-popup-blocking` bypass. The delayed save
++finishes from a browser timer, rather than a Playwright evaluation that
++could inject fresh activation. The real clipboard check uses the browser's
++clipboard implementation; SMS's restrictive clipboard behavior is a double.
++
++- New suite: **22/22** checks pass, including preserved mutation/navigation
++  guards, offline cancellation and retry, permission errors, repeated Back,
++  incomplete input, and overlay/keyboard priority.
++- Existing suites, run explicitly: `phase2` through `phase20`, including
++  `phase10-5`, plus `measurement-entry`, `native-wrapper`, `reload-offline`,
++  and `geofence`. **391/391** counted checks pass, plus the geofence
++  assertions. Together with this suite: **413/413**, plus geofence.
++- Twelve mocked screenshots captured and visually inspected: admin and
++  field layouts at **390, 430, and 1200px**, each with saved and offline-failed
++  input. They fit their viewports, retain readable recovery controls, and
++  every visible small button measures at least 44 by 44px.
++- `git diff --check` passes.
++
++Artifacts in the executing environment:
++
++- Baseline failure log: `/tmp/nova-batch6-2-baseline.log`.
++- Final logs: `/workspace/.nova-shield/batch6-2/logs/`.
++- Screenshots and measured dimensions: `/workspace/.nova-shield/batch6-2/screenshots/`.
++
++Database integration tests are **unrun**. No migrations or live-data
++changes were made. Mocked native Back does not establish real Android or
++WebView behavior. Physical-device Back, popup/clipboard permissions, native
++sharing, true cellular offline, other browser engines, and production
++verification remain untested. Nothing was merged, rebased, or deployed.
++
++## Running and integration registration
++
++With the repository's normal `/opt` Playwright installation and its static
++server already running on port 8743:
++
++```sh
++node tests/mobile-reliability.test.mjs
++node tests/screenshot-batch6-2.mjs /tmp/nova-shield-batch6-2-screenshots
++```
++
++This environment uses an external loader to map the repository's existing
++hardcoded Playwright paths to the installed package and system Chromium;
++the loader and tools are outside the checkout. The actual suite command:
++
++```sh
++node --loader /workspace/.nova-shield/test-loader.mjs tests/mobile-reliability.test.mjs
++```
++
++At integration, add **`mobile-reliability`** to the explicit mocked-suite
++list in `tests/run-regression.sh`. Keep screenshots separately selectable
++and database integration tests separate. The runner was deliberately left
++unchanged during this parallel assignment. No Batch 7.2 work was started.
+diff --git a/tests/mobile-reliability.test.mjs b/tests/mobile-reliability.test.mjs
+new file mode 100644
+index 0000000..997beb8
+--- /dev/null
++++ b/tests/mobile-reliability.test.mjs
+@@ -0,0 +1,279 @@
++import assert from 'node:assert/strict';
++import pkg from '/opt/node-tools/node_modules/playwright/index.js';
++import { createRecorder, finishAndReport } from './test-harness.mjs';
++import { mobileFixture, finishSave, backHandler } from './mobile-reliability-fixture.mjs';
++
++const { results, record } = createRecorder();
++// Playwright disables popup blocking by default. Remove that bypass so the
++// delayed gesture tests exercise Chromium's normal policy, not a test shortcut.
++const browser = await pkg.chromium.launch({ executablePath: '/opt/pw-browsers/chromium',
++  ignoreDefaultArgs: ['--disable-popup-blocking'] });
++console.log('Browser:', browser.version());
++
++for (const name of ['Preview Quote', 'Download PDF']) {
++  await record(`${name}: pending edits do not delay the original activation`, async () => {
++    const { context, page } = await mobileFixture(browser);
++    try {
++      const popups = [];
++      page.on('popup', popup => popups.push(popup));
++      await page.evaluate(() => { __saveDelay = 6100; });
++      await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('9');
++      await page.getByRole('link', { name, exact: true }).click();
++      await page.waitForTimeout(200);
++      const openedBeforeSave = popups.length;
++      await page.waitForTimeout(6500);
++      assert.equal(await page.evaluate(() => __activationAtSaveFinish), false,
++        'control: activation must actually expire before the save completes');
++      console.log(name, 'popups before/after save:', openedBeforeSave, popups.length);
++      assert.equal(openedBeforeSave, 1, 'read-only quote navigation must use the original click');
++      assert.equal(popups.length, 1, 'one action must open exactly one quote');
++    } finally { await context.close(); }
++  });
++}
++
++for (const name of ['Copy Link', 'Copy SMS Text']) {
++  await record(`${name}: copying the existing quote keeps user activation`, async () => {
++    const { context, page } = await mobileFixture(browser);
++    try {
++      // Record the genuine browser activation at the clipboard boundary.
++      // This double models gesture-requiring WebViews; it is not a claim
++      // about real WebView or Chromium clipboard permissions.
++      await page.evaluate(() => {
++        __saveDelay = 6100;
++        __clipboard = [];
++        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
++          writeText: async text => {
++            __clipboard.push({ text, active: navigator.userActivation.isActive });
++            if (!navigator.userActivation.isActive) throw new Error('Activation required');
++          }
++        } });
++        document.execCommand = () => false;
++      });
++      await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('9');
++      await page.getByRole('button', { name, exact: true }).click();
++      await page.waitForTimeout(6700);
++      const calls = await page.evaluate(() => __clipboard);
++      assert.equal(calls.length, 1);
++      assert.equal(calls[0].active, true, 'do not replay clipboard controls after an async save');
++      assert.match(calls[0].text, /quote.html\?id=quote-1/);
++    } finally { await context.close(); }
++  });
++}
++
++await record('Copy Link uses the real Chromium clipboard without waiting for a quantity save', async () => {
++  const { context, page } = await mobileFixture(browser);
++  try {
++    await page.evaluate(() => {
++      __saveDelay = 6100;
++      __realClipboard = [];
++      const original = navigator.clipboard.writeText.bind(navigator.clipboard);
++      navigator.clipboard.writeText = async text => {
++        const result = { active: navigator.userActivation.isActive };
++        try { await original(text); result.success = true; }
++        catch (error) { result.error = error.name; throw error; }
++        finally { __realClipboard.push(result); }
++      };
++    });
++    await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('9');
++    await page.getByRole('button', { name: 'Copy Link', exact: true }).click();
++    await page.waitForTimeout(6700);
++    const calls = await page.evaluate(() => __realClipboard);
++    console.log('Real Chromium clipboard:', JSON.stringify(calls));
++    assert.equal(calls.length, 1);
++    assert.equal(calls[0].active, true);
++    assert.equal(calls[0].success, true);
++  } finally { await context.close(); }
++});
++
++await record('A guarded successful save refreshes backend pricing even if the action does not reload', async () => {
++  const { context, page } = await mobileFixture(browser);
++  try {
++    await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('9');
++    await page.getByRole('button', { name: 'Inspect saved quantity', exact: true }).click();
++    await finishSave(page);
++    await page.waitForTimeout(100);
++    assert.equal(await page.evaluate(() => __actionQuantity), 9);
++    assert.equal(await page.locator('[data-test-price]').innerText(), 'Backend total: $90');
++  } finally { await context.close(); }
++});
++
++await record('Quote creation still waits for pending quantities', async () => {
++  const { context, page } = await mobileFixture(browser);
++  try {
++    await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('9');
++    await page.getByRole('button', { name: 'New version', exact: true }).click();
++    await page.waitForFunction(() => __saves.length === 1);
++    assert.equal(await page.evaluate(() => __builds), 0);
++    await finishSave(page);
++    await page.waitForFunction(() => __builds === 1);
++    assert.equal(await page.evaluate(() => __measurement.quantity), 9);
++  } finally { await context.close(); }
++});
++
++await record('Same-tab links still wait for quantities, even inside the quote panel', async () => {
++  const { context, page } = await mobileFixture(browser);
++  try {
++    await page.evaluate(() => {
++      const host = document.querySelector('#view > .card:last-child > div');
++      const link = document.createElement('a');
++      link.href = '#/dashboard'; link.textContent = 'Same-tab destination';
++      __navigations = 0;
++      link.addEventListener('click', event => { event.preventDefault(); __navigations++; });
++      host.append(link);
++    });
++    await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('9');
++    await page.getByRole('link', { name: 'Same-tab destination' }).click();
++    await page.waitForFunction(() => __saves.length === 1);
++    assert.equal(await page.evaluate(() => __navigations), 0);
++    await finishSave(page);
++    await page.waitForFunction(() => __navigations === 1);
++  } finally { await context.close(); }
++});
++
++await record('Offline navigation offers a deliberate discard-and-leave choice', async () => {
++  const { context, page } = await mobileFixture(browser);
++  try {
++    let prompted = false;
++    page.on('dialog', async dialog => { prompted = true; await dialog.accept(); });
++    await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('9');
++    await page.evaluate(async () => {
++      const { flushMeasurementEdits } = await import('/admin/js/lib/measurement-entry.js');
++      __leaving = flushMeasurementEdits();
++    });
++    await finishSave(page, 'Failed to fetch');
++    assert.equal(await page.evaluate(() => __leaving), true, 'explicit discard should allow leaving');
++    assert.equal(prompted, true, 'never discard without asking');
++    assert.equal(await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).inputValue(), '7');
++  } finally { await context.close(); }
++});
++
++await record('Cancelling offline discard keeps the draft and allows retry after reconnecting', async () => {
++  const { context, page } = await mobileFixture(browser);
++  try {
++    let prompted = false;
++    page.on('dialog', async dialog => { prompted = true; await dialog.dismiss(); });
++    await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('9');
++    await page.evaluate(async () => {
++      const { flushMeasurementEdits } = await import('/admin/js/lib/measurement-entry.js');
++      __leaving = flushMeasurementEdits();
++    });
++    await finishSave(page, 'Failed to fetch');
++    assert.equal(await page.evaluate(() => __leaving), false);
++    assert.equal(prompted, true);
++    assert.equal(await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).inputValue(), '9');
++    await page.getByRole('button', { name: 'Retry quantity save', exact: true }).click();
++    await page.waitForFunction(() => __saves.length === 2);
++    await finishSave(page);
++    await page.waitForFunction(() => !__editor.pending());
++    assert.equal(await page.evaluate(() => __measurement.quantity), 9);
++  } finally { await context.close(); }
++});
++
++await record('A permission failure never offers the offline discard shortcut', async () => {
++  const { context, page } = await mobileFixture(browser);
++  try {
++    let prompted = false;
++    page.on('dialog', async dialog => { prompted = true; await dialog.dismiss(); });
++    await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('9');
++    await page.evaluate(async () => {
++      const { flushMeasurementEdits } = await import('/admin/js/lib/measurement-entry.js');
++      __leaving = flushMeasurementEdits();
++    });
++    await finishSave(page, 'Permission denied');
++    assert.equal(await page.evaluate(() => __leaving), false);
++    assert.equal(prompted, false);
++    assert.equal(await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).inputValue(), '9');
++  } finally { await context.close(); }
++});
++
++await record('Android root Back waits for the save instead of exiting immediately', async () => {
++  const { context, page } = await mobileFixture(browser);
++  try {
++    await backHandler(page);
++    await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('9');
++    await page.evaluate(() => { void __back.handler(); });
++    await page.waitForTimeout(50);
++    assert.equal(await page.evaluate(() => __exits), 0, 'the native exit must wait');
++    await finishSave(page);
++    await page.waitForFunction(() => __exits === 1);
++    assert.equal(await page.evaluate(() => __exitQuantity), 9);
++  } finally { await context.close(); }
++});
++
++await record('Repeated Android Back presses share one save/exit attempt', async () => {
++  const { context, page } = await mobileFixture(browser);
++  try {
++    await backHandler(page);
++    await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('9');
++    await page.evaluate(() => { void __back.handler(); void __back.handler(); });
++    await finishSave(page);
++    await page.waitForFunction(() => __exits > 0);
++    assert.equal(await page.evaluate(() => __exits), 1);
++    assert.equal(await page.evaluate(() => __saves.length), 1);
++  } finally { await context.close(); }
++});
++
++await record('Android exit stays blocked for incomplete quantity input', async () => {
++  const { context, page } = await mobileFixture(browser);
++  try {
++    await backHandler(page);
++    await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('');
++    await page.evaluate(() => { void __back.handler(); });
++    await page.waitForTimeout(50);
++    assert.equal(await page.evaluate(() => __exits), 0);
++    assert.equal(await page.evaluate(() => __saves.length), 0);
++  } finally { await context.close(); }
++});
++
++for (const discard of [false, true]) {
++  await record(`Android offline exit ${discard ? 'requires explicit discard' : 'preserves the draft when cancelled'}`, async () => {
++    const { context, page } = await mobileFixture(browser);
++    try {
++      await backHandler(page);
++      let prompted = false;
++      page.on('dialog', async dialog => {
++        prompted = true;
++        if (discard) await dialog.accept(); else await dialog.dismiss();
++      });
++      await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('9');
++      await page.evaluate(() => { __exitAttempt = __back.handler(); });
++      await finishSave(page, 'Failed to fetch');
++      await page.evaluate(() => __exitAttempt);
++      assert.equal(prompted, true);
++      assert.equal(await page.evaluate(() => __exits), discard ? 1 : 0);
++      assert.equal(await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).inputValue(), discard ? '7' : '9');
++    } finally { await context.close(); }
++  });
++}
++
++for (const kind of ['overlay', 'keyboard']) {
++  await record(`Android ${kind} dismissal keeps priority over save/exit`, async () => {
++    const { context, page } = await mobileFixture(browser);
++    try {
++      await backHandler(page, { [kind]: true });
++      await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('9');
++      await page.evaluate(() => { void __back.handler(); });
++      assert.equal(await page.evaluate(() => __exits), 0);
++      assert.equal(await page.evaluate(kind => kind === 'overlay' ? __overlayClosed : __blurred, kind), 1);
++      assert.equal(await page.evaluate(() => __saves.length), 0);
++    } finally { await context.close(); }
++  });
++}
++
++for (const layout of ['admin', 'field']) {
++  for (const width of [390, 430]) {
++    await record(`${layout} ${width}px: small buttons have 44px targets without horizontal overflow`, async () => {
++      const { context, page } = await mobileFixture(browser, { width, layout });
++      try {
++        const sizes = await page.locator('.btn--sm:visible').evaluateAll(nodes => nodes.map(node => {
++          const rect = node.getBoundingClientRect(); return { width: rect.width, height: rect.height };
++        }));
++        assert.ok(sizes.length > 0);
++        assert.ok(sizes.every(size => size.width >= 44 && size.height >= 44), JSON.stringify(sizes));
++        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
++      } finally { await context.close(); }
++    });
++  }
++}
++
++await finishAndReport(browser, results);
+diff --git a/tests/screenshot-batch6-2.mjs b/tests/screenshot-batch6-2.mjs
+new file mode 100644
+index 0000000..5359364
+--- /dev/null
++++ b/tests/screenshot-batch6-2.mjs
+@@ -0,0 +1,43 @@
++import assert from 'node:assert/strict';
++import { mkdir, writeFile } from 'node:fs/promises';
++import { resolve } from 'node:path';
++import pkg from '/opt/node-tools/node_modules/playwright/index.js';
++import { mobileFixture, finishSave } from './mobile-reliability-fixture.mjs';
++
++// Manual visual QA, separately selectable from mocked tests and DB integration.
++const directory = resolve(process.argv[2] || '/tmp/nova-shield-batch6-2-screenshots');
++await mkdir(directory, { recursive: true });
++const browser = await pkg.chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
++const views = [];
++try {
++  for (const layout of ['admin', 'field']) {
++    for (const width of [390, 430, 1200]) {
++      const { context, page } = await mobileFixture(browser, { layout, width });
++      try {
++        for (const state of ['saved', 'offline']) {
++          if (state === 'offline') {
++            await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('9');
++            await finishSave(page, 'Failed to fetch');
++            await page.getByRole('button', { name: 'Retry quantity save', exact: true }).waitFor();
++          }
++          const metrics = await page.evaluate(() => ({
++            viewport: innerWidth, document: document.documentElement.scrollWidth,
++            controls: [...document.querySelectorAll('.btn--sm')]
++              .filter(node => node.getBoundingClientRect().width > 0)
++              .map(node => {
++                const { width, height } = node.getBoundingClientRect();
++                return { name: node.textContent.trim(), width, height };
++              })
++          }));
++          assert.ok(metrics.document <= metrics.viewport, `${layout}/${width}/${state}: overflow`);
++          assert.ok(metrics.controls.every(control => control.width >= 44 && control.height >= 44));
++          const file = `${layout}-${width}-${state}.png`;
++          await page.screenshot({ path: resolve(directory, file), fullPage: true });
++          views.push({ file, layout, state, ...metrics });
++        }
++      } finally { await context.close(); }
++    }
++  }
++  await writeFile(resolve(directory, 'views.json'), JSON.stringify({ browser: browser.version(), views }, null, 2));
++  console.log(`Captured ${views.length} views at ${directory}; all fit and have >=44px small-button targets.`);
++} finally { await browser.close(); }
+-- 
+2.52.0
+

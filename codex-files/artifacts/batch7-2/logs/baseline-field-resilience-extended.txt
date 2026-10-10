@@ -1,0 +1,125 @@
+(node:184426) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("/workspace/.nova-shield/test-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+Browser: 151.0.7922.173
+500-visit mock render (ms): 413
+150-measurement mock render (ms): 566
+FAIL - An access-check failure offers Retry rather than leaving a loading screen
+     Expected values to be strictly equal:
+
+0 !== 1
+
+FAIL - A late visit load cannot replace the newer route
+     Expected values to be strictly equal:
+
+0 !== 1
+
+FAIL - An initial failed visit-data read reports the connection error, not fabricated empty data
+     The input did not match the regular expression /connection|Failed to fetch/i. Input:
+
+'Something went wrong\n\npricing is not iterable\n\nRetry'
+
+FAIL - An offline refresh labels the retained visit data and offers retry
+     Expected values to be strictly equal:
+
+0 !== 1
+
+FAIL - Passport save announces progress and prevents double submission
+     Expected values to be strictly equal:
+
+0 !== 1
+
+FAIL - A slow passport save preserves the next unsaved edit
+     Expected values to be strictly equal:
++ actual - expected
+
++ ''
+- 'Next unsaved material'
+
+PASS - An untouched passport still receives fresh backend values after an unrelated refresh
+FAIL - A passport draft survives an unrelated refresh and preserves newer unknown backend fields
+     Expected values to be strictly equal:
++ actual - expected
+
++ 'Backend material'
+- 'My draft material'
+
+FAIL - A permission-denied refresh does not misreport a successful passport write or throw unhandled
+     Expected values to be strictly equal:
+
+0 !== 1
+
+FAIL - Retrying notes does not rebuild the visit or lose an unsaved note
+     Expected values to be strictly equal:
+
+0 !== 1
+
+FAIL - A slow note save keeps text typed after the submitted note
+     Expected values to be strictly equal:
++ actual - expected
+
++ ''
+- 'Next unsaved note'
+
+FAIL - Outbox failures retain the failed item and reason across a page reload
+     The input did not match the regular expression /Permission denied/. Input:
+
+''
+
+FAIL - The outbox shows individual items and requires confirmation to discard one
+     Expected values to be strictly equal:
+
+0 !== 1
+
+FAIL - A discard cannot race with a replay that already owns the item
+     The input did not match the regular expression /sync|replay/i. Input:
+
+'(intermediate value).discard is not a function'
+
+FAIL - Retry sync replays in order and removes actions only after success
+     Expected values to be strictly equal:
+
+0 !== 1
+
+FAIL - Replay waits for a discard that started first
+     page.evaluate: TypeError: queue.discard is not a function
+    at eval (eval at evaluate (:290:30), <anonymous>:4:32)
+    at async <anonymous>:316:30
+FAIL - Offline Sync Now leaves all queued items intact without issuing writes
+     Expected values to be strictly equal:
+
+1 !== 0
+
+PASS - Quantity updates remain outside the four-type outbox
+PASS - The schedule retains distinct successful-empty and failed-load states
+FAIL - An outbox dialog can close with Escape without navigating away
+     Expected values to be strictly equal:
+
+0 !== 1
+
+FAIL - IndexedDB failure restores Sync Now and does not claim Synced
+     Expected values to be strictly equal:
+
+true !== false
+
+FAIL - Unavailable storage on startup is visible without an unhandled rejection
+     The input did not match the regular expression /storage unavailable/i. Input:
+
+'Synced'
+
+FAIL - 390px: long field customer/service labels fit with 150 measurements
+     Expected values to be strictly equal:
+
+false !== true
+
+FAIL - 430px: long field customer/service labels fit with 150 measurements
+     Expected values to be strictly equal:
+
+false !== true
+
+PASS - A 500-visit schedule retains the last visit action without overflow
+PASS - Editing the last of 150 measurements keeps the draft and all controls mounted
+FAIL - Primary-button progress text remains readable while hovered after a tap
+     primary text contrast is 1.06:1
+
+5/27 passed

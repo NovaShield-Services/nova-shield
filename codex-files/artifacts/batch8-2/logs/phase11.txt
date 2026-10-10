@@ -1,0 +1,23 @@
+(node:454539) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("/workspace/.nova-shield/test-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS - 1. Basic Moss: one affected area renders with correct total
+PASS - 2. Multiple affected areas: total sums correctly
+PASS - 3. Mixed Coverage: each affected area keeps its own independent selection
+PASS - 4. Access has no per-row control (section-driven); section hint names it correctly
+PASS - 5. Mixed Surface: each affected area keeps its own independent selection
+PASS - 6. No flat-addon control exists (no kind=flat modifiers configured for Moss)
+PASS - 7a. Follow-up renders as exactly one job-level control, not per-area
+PASS - 7b. Changing Follow-up fans out setMeasurementModifier to every existing affected area
+PASS - 8. Duplicate: copies section, sq ft, Coverage + Surface + Follow-up -- not review/reason/notes
+PASS - 9a. Remove affected area: calls deleteMeasurement after confirm
+PASS - 9b. Edit affected area: rename and area change both persist
+PASS - 10. Minimum charge: card shows "minimum applied" without replacing the total
+PASS - 11. Review flag toggles review_required without touching quantity/section/label
+PASS - 12. No manual-adjustment UI inside the calculator (quote-level concept)
+PASS - 13. No bespoke RPC/quote-pathway reference anywhere in the component source
+PASS - 14. No per-row dollar figure is invented in the DOM (only the card-level total, from pricedRows)
+PASS - 15. Multi-service: Moss + Siding + Gutter + Concrete + Deck + Fence + Windows + Roof + Heating Wire all coexist with correct independent totals
+PASS - 16. Offline add-area: createMeasurement returning null does not throw
+
+18/18 passed

@@ -1,0 +1,1538 @@
+{
+  "source_base": "2cdecc3eed28969a80b2e47d400c35cf18b5125d",
+  "source_head": "d33d17ec0b98654e42db1e8adda70580e9931b42",
+  "commits": {
+    "measurement-reliability": "f4cdbe552ebd4289920fe533af10371a1d4c7f0d",
+    "batch6-2": "d71f467ca72160092ef3b3ace2e50ae63bd512ee",
+    "batch7-2": "a8b573f9b9f61b900ede70ff7affd3b04eb67ba9",
+    "batch8-2": "d33d17ec0b98654e42db1e8adda70580e9931b42"
+  },
+  "files": [
+    {
+      "path": "plans/batch-plan-after-7.md",
+      "source": "/workspace/nova-shield/docs/plans/batch-plan-after-7.md",
+      "sha256": "01ebc3a402365a6cfc6a2cb10d6f42a8b7e95fe00bd770a900689ee602c9b2b2",
+      "bytes": 26457,
+      "classification": "current"
+    },
+    {
+      "path": "plans/service-operations-blueprint.md",
+      "source": "/workspace/nova-shield/docs/plans/service-operations-blueprint.md",
+      "sha256": "6c5207bc106d8ee92d7fe6b950a6d80152d5e02a103b9d64582c76bc47a2e707",
+      "bytes": 30828,
+      "classification": "current"
+    },
+    {
+      "path": "plans/claude-roadmap-handoff.md",
+      "source": "/workspace/nova-shield/docs/plans/claude-roadmap-handoff.md",
+      "sha256": "81bde25d0696534eb24e1d73d059102e641d08cecccc7b9f5cfa9ac325f0175b",
+      "bytes": 5111,
+      "classification": "current"
+    },
+    {
+      "path": "historical/location-first-batch-roadmap.md",
+      "source": "/workspace/.nova-shield/plans/location-first-batch-roadmap.md",
+      "sha256": "cc153ceaeed9c98691e396a8957c358d9ab0684e9b7c4ff04b5a9403534b1263",
+      "bytes": 19056,
+      "classification": "superseded roadmap"
+    },
+    {
+      "path": "historical/measurement-reliability-handoff.md",
+      "source": "/workspace/.nova-shield/measurement-reliability-handoff.md",
+      "sha256": "139537173e3b36dd73695c0693fef24f672e6d8a6720adef3a79d033382cba1f",
+      "bytes": 4385,
+      "classification": "pre-commit historical artifact"
+    },
+    {
+      "path": "historical/measurement-reliability.patch",
+      "source": "/workspace/.nova-shield/measurement-reliability.patch",
+      "sha256": "c8a2dead8ea699449de1c7694febd9359b44a070935975f18f291ed15c4a1a12",
+      "bytes": 75717,
+      "classification": "pre-commit historical artifact"
+    },
+    {
+      "path": "historical/environment/install.sh",
+      "source": "/workspace/.nova-shield/install.sh",
+      "sha256": "9e7c07d5189c9dd2f7d40c6a5d5232650bd497d993d119f0993c5595f4ce9f89",
+      "bytes": 1116,
+      "classification": "original environment-specific helper"
+    },
+    {
+      "path": "historical/environment/Caddyfile",
+      "source": "/workspace/.nova-shield/Caddyfile",
+      "sha256": "0ffa3cd96ca743d4391f120b98d95396f4c9b515949ca0720a01d33cf68e362b",
+      "bytes": 2712,
+      "classification": "original environment-specific helper"
+    },
+    {
+      "path": "historical/environment/test-loader.mjs",
+      "source": "/workspace/.nova-shield/test-loader.mjs",
+      "sha256": "babcb1b16edb659a9b6bb8d9daeeb2d4e638b0d54a0e6c73fa729c41c2c20624",
+      "bytes": 450,
+      "classification": "original environment-specific helper"
+    },
+    {
+      "path": "historical/environment/playwright-shim.mjs",
+      "source": "/workspace/.nova-shield/playwright-shim.mjs",
+      "sha256": "31e038fdc5412b4b4ad8c4a0b6559608e3d08320f7c4640d8bedb84e682e0733",
+      "bytes": 280,
+      "classification": "original environment-specific helper"
+    },
+    {
+      "path": "historical/environment/debug-entry.mjs",
+      "source": "/workspace/.nova-shield/debug-entry.mjs",
+      "sha256": "bf20d8e4fc6d634938b5a74f1240eb4e078396d9ce3ffc7cd95fd7ee39c223f2",
+      "bytes": 21248,
+      "classification": "original environment-specific helper"
+    },
+    {
+      "path": "handoffs/mobile-reliability.md",
+      "source": "/workspace/nova-shield/tests/mobile-reliability.md",
+      "sha256": "b6139680bcfde87bfbb2573f180e834175ed31c6a92f432437d44f138719a55d",
+      "bytes": 5929,
+      "classification": "current"
+    },
+    {
+      "path": "handoffs/field-resilience.md",
+      "source": "/workspace/nova-shield/tests/field-resilience.md",
+      "sha256": "1fd0a1199ecafda59dec4867366902e680478058a873cc211d551ad8bec27e12",
+      "bytes": 7659,
+      "classification": "current"
+    },
+    {
+      "path": "handoffs/native-readiness.md",
+      "source": "/workspace/nova-shield/tests/native-readiness.md",
+      "sha256": "ab895a5391ff5a84c57d13b54b3959d256fba8a5c0faa8c7bbb04713b096ceac",
+      "bytes": 11558,
+      "classification": "current"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/geofence.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/geofence.log",
+      "sha256": "f8559816b1e6785ee19d851efa71eae849c8ba0b0a248e8111f93f364c1c8133",
+      "bytes": 838,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/measurement-entry.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/measurement-entry.log",
+      "sha256": "7a6a38f4cdba4da68d68d0ada36a61a2d9239d385fc3e70966bbb539dca6ee70",
+      "bytes": 2675,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/mobile-reliability.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/mobile-reliability.log",
+      "sha256": "dd2732bec73cf83f476b74caf38d9a395d69cf4721cd61491ec96679f07ad0bd",
+      "bytes": 2149,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/native-wrapper.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/native-wrapper.log",
+      "sha256": "1b22d06c620bbb77736b8767f5c4ee22d97fdccd5491bb235ae080f211e45b14",
+      "bytes": 1893,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/phase10-5.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/phase10-5.log",
+      "sha256": "07ba5478a0f3029f04d298fdc170791104bd7ab024cdade76064bbc3114efb3e",
+      "bytes": 1151,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/phase10.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/phase10.log",
+      "sha256": "442133f76185c732fd0994a41242ba2a5e1a5c689ec2ea932cebd236c4dad548",
+      "bytes": 1906,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/phase11.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/phase11.log",
+      "sha256": "da79b0cb63b34dbfe81539374ee9293430556cb0ff6af9e57c2470614a75958c",
+      "bytes": 1921,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/phase12.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/phase12.log",
+      "sha256": "2fa22573141e0a165c779fe413b212287e011e24effce175428f7a4dabf25f5f",
+      "bytes": 1882,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/phase13.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/phase13.log",
+      "sha256": "9eea680ece1effd7150155bbd94756b39682f880f7bdd799cd3495ae7d8d73ea",
+      "bytes": 1878,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/phase14.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/phase14.log",
+      "sha256": "1afde82ccce7cd6691e90a0d1f2976d257f62841d61779ac0e1b41055acd3d32",
+      "bytes": 1582,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/phase15.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/phase15.log",
+      "sha256": "e36d7217bffbd941aa27f1da476f6c66c02c69b06e0c7595f785296fc4b2c8e2",
+      "bytes": 1702,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/phase16.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/phase16.log",
+      "sha256": "f538a4e0e1c7ae1d35044a5b30be0512ae39c9a41fc260b41001200d9c0aca93",
+      "bytes": 1332,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/phase17.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/phase17.log",
+      "sha256": "72ee55e470cd474d5f81522b8f986e20bb293f6a63b185299002782d839d6975",
+      "bytes": 1411,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/phase18.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/phase18.log",
+      "sha256": "402f70fcca7841c0231fcfee95fa6e5c3dbe9c2ad1f868e4ab09a44852c0dc1b",
+      "bytes": 3313,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/phase19.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/phase19.log",
+      "sha256": "91ea1d564214099bb6664b6310bd401ab19565014398c76b2e06e7a0af845129",
+      "bytes": 2477,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/phase2.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/phase2.log",
+      "sha256": "b65d289643c0680db7ba03702bdd71d6bf8092aab7719c8efdd33c6eb89d086b",
+      "bytes": 2304,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/phase20.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/phase20.log",
+      "sha256": "c9adbf07c4cd9d8d02f7c02a5ae5fa8f23f2f9dbbd780c7564fb9f55b17e1bed",
+      "bytes": 2049,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/phase3.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/phase3.log",
+      "sha256": "d3598f12d66ddd02d3fe530f8002e679ff06901995aca57fda098675aaee74fc",
+      "bytes": 1395,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/phase4.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/phase4.log",
+      "sha256": "c448e747374c0fa0727304b8f273932bf88ce85eb96e493434b9e358ca90ab7c",
+      "bytes": 1929,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/phase5.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/phase5.log",
+      "sha256": "4ad277687eeb21b97369dae70b7599c19e4b03cf7923852a411799dea21698de",
+      "bytes": 1637,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/phase6.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/phase6.log",
+      "sha256": "9e99d4d86914b3838e82d4d4f69f32c77975b915f84c55794131d7d0b9fe4113",
+      "bytes": 1602,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/phase7.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/phase7.log",
+      "sha256": "c157ebc09b6f9434fd5428180170b566899def4acb2889ed5fbf090f9aaeee40",
+      "bytes": 1882,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/phase8.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/phase8.log",
+      "sha256": "95afb5d3bd9738a1aa3be436559b5b419d78efacaacb11e389adf16612ff6343",
+      "bytes": 1874,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/phase9.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/phase9.log",
+      "sha256": "0f8f51000517c8f7b8cb9e75e36805da92fb52b5b001d970122a7417d6a03cb4",
+      "bytes": 1664,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/logs/reload-offline.txt",
+      "source": "/workspace/.nova-shield/batch6-2/logs/reload-offline.log",
+      "sha256": "da81f5a16679c1cfbc191ba8f00cae1247b370125a2a63cc3e48d56a84b8293e",
+      "bytes": 559,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/screenshots/admin-1200-offline.png",
+      "source": "/workspace/.nova-shield/batch6-2/screenshots/admin-1200-offline.png",
+      "sha256": "c11779617ecc2ec8784a879c70f06f68030ec75958b2ca2930efebf01b9605b8",
+      "bytes": 132971,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/screenshots/admin-1200-saved.png",
+      "source": "/workspace/.nova-shield/batch6-2/screenshots/admin-1200-saved.png",
+      "sha256": "7844905c2da0539204980fedab489465698f1f5750e51df123e52d8012ec522c",
+      "bytes": 122890,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/screenshots/admin-390-offline.png",
+      "source": "/workspace/.nova-shield/batch6-2/screenshots/admin-390-offline.png",
+      "sha256": "1ee24c99414bdc4f70ccb72d53fda46229196dc30ab3bf37b1f6ce7a865de9bd",
+      "bytes": 129060,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/screenshots/admin-390-saved.png",
+      "source": "/workspace/.nova-shield/batch6-2/screenshots/admin-390-saved.png",
+      "sha256": "a2589dbfb89d59aec9b2a59f238f56e6df99d6061181a7ab365077efbb5698bf",
+      "bytes": 117690,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/screenshots/admin-430-offline.png",
+      "source": "/workspace/.nova-shield/batch6-2/screenshots/admin-430-offline.png",
+      "sha256": "c6a0997f419f24ac49ba2a529f42c20496edd322f1e8e31cec8b0b27d7988966",
+      "bytes": 127600,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/screenshots/admin-430-saved.png",
+      "source": "/workspace/.nova-shield/batch6-2/screenshots/admin-430-saved.png",
+      "sha256": "1152f1b1b7811529a8d44e132e79deb1b6a76ad8b40f925e6e86989add42d61f",
+      "bytes": 116296,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/screenshots/contact-offline.jpg",
+      "source": "/workspace/.nova-shield/batch6-2/screenshots/contact-offline.jpg",
+      "sha256": "f5501f20441c2daba7694a46719342724c6ec60cab205a659763c3cf790e7bfa",
+      "bytes": 202764,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/screenshots/contact-saved.jpg",
+      "source": "/workspace/.nova-shield/batch6-2/screenshots/contact-saved.jpg",
+      "sha256": "f2100ba1439a774bc2bb6a0367a5dd131e39cb192d93d4e09efd2a0e31537212",
+      "bytes": 198371,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/screenshots/field-1200-offline.png",
+      "source": "/workspace/.nova-shield/batch6-2/screenshots/field-1200-offline.png",
+      "sha256": "2cb5529a5ada9e0afcbef4e8f64a96589fe4b8c430a8929fa94783041b30f196",
+      "bytes": 145576,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/screenshots/field-1200-saved.png",
+      "source": "/workspace/.nova-shield/batch6-2/screenshots/field-1200-saved.png",
+      "sha256": "63fc4d26c48e60c1d56e04a5a7740be2d5c99c25729cf4ea4fa62725cabb5573",
+      "bytes": 134597,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/screenshots/field-390-offline.png",
+      "source": "/workspace/.nova-shield/batch6-2/screenshots/field-390-offline.png",
+      "sha256": "b08837a59faad13e5635c71cb2b72de2f2549f20842b9f9d1233ba7e29a26bf4",
+      "bytes": 137107,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/screenshots/field-390-saved.png",
+      "source": "/workspace/.nova-shield/batch6-2/screenshots/field-390-saved.png",
+      "sha256": "f9d19cb5f36298a44e16cc4f1caa2ae007ff91d670c5a0b71d4a8c4461da3c01",
+      "bytes": 125275,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/screenshots/field-430-offline.png",
+      "source": "/workspace/.nova-shield/batch6-2/screenshots/field-430-offline.png",
+      "sha256": "44992d566eb516a2043be90e8152472e060e6803ebe96aff015aaa854c1ef296",
+      "bytes": 135754,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/screenshots/field-430-saved.png",
+      "source": "/workspace/.nova-shield/batch6-2/screenshots/field-430-saved.png",
+      "sha256": "dd4f4d7371aa38c812ec79102c9fcfac20e5a222041983865164c7a6caff26bc",
+      "bytes": 123811,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch6-2/screenshots/views.json",
+      "source": "/workspace/.nova-shield/batch6-2/screenshots/views.json",
+      "sha256": "429d476f2634d5e7b4f81cbeb96868231bcc82da2c7d17a79e8d65e2cffcbfd3",
+      "bytes": 16925,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/baseline-field-resilience-extended.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/baseline-field-resilience-extended.log",
+      "sha256": "1417591229ef51f47a1d83b783c8596d773d7b5784157534e4c9878a714537e9",
+      "bytes": 4183,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/baseline-field-resilience.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/baseline-field-resilience.log",
+      "sha256": "695b9e0e76c61dc400cefe5996124848f89a4c0724b5c3b8f78e1a05989c39c5",
+      "bytes": 2173,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/baseline-measurement-entry.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/baseline-measurement-entry.log",
+      "sha256": "f4dd5fa490a128e4a5b59b369eddb9d6fcff32316c39f7bd7b76ba73f89b7473",
+      "bytes": 2676,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/baseline-mobile-reliability.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/baseline-mobile-reliability.log",
+      "sha256": "90fb4728e091787ac4541145e92b0cf605d7005995b190de9c972c4cabef31aa",
+      "bytes": 2150,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/field-resilience-before-passport-review.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/field-resilience-before-passport-review.log",
+      "sha256": "3105c187412925f9d068b622e5bc9efda9bfe484b13a3e1f054efc4908f8a1c8",
+      "bytes": 2805,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/field-resilience.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/field-resilience.log",
+      "sha256": "2e50aa704a8a70eb9eec5f126da4e1684c469aef3cecca6cda3827c1587c6b25",
+      "bytes": 2531,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/geofence.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/geofence.log",
+      "sha256": "7b0f2ce5f942e574362ba8f6b261cd4233f29f9fa88ecf01899d9a2ede0a3825",
+      "bytes": 840,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/measurement-entry.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/measurement-entry.log",
+      "sha256": "18e88999b33d48c3991936919c52c0f4270e0c6a486b9efced6c95bf2bd30a18",
+      "bytes": 2676,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/mobile-reliability.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/mobile-reliability.log",
+      "sha256": "412a358a2176c8a86619f053fd728c5444b0894acb8d997f0bab76cd69a5316f",
+      "bytes": 2150,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/native-wrapper.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/native-wrapper.log",
+      "sha256": "36bf4094c402184277e25b879a466d5a5749e1090981f1af5dd135e2713ced64",
+      "bytes": 1894,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/phase10-5.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/phase10-5.log",
+      "sha256": "70c79687ab5ba712961af9da480cba5575f73265e2be26c706268c69f488bb44",
+      "bytes": 1152,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/phase10.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/phase10.log",
+      "sha256": "a95ff9388fae7d5d8937428ed67919144ea5689a286a5544bd4fd281c89c659c",
+      "bytes": 1907,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/phase11.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/phase11.log",
+      "sha256": "cdc7fa46dc7f7093a634c8d6004aec21a17a01e0465e52545a44ab3c486af603",
+      "bytes": 1922,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/phase12.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/phase12.log",
+      "sha256": "6f9d1c70f0578234a7308f66add6cb12e9547aa866ee077de2f376316610d0d0",
+      "bytes": 1883,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/phase13.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/phase13.log",
+      "sha256": "f39f2e76533086d0533dd3a4d0efcb0952b7c67b14a9e02752b8593f0edf7f93",
+      "bytes": 1879,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/phase14.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/phase14.log",
+      "sha256": "fd882eb369e7efeff8a81e2a8d7f864841198da6facbecd0a427ae0b3e34d942",
+      "bytes": 1583,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/phase15.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/phase15.log",
+      "sha256": "f510b4e9f6da418b4504130805b921c11cdeeeec4cbae81eb9d50d4ce110f3ec",
+      "bytes": 1703,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/phase16.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/phase16.log",
+      "sha256": "410fc1f94ad97e64c72e4b9fb0f616413d3621be2ed93ff9c3a1ce76e4aa9cc2",
+      "bytes": 1333,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/phase17.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/phase17.log",
+      "sha256": "892838f661c8fc922e532c7344578201723295625771229b96470e6159464061",
+      "bytes": 1412,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/phase18.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/phase18.log",
+      "sha256": "3f16b157b6cf9eac9ceb420edb41e1373dea1ac4d4da1e36a0adfaa1554bd728",
+      "bytes": 3315,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/phase19.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/phase19.log",
+      "sha256": "d8db625b828206fb154613b53f1d710c7f17835e836cd14788aa0bd6cc456d0a",
+      "bytes": 2479,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/phase2.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/phase2.log",
+      "sha256": "029fea1a977123fe48888e72eb67e96d119ed13130b85ad0ce6d6b7864d933d2",
+      "bytes": 2305,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/phase20.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/phase20.log",
+      "sha256": "a5e1eb153f5094011fa1b50959c42d3a756da0bbd322c52fe1f9d72970d04e6c",
+      "bytes": 2050,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/phase3.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/phase3.log",
+      "sha256": "71d27ff59caa35a26511953655501ace2791f8c435e99b8b190fb5e954fd7c5b",
+      "bytes": 1396,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/phase4.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/phase4.log",
+      "sha256": "c1208eb6f445183126fd567f59b1d6b4d75444036778de129588cae3d696f3e9",
+      "bytes": 1930,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/phase5.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/phase5.log",
+      "sha256": "a7ce4fa14801f2dbce3d5651be02ace4c57f8336fe77e6962352354ec9373f6d",
+      "bytes": 1638,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/phase6.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/phase6.log",
+      "sha256": "0c78592b585301116fa50493d36131ce639ec7ef60f410504a8307f60e86812c",
+      "bytes": 1603,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/phase7.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/phase7.log",
+      "sha256": "8dfc0a9c9408886d8fe141ce017cd9c2c2715954b420d8cad586b275e66d7040",
+      "bytes": 1883,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/phase8.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/phase8.log",
+      "sha256": "49affc3071e7929aa3a27ec4246f6e982ddaeaaaad02aa8d4d686acb3e8353c0",
+      "bytes": 1875,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/phase9.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/phase9.log",
+      "sha256": "7fd051d10d4639d843d69bf3da32f7b22b442dd90b847a355366bb5a0efe069f",
+      "bytes": 1665,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/logs/reload-offline.txt",
+      "source": "/workspace/.nova-shield/batch7-2/logs/reload-offline.log",
+      "sha256": "b83daeb247634d4eedc1f18dddd3ae87a41c96771c899bfdc666e1754ef1e163",
+      "bytes": 560,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/screenshots/1200-failed-outbox.png",
+      "source": "/workspace/.nova-shield/batch7-2/screenshots/1200-failed-outbox.png",
+      "sha256": "8c6143a6a2cf97ef4c89ba8ccd39cb77d49556e5a92740b650f4f9ad5333fd69",
+      "bytes": 61268,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/screenshots/1200-large-schedule.png",
+      "source": "/workspace/.nova-shield/batch7-2/screenshots/1200-large-schedule.png",
+      "sha256": "72e62fddb0d2056367690e137c6592ce59f8d4bff2248fed796f6df38164cde2",
+      "bytes": 67877,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/screenshots/1200-load-error.png",
+      "source": "/workspace/.nova-shield/batch7-2/screenshots/1200-load-error.png",
+      "sha256": "1b155eb60c08b06a02ed38d91850a241aed4bff6bc88d0bd773587e5d0836f53",
+      "bytes": 22064,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/screenshots/1200-many-measurements.png",
+      "source": "/workspace/.nova-shield/batch7-2/screenshots/1200-many-measurements.png",
+      "sha256": "54b2c0765d96f3ce62dcb9a0fd6967bee1795b46f81db84cf5152338530a186b",
+      "bytes": 74891,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/screenshots/1200-saving-passport.png",
+      "source": "/workspace/.nova-shield/batch7-2/screenshots/1200-saving-passport.png",
+      "sha256": "734ee276f8296b5acf6e34b442e08d786193b3ce49e7e9a4f9af0599fdf173a3",
+      "bytes": 63989,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/screenshots/1200-stale-data.png",
+      "source": "/workspace/.nova-shield/batch7-2/screenshots/1200-stale-data.png",
+      "sha256": "113a5878716032c2c65441fbcf16d7f3f36198782a006309f9dd0e5df90e492e",
+      "bytes": 79949,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/screenshots/390-failed-outbox.png",
+      "source": "/workspace/.nova-shield/batch7-2/screenshots/390-failed-outbox.png",
+      "sha256": "f905c56598b73febe753b8d505fb30872d718fb211a1df50a491cba99390f922",
+      "bytes": 52001,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/screenshots/390-large-schedule.png",
+      "source": "/workspace/.nova-shield/batch7-2/screenshots/390-large-schedule.png",
+      "sha256": "dce35ec10118f6b1f4bcf7de4ef26d16f1569c7c065f95f9b21a7ee65ec01e5e",
+      "bytes": 60807,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/screenshots/390-load-error.png",
+      "source": "/workspace/.nova-shield/batch7-2/screenshots/390-load-error.png",
+      "sha256": "99b1797da27c9762c8ea796b11c2d6df4084d81d2e1a5e7cfe4d2b6f18a24e78",
+      "bytes": 18905,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/screenshots/390-many-measurements.png",
+      "source": "/workspace/.nova-shield/batch7-2/screenshots/390-many-measurements.png",
+      "sha256": "071ce95fff16b13b942e3c28bb0a36d623d2b4c6faf6d45b95422b1f40b93564",
+      "bytes": 58124,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/screenshots/390-saving-passport.png",
+      "source": "/workspace/.nova-shield/batch7-2/screenshots/390-saving-passport.png",
+      "sha256": "a8d6fb501c4481be6bf0abdf7f2731fdcba607b6bea4a174079a5f041fec7a26",
+      "bytes": 50331,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/screenshots/390-stale-data.png",
+      "source": "/workspace/.nova-shield/batch7-2/screenshots/390-stale-data.png",
+      "sha256": "7fa3262ec1c24582c8559aa94ebd24aa5b0bc4435ee252e3bb925a5ba5fed252",
+      "bytes": 63040,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/screenshots/430-failed-outbox.png",
+      "source": "/workspace/.nova-shield/batch7-2/screenshots/430-failed-outbox.png",
+      "sha256": "68971622de12df5e0ea29a6360a9e937aae28fa0626d66220807fde7e48599ab",
+      "bytes": 52442,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/screenshots/430-large-schedule.png",
+      "source": "/workspace/.nova-shield/batch7-2/screenshots/430-large-schedule.png",
+      "sha256": "b759b9010878b9027c95f7b12e2c10192bee7666da97faf7c4d16ca1c79e07fb",
+      "bytes": 61005,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/screenshots/430-load-error.png",
+      "source": "/workspace/.nova-shield/batch7-2/screenshots/430-load-error.png",
+      "sha256": "80d692afdaea208e0e455fcfff94197b3a0aa7820fbe1265a878290b400adb87",
+      "bytes": 18639,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/screenshots/430-many-measurements.png",
+      "source": "/workspace/.nova-shield/batch7-2/screenshots/430-many-measurements.png",
+      "sha256": "b94e04529cf0e0648d843a8a6fc470dbdb8b1ae83f2e60ebdf2cd4b6d02ff500",
+      "bytes": 62199,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/screenshots/430-saving-passport.png",
+      "source": "/workspace/.nova-shield/batch7-2/screenshots/430-saving-passport.png",
+      "sha256": "dff68779cbfd1099204a0e23bc7352d0e2417c465a005a1b87c04c27e5b4f825",
+      "bytes": 50733,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/screenshots/430-stale-data.png",
+      "source": "/workspace/.nova-shield/batch7-2/screenshots/430-stale-data.png",
+      "sha256": "3619339e2f8b0d9c0d1c4b3c6eb22e4180374ec8183dfd8a16241bef5e6a1c1d",
+      "bytes": 63174,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/screenshots/contact-1200.jpg",
+      "source": "/workspace/.nova-shield/batch7-2/screenshots/contact-1200.jpg",
+      "sha256": "fa6e2b9bf25042053004ca780faed457a49386d7cd158cb4b6f8ffa990e106e6",
+      "bytes": 106670,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/screenshots/contact-390.jpg",
+      "source": "/workspace/.nova-shield/batch7-2/screenshots/contact-390.jpg",
+      "sha256": "83ab6e5c77c2dd2b28d9835e8c8f1d4f21167772fbb537f5a86d86d122f96677",
+      "bytes": 241068,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/screenshots/contact-430.jpg",
+      "source": "/workspace/.nova-shield/batch7-2/screenshots/contact-430.jpg",
+      "sha256": "962a7650f5a91ff782981a2d06bd05cf0023a853df51c14d5bb35f206ea10783",
+      "bytes": 248616,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/screenshots/views.json",
+      "source": "/workspace/.nova-shield/batch7-2/screenshots/views.json",
+      "sha256": "0fb034de671d5545b4f4a005215e6bdfa3b37841487bbbb9e10faa12ad887687",
+      "bytes": 2450,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch7-2/validation.json",
+      "source": "/workspace/.nova-shield/batch7-2/validation.json",
+      "sha256": "ebc18704384950db533dec2802c52dd1855cc91f6ca98e3490bbfce64ef7fa87",
+      "bytes": 2052,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/cap-sync.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/cap-sync.log",
+      "sha256": "89fc3447223243661f5894576a32ed2809df26bcf487afca67ce21b22bc1bb15",
+      "bytes": 561,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/field-resilience.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/field-resilience.log",
+      "sha256": "3f400ba2f319212ad6cd6be085dcd089675a8315c96ab5db3528f211be1c9211",
+      "bytes": 2531,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/geofence.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/geofence.log",
+      "sha256": "2c112f44eb9ad5c6f5bca9c299af5e3e7e85391b90c0561e48849c9b0776aeb4",
+      "bytes": 840,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/measurement-entry.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/measurement-entry.log",
+      "sha256": "faf97ca135cefac67057b19757aa6419e5f76f24f24f433f35933b27a96b1bad",
+      "bytes": 2676,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/mobile-reliability.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/mobile-reliability.log",
+      "sha256": "49c7da586398c7bb4dec7b29af53d394f7855412b73dc7d3e914de8251ad78c8",
+      "bytes": 2150,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/native-bundle-baseline.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/native-bundle-baseline.log",
+      "sha256": "b111a7d8924a123ab8eb8cb299d91b14cd93b4a78cc7d2411a8203a550a5b615",
+      "bytes": 4083,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/native-bundle.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/native-bundle.log",
+      "sha256": "599af13d47d5b90a3ef2904aa3b08d672c4a1af2596f20ce6e57fb4a9105c38c",
+      "bytes": 874,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/native-readiness-baseline.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/native-readiness-baseline.log",
+      "sha256": "65b14720956cdf8bd1fd15d6ee7154beac9d557d0c4b90afc490d11e1604d444",
+      "bytes": 3300,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/native-readiness.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/native-readiness.log",
+      "sha256": "12a1efe16399eebe915391a8b19a5f6f5462e9b5732526ea532cf2a6eab08df1",
+      "bytes": 2131,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/native-wrapper.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/native-wrapper.log",
+      "sha256": "4132f8299037596c76b7f8ba03e5b20d1ea1048c1bfc73160fde816f381141cc",
+      "bytes": 1894,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/npm-ci-blocked.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/npm-ci-blocked.log",
+      "sha256": "4cf358398592a47109312eebe2055874f688238bcf31f0ae609f740a7bd47305",
+      "bytes": 1256,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/phase10-5.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/phase10-5.log",
+      "sha256": "73b904df292e6b4ea648b8f19e4da6e7f529105621a3388b621fc117a6b73066",
+      "bytes": 1152,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/phase10.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/phase10.log",
+      "sha256": "6a60c6a607c1c2120a9a94009d96db27f5a3c55c1174fb4db4f3785551e23c28",
+      "bytes": 1907,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/phase11.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/phase11.log",
+      "sha256": "c74c73e344be98f227065cd27c7f526287c34cfbb3c412e437314773e25c133b",
+      "bytes": 1922,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/phase12.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/phase12.log",
+      "sha256": "2e73fcc4799a8d5944d3d6f975e7326f728b24b49431eb69aa57407c9737d146",
+      "bytes": 1883,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/phase13.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/phase13.log",
+      "sha256": "d4f48c02ea8f86d865a6b8751f1d6767a6d2f8e54ef7013781bfc8239cb7f0a9",
+      "bytes": 1879,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/phase14.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/phase14.log",
+      "sha256": "b0001da5aff3a6d1e26cac8e460ab6527d9f074a5f95f59f9ddd8b0270bed8dd",
+      "bytes": 1583,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/phase15.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/phase15.log",
+      "sha256": "0c197e9e4788e9731bb22db1f529eba6c67158a2a576ef4c4979208cfda3232b",
+      "bytes": 1703,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/phase16.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/phase16.log",
+      "sha256": "569ce809ff122564da50d9117fc5f87c3c89783d45a99bc94bf34d83b434af49",
+      "bytes": 1333,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/phase17.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/phase17.log",
+      "sha256": "fe2ebc361f3a1338a2f117ab896260241d96fa0b0f8995648920e16363115200",
+      "bytes": 1412,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/phase18.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/phase18.log",
+      "sha256": "b30afa95e87ed1939839f07f387a503b997e05b977bfbb6889c72d84d3988c65",
+      "bytes": 3315,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/phase19.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/phase19.log",
+      "sha256": "f7e1e9b84b5ff40a7f63baf71816a4bec9da8d9c26fef686bee98a85b7f8d210",
+      "bytes": 2479,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/phase2.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/phase2.log",
+      "sha256": "d5cd9a7843f3ecb17cf5147aeb608b0f3e67e3250e1b1d1bef45c73047c7921c",
+      "bytes": 2305,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/phase20.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/phase20.log",
+      "sha256": "384f58176521abea5b0652790b1e2a1990b9c7ef68bf8e3d9ddc24a1e2d88942",
+      "bytes": 2050,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/phase3.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/phase3.log",
+      "sha256": "1b1499f9713a0e1db4228439b0fbf2b8455110e55d408f1bf547fd5541714ecd",
+      "bytes": 1396,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/phase4.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/phase4.log",
+      "sha256": "ebb6994b80d1e35e93a8da1af0349d09b6fd85b1c4196213fa94501ad68d9dc9",
+      "bytes": 1930,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/phase5.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/phase5.log",
+      "sha256": "5e5a0850977ccd24a31093953a464e2c55e913e3d817639f2ed16bfe6b143d78",
+      "bytes": 1638,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/phase6.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/phase6.log",
+      "sha256": "a4046cbdf741420464002e8894077f69e9736193b69d3b451dac9b9252cf5efe",
+      "bytes": 1603,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/phase7.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/phase7.log",
+      "sha256": "32b4a79a051498b1ab32be0011592a1740c8e97f8ed9e90dfb5fb697c0e15951",
+      "bytes": 1883,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/phase8.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/phase8.log",
+      "sha256": "f9099c5ce19c539f37898d906cd406d040199badeeaea7a3aff969d65fa0bcc7",
+      "bytes": 1875,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/phase9.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/phase9.log",
+      "sha256": "63cc28fffd056e794c1518a8e7d7f036367531da416284e5235d1bd33b88b970",
+      "bytes": 1665,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/logs/reload-offline.txt",
+      "source": "/workspace/.nova-shield/batch8-2/logs/reload-offline.log",
+      "sha256": "d2e1d7e1548b39277e8993564fa0fe1d06d44c2da56e582d62231148c186c2e1",
+      "bytes": 560,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/historical/results.json",
+      "source": "/workspace/.nova-shield/batch8-2/results.json",
+      "sha256": "c7d38a1cedbb0337399abc24bfc854bc7925ebf0f98fe6525d4276a4e3269acf",
+      "bytes": 2602,
+      "classification": "superseded intermediate output"
+    },
+    {
+      "path": "artifacts/batch8-2/screenshots/1200-dark-outbox-error.png",
+      "source": "/workspace/.nova-shield/batch8-2/screenshots/1200-dark-outbox-error.png",
+      "sha256": "67e35d465fe0447b6b79043a67a22bbcd537dac2e2fda0faa68902e00890c602",
+      "bytes": 69736,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/screenshots/1200-dark-passport-progress.png",
+      "source": "/workspace/.nova-shield/batch8-2/screenshots/1200-dark-passport-progress.png",
+      "sha256": "f6dcf4d7071c374f0c2b9a9e909b0fcf17b2b0d1c30ba05df8ebd4125c4a78ff",
+      "bytes": 65750,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/screenshots/1200-dark-quantity-recovery.png",
+      "source": "/workspace/.nova-shield/batch8-2/screenshots/1200-dark-quantity-recovery.png",
+      "sha256": "77440e99b7cc194f48511f2b2858f0912ecd62601c9ed7e303ca7cbd1c2a8e4e",
+      "bytes": 79403,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/screenshots/1200-light-outbox-error.png",
+      "source": "/workspace/.nova-shield/batch8-2/screenshots/1200-light-outbox-error.png",
+      "sha256": "4cb903694bd6d7791e058ce1a2442fe9e2b2e6e0a1d54bda0f781684e3d1c39c",
+      "bytes": 69923,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/screenshots/1200-light-passport-progress.png",
+      "source": "/workspace/.nova-shield/batch8-2/screenshots/1200-light-passport-progress.png",
+      "sha256": "c02b6873e928b11290f5ca5dea45cc3a0ae320316c19c515b8833df082e7da23",
+      "bytes": 64443,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/screenshots/1200-light-quantity-recovery.png",
+      "source": "/workspace/.nova-shield/batch8-2/screenshots/1200-light-quantity-recovery.png",
+      "sha256": "67cbf7fd779bb6849431db4812fc9eb274d31f1f7d356569545983d3563e58aa",
+      "bytes": 77069,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/screenshots/390-dark-outbox-error.png",
+      "source": "/workspace/.nova-shield/batch8-2/screenshots/390-dark-outbox-error.png",
+      "sha256": "918ddda7525cd5c8e6ccd696d870effc44b5e5ae776fe427aeecae402d23812f",
+      "bytes": 57503,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/screenshots/390-dark-passport-progress.png",
+      "source": "/workspace/.nova-shield/batch8-2/screenshots/390-dark-passport-progress.png",
+      "sha256": "4a0d346d45791f3c9f530352df98ec2bd1bf83e306bb283727ddcc96e8f281a5",
+      "bytes": 47915,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/screenshots/390-dark-quantity-recovery.png",
+      "source": "/workspace/.nova-shield/batch8-2/screenshots/390-dark-quantity-recovery.png",
+      "sha256": "0d699d3eb58bb31df7116e57fc7fd4dc8017247a64e9d90513e727d1851f8a20",
+      "bytes": 62470,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/screenshots/390-light-outbox-error.png",
+      "source": "/workspace/.nova-shield/batch8-2/screenshots/390-light-outbox-error.png",
+      "sha256": "6eb994c0d2df6d805b3cf141e3906335cab83549afcfd640b8fe8aa0c4f59d49",
+      "bytes": 57627,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/screenshots/390-light-passport-progress.png",
+      "source": "/workspace/.nova-shield/batch8-2/screenshots/390-light-passport-progress.png",
+      "sha256": "a6a5476ad755e95475790db2ed005da9dc7acc5665c8209823caf14b0d80de8e",
+      "bytes": 46723,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/screenshots/390-light-quantity-recovery.png",
+      "source": "/workspace/.nova-shield/batch8-2/screenshots/390-light-quantity-recovery.png",
+      "sha256": "4493789e5007b1fe53e7cd77de92fb2e899b15d0f4e1b6517ac1efb26343093c",
+      "bytes": 60559,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/screenshots/430-dark-outbox-error.png",
+      "source": "/workspace/.nova-shield/batch8-2/screenshots/430-dark-outbox-error.png",
+      "sha256": "2b8f6db6d1055105be55abd3942c2211e6978b8cf36af776c098b41bf15fd1bc",
+      "bytes": 57797,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/screenshots/430-dark-passport-progress.png",
+      "source": "/workspace/.nova-shield/batch8-2/screenshots/430-dark-passport-progress.png",
+      "sha256": "56ba77899c185cc700564acd06804dc5802b7a97cb7e3b050da976f3f9b2ad87",
+      "bytes": 47974,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/screenshots/430-dark-quantity-recovery.png",
+      "source": "/workspace/.nova-shield/batch8-2/screenshots/430-dark-quantity-recovery.png",
+      "sha256": "ff98831679e01ed2e7e18dd93f5b62af36272f110cd8e63c58f086244346774f",
+      "bytes": 64637,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/screenshots/430-light-outbox-error.png",
+      "source": "/workspace/.nova-shield/batch8-2/screenshots/430-light-outbox-error.png",
+      "sha256": "a2106a784f5adfeb72fd2095bb0218bbe0164bfd1a90f9f29dfbcf6405b3f24f",
+      "bytes": 57896,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/screenshots/430-light-passport-progress.png",
+      "source": "/workspace/.nova-shield/batch8-2/screenshots/430-light-passport-progress.png",
+      "sha256": "773ab8ef74e63c6bcc7b18d96b4725e4fb75908b5260f8ac133621cfd5c4c747",
+      "bytes": 46844,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/screenshots/430-light-quantity-recovery.png",
+      "source": "/workspace/.nova-shield/batch8-2/screenshots/430-light-quantity-recovery.png",
+      "sha256": "258e8b9a33af84230f578e1cc08e35948dafea26c84f7c69c606d48397713d14",
+      "bytes": 62979,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/historical/screenshots/contact-390.jpg",
+      "source": "/workspace/.nova-shield/batch8-2/screenshots/contact-390.jpg",
+      "sha256": "f91d1361cb511abf7113db1774c32e8c55eb8d245231aa5d23bfeb4ae78832f8",
+      "bytes": 442513,
+      "classification": "superseded intermediate output"
+    },
+    {
+      "path": "artifacts/batch8-2/historical/screenshots/contact-430.jpg",
+      "source": "/workspace/.nova-shield/batch8-2/screenshots/contact-430.jpg",
+      "sha256": "2ef3fd6e187af111ddf3ac2584e45c5e5fd91d668c76b7572d9d3cbbae2cf70a",
+      "bytes": 466067,
+      "classification": "superseded intermediate output"
+    },
+    {
+      "path": "artifacts/batch8-2/screenshots/views.json",
+      "source": "/workspace/.nova-shield/batch8-2/screenshots/views.json",
+      "sha256": "f5835c2a2331c68c3c703d6937b6c1f572903379c293435f1a696771b29c55c8",
+      "bytes": 2726,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "artifacts/batch8-2/validation.json",
+      "source": "/workspace/.nova-shield/batch8-2/validation.json",
+      "sha256": "1f9996f8861e4d14d2131a5d36881a522f18972523db002e2ecade99c2e9ba7e",
+      "bytes": 1956,
+      "classification": "recorded batch evidence; see README"
+    },
+    {
+      "path": "source/admin/css/admin.css",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:admin/css/admin.css",
+      "sha256": "a0f4fea7160e9b7dcef2fb9d77cd699fdf02d30ddb62b7210ddc8e4f4c405acd",
+      "bytes": 16430,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/admin/js/components/christmas-lighting-calculator.js",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:admin/js/components/christmas-lighting-calculator.js",
+      "sha256": "8df5ab962b1d7c4baedf9ebe9ceae716dd5db1c0290c21b5d18e861a2e496be4",
+      "bytes": 12384,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/admin/js/components/concrete-cleaning-calculator.js",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:admin/js/components/concrete-cleaning-calculator.js",
+      "sha256": "e3f88ba13cd1a0c13adf7800f71b9844566c2b8994de16ba21bc55aa682fbcaa",
+      "bytes": 9699,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/admin/js/components/deck-cleaning-calculator.js",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:admin/js/components/deck-cleaning-calculator.js",
+      "sha256": "8e7383d68d76d5447e59feb16a62d3b9bb17112df047efa4d1c1145a480c45f5",
+      "bytes": 9310,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/admin/js/components/fence-cleaning-calculator.js",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:admin/js/components/fence-cleaning-calculator.js",
+      "sha256": "f0fa1fcce6a8c999b37971248d1ece09caa8c5260b1a8f2c62c0ffcab9e2b02c",
+      "bytes": 12927,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/admin/js/components/graffiti-removal-calculator.js",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:admin/js/components/graffiti-removal-calculator.js",
+      "sha256": "522fb5aedfe9dee103790975dc275d54d680e8c11e19d379095a34e455d52918",
+      "bytes": 10116,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/admin/js/components/gutter-brightening-calculator.js",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:admin/js/components/gutter-brightening-calculator.js",
+      "sha256": "fd670403ce595b38b4f1ce8d8b4715e1917486c35b0af0852506d64ab1a8d88e",
+      "bytes": 11299,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/admin/js/components/heating-wire-calculator.js",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:admin/js/components/heating-wire-calculator.js",
+      "sha256": "619312594118ea51d6583ef1d8cddcc38f365c8c2961d239ac24c3c749c95689",
+      "bytes": 15870,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/admin/js/components/moss-removal-calculator.js",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:admin/js/components/moss-removal-calculator.js",
+      "sha256": "e397665966fe993607957a05c834abf86f5568e6103d73c8b9405acedb0a8508",
+      "bytes": 12175,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/admin/js/components/permanent-lighting-calculator.js",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:admin/js/components/permanent-lighting-calculator.js",
+      "sha256": "0ae1bb62c5240532bb27d3945375b9909a6ae6c919ac540d0a31e7907566772a",
+      "bytes": 12085,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/admin/js/components/roof-cleaning-calculator.js",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:admin/js/components/roof-cleaning-calculator.js",
+      "sha256": "d2f02081cd2ca2f445bb913c4afe53c6883ea318c7d28963446d818a555f8dd7",
+      "bytes": 9829,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/admin/js/components/siding-calculator.js",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:admin/js/components/siding-calculator.js",
+      "sha256": "ab3a422e25e26e134244d7cba4337dbe45fe388ad3973e517d48a63c5f7e3a2d",
+      "bytes": 8964,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/admin/js/components/window-cleaning-calculator.js",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:admin/js/components/window-cleaning-calculator.js",
+      "sha256": "a4864a2e2a386d027b59bd9f684d5475db7c77ab6e70b4fec2bd592558accdd7",
+      "bytes": 12232,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/admin/js/components/winter-property-care-calculator.js",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:admin/js/components/winter-property-care-calculator.js",
+      "sha256": "77cf90730d5e1cfd49ba5de35d5e2207481fef1a97effc934e059017b709b02e",
+      "bytes": 12119,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/admin/js/field.js",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:admin/js/field.js",
+      "sha256": "e0961cbd4533226c543d8664d415d89308ccc9868620ce90a22ef5d1890b3ccb",
+      "bytes": 13468,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/admin/js/lib/measurement-entry.js",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:admin/js/lib/measurement-entry.js",
+      "sha256": "4a0183b13071b75d5ef6777df4719eabdd354c5ad698f3d72a4fcd7688c65de8",
+      "bytes": 11382,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/admin/js/lib/navigation.js",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:admin/js/lib/navigation.js",
+      "sha256": "24873b42e9908df0389e549606ed3d2eb1216c6ebb9694796e4a078a0451c45d",
+      "bytes": 13904,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/admin/js/lib/offline-queue.js",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:admin/js/lib/offline-queue.js",
+      "sha256": "f58b70f423575023d7750a42b073abeb8908903db7335c2caf2dd6d03e1bbb80",
+      "bytes": 11225,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/admin/js/main.js",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:admin/js/main.js",
+      "sha256": "82c18771615c77c34e6eaaf84e9b01cef3ccdc4c4a88dd01db0796e7f64aa674",
+      "bytes": 10328,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/admin/js/views/field-workspace.js",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:admin/js/views/field-workspace.js",
+      "sha256": "21c3947f84af08432e1c75831b178229971878c324706f578b3347b3a09cd79f",
+      "bytes": 29599,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/admin/js/views/job.js",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:admin/js/views/job.js",
+      "sha256": "689cd1a8de3b7e625b376a7804c7fe2add5e517a38649305dbf9d68d72234fc8",
+      "bytes": 46285,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/admin/js/views/measurements.js",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:admin/js/views/measurements.js",
+      "sha256": "5b01738f195448e82fc683b44dcb57e749c853afe97a322d1c6ce82b7a1fc003",
+      "bytes": 18951,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/android/app/capacitor.build.gradle",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:android/app/capacitor.build.gradle",
+      "sha256": "35427fe0da23fb9b1bc26fe34a845b4921038200a31f65adc52847ac634e2d78",
+      "bytes": 715,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/android/app/src/main/AndroidManifest.xml",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:android/app/src/main/AndroidManifest.xml",
+      "sha256": "1330b4e06c64bb1192eb39d97446cec4b6e23d58ba29486b2208badad05dd92f",
+      "bytes": 1782,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/android/capacitor.settings.gradle",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:android/capacitor.settings.gradle",
+      "sha256": "a4c18ded71d16425e1e118f4a0a4d0aa6d4f0f41f3720a3e41dfe7ce8cc3794e",
+      "bytes": 1112,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/scripts/sync-mobile.js",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:scripts/sync-mobile.js",
+      "sha256": "b073092f8d065c494e50f584c88cbaebe3b690590573bde3a8048b4b0f1f4360",
+      "bytes": 6633,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/tests/README.md",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:tests/README.md",
+      "sha256": "1ec7a7ff30edbf7e8f316a4f98cc1c585a8e2df44743c4fcb267ecb4651adcb4",
+      "bytes": 8737,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/tests/field-resilience-fixture.mjs",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:tests/field-resilience-fixture.mjs",
+      "sha256": "839040cbf54f6268a7302ce82bafffa12a72ab69d46c48dc3c212abfb9c0528d",
+      "bytes": 6192,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/tests/field-resilience.md",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:tests/field-resilience.md",
+      "sha256": "1fd0a1199ecafda59dec4867366902e680478058a873cc211d551ad8bec27e12",
+      "bytes": 7659,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/tests/field-resilience.test.mjs",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:tests/field-resilience.test.mjs",
+      "sha256": "2d2a54651cd460106b1b1fea228d538d4017c0393a9aef139b5ed5c645ab2b08",
+      "bytes": 23794,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/tests/measurement-entry.test.mjs",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:tests/measurement-entry.test.mjs",
+      "sha256": "d823e518a3376e82a4355122887ca9b094f22c494558f290adc3fa7343d0881a",
+      "bytes": 21108,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/tests/mobile-reliability-fixture.mjs",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:tests/mobile-reliability-fixture.mjs",
+      "sha256": "04db102a54f131ecf6509e822b4362f75ada2ef7c32e146011327d434d8a8328",
+      "bytes": 5008,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/tests/mobile-reliability.md",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:tests/mobile-reliability.md",
+      "sha256": "b6139680bcfde87bfbb2573f180e834175ed31c6a92f432437d44f138719a55d",
+      "bytes": 5929,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/tests/mobile-reliability.test.mjs",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:tests/mobile-reliability.test.mjs",
+      "sha256": "d93f4987b43e13be8bbbed6a3d08739336bcf20d489618acd61139a80c7e6a8c",
+      "bytes": 13719,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/tests/native-bundle.test.mjs",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:tests/native-bundle.test.mjs",
+      "sha256": "08f71eddf9d425f2838ddfd1d619eb385a105df3c1ca79eb63ae03f5626005ac",
+      "bytes": 5645,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/tests/native-readiness-fixture.mjs",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:tests/native-readiness-fixture.mjs",
+      "sha256": "577f8b46a059952e429b6cdf6ebc9766b2e7a804f3ddd74deb1ceed0623f6727",
+      "bytes": 2758,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/tests/native-readiness.md",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:tests/native-readiness.md",
+      "sha256": "ab895a5391ff5a84c57d13b54b3959d256fba8a5c0faa8c7bbb04713b096ceac",
+      "bytes": 11558,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/tests/native-readiness.test.mjs",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:tests/native-readiness.test.mjs",
+      "sha256": "925c12f7ce4dcbe57439faf1986f804039f409a02832b34affcc436c1b30e65c",
+      "bytes": 16996,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/tests/phase10.test.mjs",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:tests/phase10.test.mjs",
+      "sha256": "810822bcf288ea60c441b8c2ffbbc032eb663cc8406e104840bdd11681d862a0",
+      "bytes": 23859,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/tests/phase11.test.mjs",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:tests/phase11.test.mjs",
+      "sha256": "239e4ebb483701d51fcdeef0bb0000e307ae3d447db1614c6768c0e78abdf0ab",
+      "bytes": 24336,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/tests/phase12.test.mjs",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:tests/phase12.test.mjs",
+      "sha256": "d7670334c0c43943f2fbd1b3bdb97729b776e491aba0412fb45ae6f4a9af9a95",
+      "bytes": 23602,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/tests/phase13.test.mjs",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:tests/phase13.test.mjs",
+      "sha256": "6b6105723cb5140768029e0c055aca646620838ee75689e97396c09c741ac613",
+      "bytes": 21943,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/tests/phase14.test.mjs",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:tests/phase14.test.mjs",
+      "sha256": "d82cb892e6bb60e3d7d443b14b5a8a640609dbdbba51dde39ffc567a34bc3dea",
+      "bytes": 18592,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/tests/phase7.test.mjs",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:tests/phase7.test.mjs",
+      "sha256": "0ed0166196da4af86ac335379d6225897235c8c26b151e264262c8117d5e4995",
+      "bytes": 20509,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/tests/phase8.test.mjs",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:tests/phase8.test.mjs",
+      "sha256": "f082b8949402ca975b7281739a5832071a2ac32807a51b10f267461dddb91928",
+      "bytes": 20945,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/tests/phase9.test.mjs",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:tests/phase9.test.mjs",
+      "sha256": "da45d157a878ea586ae4ea9f8df38e9e978fecaed10deabd3db8ab6a6eb4a36e",
+      "bytes": 20064,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/tests/run-regression.sh",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:tests/run-regression.sh",
+      "sha256": "94a688b18ec58f4d19790f9fef5eb035200e2a60f351f1c070c382e04f994af5",
+      "bytes": 1372,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/tests/screenshot-batch6-2.mjs",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:tests/screenshot-batch6-2.mjs",
+      "sha256": "1b7fb7af338306f7a30f9e489b77ef80f64847ab45437e0360f220d5b388a531",
+      "bytes": 2348,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/tests/screenshot-batch7-2.mjs",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:tests/screenshot-batch7-2.mjs",
+      "sha256": "dd546e396184f82aa0e7d54d86aef9d49a9d92bb694e67c7d8a9f3f2a9488769",
+      "bytes": 4277,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "source/tests/screenshot-batch8-2.mjs",
+      "source": "git:d33d17ec0b98654e42db1e8adda70580e9931b42:tests/screenshot-batch8-2.mjs",
+      "sha256": "ed040fb808330222082b6b3f294f9e872a1bab20316dd958cc628229b1112d4c",
+      "bytes": 2786,
+      "classification": "archived source snapshot"
+    },
+    {
+      "path": "patches/measurement-reliability.patch",
+      "source": "git format-patch f4cdbe552ebd4289920fe533af10371a1d4c7f0d",
+      "sha256": "fed6bf1ff5adbb20377a562fd0f6b3a42deb714b83cfd03109dfb24b6680ff51",
+      "bytes": 77829,
+      "classification": "committed code patch; review before applying"
+    },
+    {
+      "path": "patches/batch6-2.patch",
+      "source": "git format-patch d71f467ca72160092ef3b3ace2e50ae63bd512ee",
+      "sha256": "28c1dc5fd9613913c0ed9aa4008ae16beaa645d6b25b97815303af95c42012c7",
+      "bytes": 39439,
+      "classification": "committed code patch; review before applying"
+    },
+    {
+      "path": "patches/batch7-2.patch",
+      "source": "git format-patch a8b573f9b9f61b900ede70ff7affd3b04eb67ba9",
+      "sha256": "65e6ff0799de57da99ed72811b1546ef28a327f0d33e486ed5d61b50401c6572",
+      "bytes": 73243,
+      "classification": "committed code patch; review before applying"
+    },
+    {
+      "path": "patches/batch8-2.patch",
+      "source": "git format-patch d33d17ec0b98654e42db1e8adda70580e9931b42",
+      "sha256": "4527cb61a68777860dd13a764b782172c84dd144854fe39a328a618cd51838d7",
+      "bytes": 65569,
+      "classification": "committed code patch; review before applying"
+    },
+    {
+      "path": "artifacts/handoff/measurement-entry.txt",
+      "source": "fresh portable-loader measurement-entry reproduction",
+      "sha256": "ef90f586f3a5e1416e001120725815eb8feeca1cc721f6d74039d10f4531df6f",
+      "bytes": 2674,
+      "classification": "fresh 29/29 browser checks; loader verification only"
+    }
+  ]
+}

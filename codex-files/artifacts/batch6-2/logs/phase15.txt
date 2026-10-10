@@ -1,0 +1,20 @@
+(node:48245) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("/workspace/.nova-shield/test-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS - 1. Simplest quote: one service area, 4 visits, renders with correct total
+PASS - 2. Every real Scope option is offered with the real labels
+PASS - 3. Mixed Scope/Access: two service areas keep independent selections
+PASS - 4. Salting options show the flat-dollar suffix, same convention as Concrete's flat options
+PASS - 5. Access/Height have no per-row dropdown (section-driven); combined hint names both
+PASS - 6. Visit-count stepper: + increases via updateMeasurement, never creates/deletes the row
+PASS - 7. Provisional-pricing badge and hint show for this service (approval_status=provisional)
+PASS - 8. Minimum charge: card shows "minimum applied" without replacing the total
+PASS - 9. Review flag toggles review_required without touching quantity/section/label
+PASS - 10. Duplicate: copies section, visit count, Scope + Surface + Salting -- not review/reason/notes
+PASS - 11. No manual-adjustment UI; no bespoke RPC; no snow-event/recurring references in the component source
+PASS - 12a. Remove service area: calls deleteMeasurement after confirm
+PASS - 12b. Edit service area: rename persists
+PASS - 13. Multi-service: Winter Property Care + Heating Wire + Permanent Lighting + Siding + Concrete all coexist independently
+PASS - 14. Offline add-area: createMeasurement returning null does not throw
+
+15/15 passed

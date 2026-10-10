@@ -1,0 +1,141 @@
+[
+  {
+    "suite": "field-resilience",
+    "passed": 27,
+    "total": 27
+  },
+  {
+    "suite": "geofence",
+    "result": "passed standalone assertions; exit 0 verified"
+  },
+  {
+    "suite": "measurement-entry",
+    "passed": 29,
+    "total": 29
+  },
+  {
+    "suite": "mobile-reliability",
+    "passed": 22,
+    "total": 22
+  },
+  {
+    "suite": "native-bundle",
+    "passed": 10,
+    "total": 10
+  },
+  {
+    "suite": "native-readiness",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "suite": "native-wrapper",
+    "passed": 19,
+    "total": 19
+  },
+  {
+    "suite": "phase10-5",
+    "passed": 9,
+    "total": 9
+  },
+  {
+    "suite": "phase10",
+    "passed": 18,
+    "total": 18
+  },
+  {
+    "suite": "phase11",
+    "passed": 18,
+    "total": 18
+  },
+  {
+    "suite": "phase12",
+    "passed": 17,
+    "total": 17
+  },
+  {
+    "suite": "phase13",
+    "passed": 17,
+    "total": 17
+  },
+  {
+    "suite": "phase14",
+    "passed": 13,
+    "total": 13
+  },
+  {
+    "suite": "phase15",
+    "passed": 15,
+    "total": 15
+  },
+  {
+    "suite": "phase16",
+    "passed": 13,
+    "total": 13
+  },
+  {
+    "suite": "phase17",
+    "passed": 16,
+    "total": 16
+  },
+  {
+    "suite": "phase18",
+    "passed": 35,
+    "total": 35
+  },
+  {
+    "suite": "phase19",
+    "passed": 25,
+    "total": 25
+  },
+  {
+    "suite": "phase2",
+    "passed": 18,
+    "total": 18
+  },
+  {
+    "suite": "phase20",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "suite": "phase3",
+    "passed": 11,
+    "total": 11
+  },
+  {
+    "suite": "phase4",
+    "passed": 17,
+    "total": 17
+  },
+  {
+    "suite": "phase5",
+    "passed": 13,
+    "total": 13
+  },
+  {
+    "suite": "phase6",
+    "passed": 14,
+    "total": 14
+  },
+  {
+    "suite": "phase7",
+    "passed": 16,
+    "total": 16
+  },
+  {
+    "suite": "phase8",
+    "passed": 17,
+    "total": 17
+  },
+  {
+    "suite": "phase9",
+    "passed": 15,
+    "total": 15
+  },
+  {
+    "suite": "reload-offline",
+    "passed": 2,
+    "total": 2
+  }
+]

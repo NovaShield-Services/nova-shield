@@ -1,0 +1,22 @@
+(node:47889) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("/workspace/.nova-shield/test-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS - 1. Simple main run (no jump wire): renders with correct total, "+ Add jump wire" shown
+PASS - 2. Multiple main runs: total sums correctly
+PASS - 3. Mixed heights: Front (1 storey) and Rear (2 storeys) each show their own elevation hint
+PASS - 4. No per-row modifier dropdown exists on a main run (only the Elevation picker select)
+PASS - 5. Adding jump wire creates the single child row with quantity 0
+PASS - 6. Jump wire footage input persists via updateMeasurement and shows its own $ amount
+PASS - 7. Jump wire row is not auto-flagged for review (it has a real approved rate)
+PASS - 8. Removing jump wire calls deleteMeasurement, offers "+ Add jump wire" again
+PASS - 9. Card-level total combines main runs AND jump wire into one SERVICE TOTAL
+PASS - 10. Duplicate main run: copies section + footage -- not review/reason/notes
+PASS - 11a. Remove main run: calls deleteMeasurement after confirm
+PASS - 11b. Edit main run: rename and footage change both persist
+PASS - 12. No minimum-applied badge ever shows (real minimum is $0.00 for this service)
+PASS - 13. Review flag on a main run toggles review_required without touching quantity/section/label
+PASS - 14. No bespoke RPC/quote-pathway reference anywhere in the component source
+PASS - 15. Multi-service: Lighting+Jump, Siding, Gutter, Windows, Heating Wire+Valley all coexist -- each parent/child pair rolls up independently, no cross-contamination
+PASS - 16. Offline add-run: createMeasurement returning null does not throw
+
+17/17 passed

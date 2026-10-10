@@ -1,0 +1,23 @@
+(node:47188) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("/workspace/.nova-shield/test-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS - 1. Basic fence: one section renders with correct total
+PASS - 2. Multiple fence sections: total sums correctly
+PASS - 3. Mixed Condition: each fence section keeps its own independent selection
+PASS - 4. No Access control exists (real data has no access group for fence)
+PASS - 5. Mixed Material: each fence section keeps its own independent selection
+PASS - 6a. Sides renders as exactly one job-level control, not per-row
+PASS - 6b. Changing Sides fans out setMeasurementModifier to every existing fence section
+PASS - 7. No flat-addon or gate control exists; Fence height renders as a real per-row control
+PASS - 8. Duplicate: copies section, footage, Condition + Material + Sides -- not review/reason/notes
+PASS - 9a. Remove fence section: calls deleteMeasurement after confirm
+PASS - 9b. Edit fence section: rename and footage change both persist
+PASS - 10. Minimum charge: card shows "minimum applied" without replacing the total
+PASS - 11. Review flag toggles review_required without touching quantity/section/label
+PASS - 12. No manual-adjustment UI inside the calculator (quote-level concept)
+PASS - 13. No bespoke RPC/quote-pathway reference anywhere in the component source
+PASS - 14. No per-row dollar figure is invented in the DOM (only the card-level total, from pricedRows)
+PASS - 15. Multi-service: Fence + Siding + Gutter + Concrete + Deck + Windows + Roof + Heating Wire all coexist with correct independent totals
+PASS - 16. Offline add-section: createMeasurement returning null does not throw
+
+18/18 passed

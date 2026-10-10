@@ -1,0 +1,1359 @@
+From a8b573f9b9f61b900ede70ff7affd3b04eb67ba9 Mon Sep 17 00:00:00 2001
+From: sachin shrestha <shresthasachin673@gmail.com>
+Date: Fri, 9 Oct 2026 13:01:53 +0000
+Subject: [PATCH] Add field load recovery and actionable offline outbox
+
+---
+ admin/css/admin.css                |  18 +-
+ admin/js/field.js                  | 154 ++++++++---
+ admin/js/lib/offline-queue.js      |  48 +++-
+ admin/js/views/field-workspace.js  | 114 +++++---
+ tests/field-resilience-fixture.mjs | 108 ++++++++
+ tests/field-resilience.md          | 116 ++++++++
+ tests/field-resilience.test.mjs    | 412 +++++++++++++++++++++++++++++
+ tests/screenshot-batch7-2.mjs      |  63 +++++
+ 8 files changed, 955 insertions(+), 78 deletions(-)
+ create mode 100644 tests/field-resilience-fixture.mjs
+ create mode 100644 tests/field-resilience.md
+ create mode 100644 tests/field-resilience.test.mjs
+ create mode 100644 tests/screenshot-batch7-2.mjs
+
+diff --git a/admin/css/admin.css b/admin/css/admin.css
+index 307ffc8..c02a0d7 100644
+--- a/admin/css/admin.css
++++ b/admin/css/admin.css
+@@ -204,12 +204,28 @@ input[inputmode="decimal"], input[type="number"] {
+ }
+ .btn:hover { background: var(--surface-2); }
+ .btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+-.btn--primary:hover { filter: brightness(1.08); }
++.btn--primary:hover { background: var(--accent); filter: brightness(1.08); }
+ .btn--danger { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
+ .btn--sm { min-height: var(--tap); min-width: var(--tap); padding: 4px 10px; font-size: .85rem; }
+ /* field.html has an inline 40px override. Keep its compact controls at the
+    same minimum tap size without changing that page's owned markup. */
+ .field-view .btn.btn--sm { min-height: var(--tap); }
++/* Long customer/service names must wrap inside the phone's card/header. */
++.field-view h1, .field-view h2, .field-view .card__head > div {
++  min-width: 0; overflow-wrap: anywhere;
++}
++.field-topbar .sync-badge {
++  display: inline-flex; align-items: center; min-height: var(--tap); min-width: var(--tap);
++  white-space: normal; overflow-wrap: anywhere;
++}
++.outbox-dialog {
++  width: min(560px, calc(100% - 28px)); max-height: calc(100dvh - 40px);
++  overflow-y: auto; padding: 18px; border: 1px solid var(--line);
++  border-radius: var(--radius); background: var(--surface); color: var(--text);
++}
++.outbox-dialog::backdrop { background: rgb(0 0 0 / .45); }
++.outbox-dialog p, .outbox-dialog strong { overflow-wrap: anywhere; }
++.outbox-dialog .section-box { min-width: 0; }
+ .btn[disabled] { opacity: .55; cursor: not-allowed; }
+ .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+ 
+diff --git a/admin/js/field.js b/admin/js/field.js
+index 3513429..d0e36f1 100644
+--- a/admin/js/field.js
++++ b/admin/js/field.js
+@@ -7,7 +7,7 @@ import { renderVisit } from './views/field-workspace.js';
+ import * as offlineQueue from './lib/offline-queue.js';
+ import { setStatusBarTheme, isNative, loadAppPlugin } from './lib/native.js';
+ import { installUnhandledRejectionToast } from './lib/save.js';
+-import { installBackHandler, installEscapeHandler, fieldParentOf } from './lib/navigation.js';
++import { installBackHandler, installEscapeHandler, fieldParentOf, pushOverlay } from './lib/navigation.js';
+ 
+ setStatusBarTheme();
+ 
+@@ -53,8 +53,8 @@ function syncNavDepth() {
+   } catch { /* see main.js */ }
+ }
+ 
+-function showMessage(title, body, action) {
+-  clear(viewEl).append(
++function showMessage(title, body, action, mount = viewEl) {
++  clear(mount).append(
+     el('div', { class: 'card' }, [
+       el('h1', { text: title }),
+       el('p', { class: 'hint', text: body }),
+@@ -68,35 +68,43 @@ async function router() {
+   const attempt = ++measurementRouteAttempt;
+   if (!await flushMeasurementEdits() || attempt !== measurementRouteAttempt) return;
+   syncNavDepth();
+-  const { session, isAdmin } = await getSession();
++  // Each attempt owns its mount. A late response may finish its detached
++  // view, but cannot clear or replace a newer route's visible controls.
++  const mount = el('div', {});
++  clear(viewEl).append(mount);
++  mount.append(el('div', { class: 'loading', text: 'Checking access…' }));
++  try {
++    const { session, isAdmin } = await getSession();
++    if (attempt !== measurementRouteAttempt) return;
+ 
+-  if (!session) return renderLogin({ mount: viewEl, onSignedIn: router });
++    if (!session) return renderLogin({ mount, onSignedIn: router });
+ 
+-  if (!isAdmin) {
+-    return showMessage(
+-      'Account not authorised',
+-      'You are signed in, but this account has not been granted field access.',
+-      el('button', { class: 'btn', text: 'Sign out',
+-        onClick: async () => { await supabase.auth.signOut(); router(); } })
+-    );
+-  }
++    if (!isAdmin) {
++      return showMessage(
++        'Account not authorised',
++        'You are signed in, but this account has not been granted field access.',
++        el('button', { class: 'btn', text: 'Sign out',
++          onClick: async () => { await supabase.auth.signOut(); router(); } }), mount
++      );
++    }
+ 
+-  const path = currentPath();
+-  const match = routes.map(r => ({ r, m: path.match(r.pattern) })).find(x => x.m);
++    const path = currentPath();
++    const match = routes.map(r => ({ r, m: path.match(r.pattern) })).find(x => x.m);
+ 
+-  if (!match) {
+-    window.location.hash = '/';
+-    return;
+-  }
++    if (!match) {
++      window.location.hash = '/';
++      return;
++    }
+ 
+-  clear(viewEl).append(el('div', { class: 'loading', text: 'Loading…' }));
++    clear(mount).append(el('div', { class: 'loading', text: 'Loading…' }));
+ 
+-  try {
+-    await match.r.render({ mount: viewEl, navigate }, match.m[1]);
++    await match.r.render({ mount, navigate }, match.m[1]);
+   } catch (err) {
++    if (attempt !== measurementRouteAttempt) return;
+     console.error(err);
+-    showMessage('Something went wrong', err.message,
+-      el('button', { class: 'btn', text: 'Retry', onClick: () => router() }));
++    showMessage('Could not load this screen', offlineQueue.looksOffline(err)
++      ? 'No connection — reconnect and retry.' : err.message || 'The screen could not be read.',
++      el('button', { class: 'btn', text: 'Retry', onClick: () => router() }), mount);
+   }
+ }
+ 
+@@ -148,8 +156,14 @@ const syncNowBtn = document.getElementById('syncNow');
+    painted the badge green with a hardcoded count of 0, so a queue that was
+    still full -- or permanently stuck -- read as fully synced. */
+ function paintBadge(state) {
+-  const { count, online, syncing, lastError } = state;
+-  syncNowBtn.hidden = !(count > 0 && online && !syncing);
++  const { count, online, syncing, discarding, lastError, storageError } = state;
++  syncNowBtn.hidden = !((count > 0 || storageError) && online && !syncing && !discarding);
++
++  if (storageError) {
++    syncBadge.textContent = 'Device storage unavailable';
++    syncBadge.className = 'sync-badge sync-badge--error';
++    return;
++  }
+ 
+   if (count === 0) {
+     syncBadge.textContent = online ? 'Synced' : 'Offline';
+@@ -179,24 +193,88 @@ offlineQueue.subscribe(paintBadge);
+    queue saw a number and had no way to find out what it was. */
+ syncBadge.style.cursor = 'pointer';
+ syncBadge.setAttribute('title', 'Tap to see what is waiting to sync');
+-syncBadge.addEventListener('click', async () => {
++syncBadge.setAttribute('role', 'button');
++syncBadge.setAttribute('tabindex', '0');
++syncBadge.setAttribute('aria-haspopup', 'dialog');
++let outboxDialog;
++function openOutbox() {
++  if (outboxDialog) return outboxDialog.focus();
+   const state = offlineQueue.syncState();
+-  if (!state.count) return toast(state.online ? 'Everything is synced' : 'Offline — nothing waiting to sync');
+-  const items = await offlineQueue.pending();
+-  const summary = items.map((i) => i.label || i.type).join(', ');
+-  toast(state.lastError ? `Waiting: ${summary} — last error: ${state.lastError}` : `Waiting to sync: ${summary}`,
+-        state.lastError ? 'error' : 'info');
++  if (!state.count && !state.storageError) return toast(state.online ? 'Everything is synced' : 'Offline — nothing waiting to sync');
++  const list = el('div', { class: 'outbox-items' }, [el('p', { class: 'hint', text: 'Loading saved actions…' })]);
++  const summary = el('p', { class: 'hint', role: 'status' });
++  const retry = el('button', { class: 'btn', text: 'Retry sync', onClick: () => syncNowBtn.click() });
++  const closeButton = el('button', { class: 'btn btn--sm', text: 'Close', onClick: () => close() });
++  const dialog = el('dialog', { class: 'outbox-dialog', 'aria-labelledby': 'outbox-title' }, [
++    el('div', { class: 'card__head' }, [el('h2', { id: 'outbox-title', text: 'Saved on this device' }), closeButton]),
++    summary, el('p', { class: 'hint', text: 'Actions sync in order. A failed action holds up the ones after it. ' +
++      'Discard removes only the local action; a server change already received cannot be undone here.' }),
++    list, el('div', { class: 'btn-row' }, [retry])
++  ]);
++  let sequence = 0;
++  let unsubscribe;
++  const unregister = pushOverlay(close);
++  function close() {
++    sequence++;
++    unsubscribe?.(); unregister();
++    dialog.close(); dialog.remove(); outboxDialog = null;
++    syncBadge.focus();
++  }
++  dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
++  async function refresh() {
++    const attempt = ++sequence;
++    const current = offlineQueue.syncState();
++    retry.disabled = !current.online || current.syncing || current.discarding;
++    summary.textContent = current.syncing ? 'Syncing…' : current.online
++      ? 'Waiting to sync with the server.' : 'Offline — these actions are saved here.';
++    try {
++      const items = await offlineQueue.pending();
++      if (attempt !== sequence || !dialog.isConnected) return;
++      clear(list).append(...items.map((item, index) => el('div', { class: 'section-box' }, [
++        el('strong', { text: item.label || item.type }),
++        el('p', { class: 'hint', text: `Saved ${new Date(item.createdAt).toLocaleString()}` }),
++        el('p', { class: item.lastError ? 'error-text' : 'hint',
++          text: item.lastError ? `Last sync failed: ${item.lastError}` : index ? 'Waiting behind earlier actions.' : 'Waiting to sync.' }),
++        el('button', { class: 'btn btn--sm btn--danger', text: 'Discard',
++          'aria-label': `Discard ${item.label || item.type}`, disabled: current.syncing || current.discarding,
++          onClick: async () => {
++            if (!window.confirm(`Discard "${item.label || item.type}" from this device? It will not be retried. ` +
++              'This cannot undo a server change already received.')) return;
++            try { await offlineQueue.discard(item.id); }
++            catch (err) { toast(err.message, 'error'); }
++          }
++        })
++      ])));
++      if (!items.length) list.append(el('p', { class: 'empty', text: 'Nothing waiting to sync.' }));
++    } catch (err) {
++      if (attempt !== sequence || !dialog.isConnected) return;
++      clear(list).append(el('p', { class: 'error-text', text: `Could not read saved actions: ${err.message}` }));
++    }
++  }
++  document.body.append(dialog);
++  outboxDialog = dialog;
++  dialog.showModal();
++  unsubscribe = offlineQueue.subscribe(() => { void refresh(); });
++}
++syncBadge.addEventListener('click', openOutbox);
++syncBadge.addEventListener('keydown', event => {
++  if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openOutbox(); }
+ });
+ 
+ syncNowBtn.addEventListener('click', async () => {
+   syncNowBtn.disabled = true;
+   syncNowBtn.textContent = 'Syncing…';
+-  const { flushed, remaining, error } = await offlineQueue.flush();
+-  syncNowBtn.disabled = false;
+-  syncNowBtn.textContent = 'Sync Now';
+-  if (flushed.length) toast(`Synced ${flushed.length} queued action${flushed.length === 1 ? '' : 's'}`);
+-  if (remaining > 0) toast(error ? `Sync stopped: ${error}` : `${remaining} action(s) still queued`, 'error');
+-  if (!flushed.length && !remaining) toast('Nothing to sync');
++  try {
++    const { flushed, remaining, error } = await offlineQueue.flush();
++    if (flushed.length) toast(`Synced ${flushed.length} queued action${flushed.length === 1 ? '' : 's'}`);
++    if (remaining > 0) toast(error ? `Sync stopped: ${error}` : `${remaining} action(s) still queued`, 'error');
++    if (!flushed.length && !remaining) toast('Nothing to sync');
++  } catch (err) {
++    toast(`Could not sync saved actions: ${err.message}`, 'error');
++  } finally {
++    syncNowBtn.disabled = false;
++    syncNowBtn.textContent = 'Sync Now';
++  }
+ });
+ 
+ window.addEventListener('hashchange', router);
+diff --git a/admin/js/lib/offline-queue.js b/admin/js/lib/offline-queue.js
+index 60ca866..941528e 100644
+--- a/admin/js/lib/offline-queue.js
++++ b/admin/js/lib/offline-queue.js
+@@ -29,6 +29,7 @@ import * as api from './api.js';
+ const DB_NAME = 'ns-field-outbox';
+ const STORE = 'queue';
+ const DB_VERSION = 1;
++let storageError = null;
+ 
+ function openDb() {
+   return new Promise((resolve, reject) => {
+@@ -42,9 +43,10 @@ function openDb() {
+ }
+ 
+ async function withStore(mode, fn) {
+-  const db = await openDb();
++  let db;
+   try {
+-    return await new Promise((resolve, reject) => {
++    db = await openDb();
++    const result = await new Promise((resolve, reject) => {
+       const tx = db.transaction(STORE, mode);
+       const store = tx.objectStore(STORE);
+       const result = fn(store);
+@@ -52,8 +54,14 @@ async function withStore(mode, fn) {
+       tx.onerror = () => reject(tx.error);
+       tx.onabort = () => reject(tx.error);
+     });
++    if (storageError) { storageError = null; notify(); }
++    return result;
++  } catch (err) {
++    const message = err?.message || 'Device storage is unavailable.';
++    if (storageError !== message) { storageError = message; notify(); }
++    throw err;
+   } finally {
+-    db.close();
++    db?.close();
+   }
+ }
+ 
+@@ -87,6 +95,7 @@ const listeners = new Set();
+    listener below) has no caller to return it to, so a failed background
+    replay used to leave no trace anywhere in the UI. */
+ let flushInFlight = null;
++let discardInFlight = null;
+ let lastError = null;
+ let queued = 0;
+ 
+@@ -95,7 +104,9 @@ export function syncState() {
+     count: queued,
+     online: typeof navigator === 'undefined' ? true : navigator.onLine,
+     syncing: flushInFlight !== null,
+-    lastError
++    discarding: discardInFlight !== null,
++    lastError,
++    storageError
+   };
+ }
+ 
+@@ -107,7 +118,7 @@ function notify(nextCount) {
+ 
+ export function subscribe(cb) {
+   listeners.add(cb);
+-  count().then((n) => { queued = n; cb(syncState()); });
++  count().then((n) => { queued = n; cb(syncState()); }).catch(() => cb(syncState()));
+   return () => listeners.delete(cb);
+ }
+ 
+@@ -128,7 +139,24 @@ async function enqueue(type, args, label) {
+  *  to find out what it was. */
+ export async function pending() {
+   const items = await withStore('readonly', (store) => reqToPromise(store.getAll()));
+-  return (items || []).map((i) => ({ id: i.id, label: i.label, type: i.type, createdAt: i.createdAt }));
++  return (items || []).map((i) => ({ id: i.id, label: i.label, type: i.type, createdAt: i.createdAt,
++    lastError: i.lastError || null, attemptedAt: i.attemptedAt || null }));
++}
++
++/** A deliberate local discard, never a rollback of a server write. The UI
++ * confirms first. A replay owns its head item until it has finished, so
++ * discarding during replay is refused. Replay waits for an earlier discard. */
++export function discard(id) {
++  if (flushInFlight) return Promise.reject(new Error('Wait for sync to finish before discarding an action.'));
++  if (discardInFlight) return Promise.reject(new Error('Another discard is still in progress.'));
++  discardInFlight = (async () => {
++    await withStore('readwrite', store => store.delete(id));
++    const items = await pending();
++    lastError = items[0]?.lastError || null;
++    notify(items.length);
++  })().finally(() => { discardInFlight = null; notify(); });
++  notify();
++  return discardInFlight;
+ }
+ 
+ /** True if this looks like "the network isn't there" rather than a real
+@@ -183,7 +211,10 @@ export function flush() {
+   // lost-response window this module's guarantee accepts. Concurrent callers
+   // now join the flush already in progress instead of starting a second one.
+   if (flushInFlight) return flushInFlight;
+-  flushInFlight = runFlush().finally(() => { flushInFlight = null; notify(); });
++  flushInFlight = (async () => {
++    if (discardInFlight) await discardInFlight;
++    return runFlush();
++  })().finally(() => { flushInFlight = null; notify(); });
+   notify();                      // repaint as "syncing" while it runs
+   return flushInFlight;
+ }
+@@ -197,6 +228,7 @@ async function runFlush() {
+   // never a long-lived transaction spanning an await, which IndexedDB
+   // transactions auto-close on.
+   for (;;) {
++    if (!navigator.onLine) break;
+     const next = await withStore('readonly', (store) => reqToPromise(store.openCursor()))
+       .then((cursor) => (cursor ? { id: cursor.key, value: cursor.value } : null));
+     if (!next) break;
+@@ -210,6 +242,8 @@ async function runFlush() {
+       // the badge renders as text, and an Error object there both reads as
+       // "[object Error]" and serialises to {}.
+       lastError = err?.message || String(err);
++      await withStore('readwrite', store => store.put({ ...next.value,
++        lastError, attemptedAt: Date.now() }));
+       break;
+     }
+   }
+diff --git a/admin/js/views/field-workspace.js b/admin/js/views/field-workspace.js
+index 0b277b8..a2e84fe 100644
+--- a/admin/js/views/field-workspace.js
++++ b/admin/js/views/field-workspace.js
+@@ -18,6 +18,11 @@ function queueToast(queued, okMessage) {
+   toast(queued ? 'Offline — saved locally, will sync automatically' : okMessage);
+ }
+ 
++function readError(err) {
++  return offlineQueue.looksOffline(err) ? 'No connection — reconnect and retry.'
++    : err?.message || 'The data could not be read.';
++}
++
+ const JOB_STATUSES = ['new', 'reviewing', 'estimate_drafted', 'site_visit_scheduled', 'assessed',
+   'quote_sent', 'accepted', 'declined', 'scheduled', 'in_progress', 'completed', 'invoiced', 'paid',
+   'closed', 'lost'];
+@@ -51,8 +56,11 @@ function passportPanel(property, onSaved) {
+     rows: '2', placeholder: 'e.g. "Avoid east flower beds", "Rear gate code: 1234"'
+   });
+   preferencesInput.value = p.preferences || '';
++  const contents = () => JSON.stringify([Object.values(fields).map(read => read()), preferencesInput.value.trim()]);
++  let savedContents;
++  let saving = false;
+ 
+-  return el('div', { class: 'card' }, [
++  const root = el('div', { class: 'card' }, [
+     el('div', { class: 'card__head' }, [
+       el('div', {}, [
+         el('h2', { text: 'Property Passport' }),
+@@ -97,7 +105,13 @@ function passportPanel(property, onSaved) {
+     el('div', { class: 'btn-row', style: 'margin-top:14px' }, [
+       el('button', {
+         class: 'btn btn--primary', text: 'Save passport',
+-        onClick: async () => {
++        onClick: async (event) => {
++          const button = event.currentTarget;
++          if (button.disabled) return;
++          saving = true;
++          button.disabled = true;
++          button.textContent = 'Saving passport…';
++          const submittedContents = contents();
+           // Re-read property.passport rather than the `p` this card was
+           // built from: a checklist toggle (which writes straight through,
+           // for an instant-feeling tap) can have changed it in place since
+@@ -106,11 +120,11 @@ function passportPanel(property, onSaved) {
+           const latest = property.passport && typeof property.passport === 'object' ? property.passport : {};
+           const passport = {
+             ...latest,
+-            siding:  { ...siding, material: fields['siding.material'](), color: fields['siding.color'](),
++            siding:  { ...(latest.siding || {}), material: fields['siding.material'](), color: fields['siding.color'](),
+                        elevations_note: fields['siding.elevations_note'](), heavy_algae_sides: fields['siding.heavy_algae_sides']() },
+-            roof:    { ...roof, shingle_type: fields['roof.shingle_type'](), pitch: fields['roof.pitch'](),
++            roof:    { ...(latest.roof || {}), shingle_type: fields['roof.shingle_type'](), pitch: fields['roof.pitch'](),
+                        moss_severity: fields['roof.moss_severity']() },
+-            access:  { ...access, water_tap_location: fields['access.water_tap_location'](),
++            access:  { ...(latest.access || {}), water_tap_location: fields['access.water_tap_location'](),
+                        electrical_receptacle_location: fields['access.electrical_receptacle_location'](),
+                        gate_width: fields['access.gate_width'](), ladder_access_restrictions: fields['access.ladder_access_restrictions']() },
+             preferences: preferencesInput.value.trim()
+@@ -119,15 +133,22 @@ function passportPanel(property, onSaved) {
+             const { queued } = await offlineQueue.callOrQueue(
+               'updateProperty', { id: property.id, patch: { passport } }, 'Save Property Passport');
+             property.passport = passport;
++            savedContents = submittedContents;
+             queueToast(queued, 'Property Passport saved');
+-            onSaved?.(passport);
++            await onSaved?.();
+           } catch (err) {
+             toast(err.message, 'error');
++          } finally {
++            saving = false;
++            button.disabled = false;
++            button.textContent = 'Save passport';
+           }
+         }
+       })
+     ])
+   ]);
++  savedContents = contents();
++  return { root, hasDraft: () => saving || contents() !== savedContents };
+ }
+ 
+ /** On-site checklist: quick, instant-save toggles. Stored inside the same
+@@ -285,6 +306,7 @@ export async function renderVisit({ mount, navigate }, jobId) {
+ 
+   const sectionsHost = el('div', {});
+   const passportHost = el('div', {});
++  let passportView;
+   const checklistHost = el('div', {});
+ 
+   const statusSelect = select(
+@@ -351,6 +373,8 @@ export async function renderVisit({ mount, navigate }, jobId) {
+   );
+   const noteBtn = el('button', { class: 'btn', text: 'Save note' });
+   const notesList = el('div', {});
++  const notesStatus = el('div', {});
++  let notesAttempt = 0;
+ 
+   noteBtn.addEventListener('click', async () => {
+     const text = noteBody.value.trim();
+@@ -361,14 +385,21 @@ export async function renderVisit({ mount, navigate }, jobId) {
+       () => api.addNote(job.id, text, noteVisibility.value),
+       { success: 'Note saved' }
+     );
+-    if (ok) { noteBody.value = ''; await refreshNotes(); }
++    if (ok) {
++      if (noteBody.value.trim() === text) noteBody.value = '';
++      await refreshNotes();
++    }
+     noteBtn.disabled = false;
+     noteBtn.textContent = 'Save note';
+   });
+ 
+   async function refreshNotes() {
++    const attempt = ++notesAttempt;
++    clear(notesStatus).append(el('p', { class: 'hint', role: 'status', text: 'Loading notes…' }));
+     try {
+       const notes = await api.listNotes(job.id);
++      if (attempt !== notesAttempt || !notesList.isConnected) return;
++      clear(notesStatus);
+       clear(notesList).append(
+         notes.length
+           ? el('div', {}, notes.map(n => el('div', { class: 'section-box' }, [
+@@ -381,28 +412,37 @@ export async function renderVisit({ mount, navigate }, jobId) {
+           : el('div', { class: 'empty', text: 'No notes on this job yet.' })
+       );
+     } catch (err) {
+-      clear(notesList).append(
+-        el('p', { class: 'error-text', text: `Could not load notes: ${describeWriteError(err)}` })
++      if (attempt !== notesAttempt || !notesList.isConnected) return;
++      clear(notesStatus).append(
++        el('p', { class: 'error-text', text: `Could not load notes: ${readError(err)}` }),
++        el('button', { class: 'btn btn--sm', text: 'Retry notes', onClick: () => refreshNotes() })
+       );
+     }
+   }
+ 
+-  // Every offline-queued save below (passport, a measurement, a signature)
+-  // calls this afterward via onChange/onSaved WITHOUT awaiting it -- so
+-  // until this fix, a live refresh failing offline became an invisible
+-  // unhandled promise rejection: the save itself queued correctly, but
+-  // reload() silently never got to repaint anything. These hold the last
+-  // successful fetch so an offline repaint has real data to show instead
+-  // of nothing; measurementsPanel/quotePanel take their data as render()
+-  // params rather than reading job/refs directly, so they need an explicit
+-  // cache -- sectionsPanel/passportPanel/checklistPanel don't, since they
+-  // read job/refs, which the caller already mutated locally before this runs.
++  // Refresh the loaded visit after writes. Failed refreshes keep its controls
++  // and explicitly label the last successful data. This is not a persistent
++  // read cache: opening another visit or restarting still needs a connection.
+   let lastMeasurements = [];
+   let lastPricing = null;
+   let lastQuotes = [];
++  let hasVisitData = false;
++  const refreshStatus = el('div', { role: 'status' });
++
++  function showRefreshError(err) {
++    toast(`Could not refresh visit data — showing last loaded data. ${readError(err)}`, 'error');
++    clear(refreshStatus).append(el('div', { class: 'warn' }, [
++      el('strong', { text: 'Could not refresh visit data' }),
++      el('p', { text: 'Showing the last loaded measurements, pricing and quotes. ' + readError(err) }),
++      el('button', { class: 'btn btn--sm', text: 'Retry visit data', onClick: async () => {
++        if (await measurementsPanel.flush()) await reload();
++      } })
++    ]));
++  }
+ 
+-  async function reload() {
++  async function reload({ initial = false } = {}) {
+     const refresh = measurementsPanel.refreshToken();
++    clear(refreshStatus).append(el('p', { class: 'hint', text: 'Loading visit data…' }));
+     let sections = refs.sections, measurements = lastMeasurements, pricing = lastPricing, quotes = lastQuotes;
+     try {
+       const [fresh, freshSections, freshMeasurements, jobFlags, freshPricing, freshQuotes] = await Promise.all([
+@@ -411,24 +451,31 @@ export async function renderVisit({ mount, navigate }, jobId) {
+       ]);
+       if (!measurementsPanel.isCurrent(refresh)) return;
+       job.status = fresh.status;
+-      job.properties = fresh.properties;
++      Object.assign(job.properties, fresh.properties);
+       if (statusSelect.value !== fresh.status) statusSelect.value = fresh.status;
+       sections = freshSections; measurements = freshMeasurements; pricing = freshPricing; quotes = freshQuotes;
+       refs.sections = sections;
+       lastMeasurements = measurements; lastPricing = pricing; lastQuotes = quotes;
++      hasVisitData = true;
+     } catch (err) {
+-      // A queued offline save already landed locally -- job/refs were
+-      // mutated by the caller before reload() ran, so there is nothing
+-      // fresher to fetch until this actually syncs. Repaint with what's
+-      // already in memory rather than letting this bubble up: a real error
+-      // (bad input, RLS denial) still isn't swallowed, only a looks-offline
+-      // failure takes this path.
+-      if (!offlineQueue.looksOffline(err)) throw err;
++      if (!measurementsPanel.isCurrent(refresh)) return;
++      // Initial reads have no snapshot to fall back to. Later failures keep
++      // the existing controls and drafts, and explicitly label stale data.
++      // A permission failure is an error too; never call it an offline save.
++      if (initial || !hasVisitData) throw err;
++      showRefreshError(err);
++      return;
+     }
+ 
+     if (!measurementsPanel.isCurrent(refresh)) return;
++    clear(refreshStatus);
+     clear(sectionsHost).append(sectionsPanel(job, refs, reload));
+-    clear(passportHost).append(passportPanel(job.properties, reload));
++    // Do not replace an editable passport after an unrelated refresh or a
++    // slow save: the tech may already be typing their next change.
++    if (!passportView || (!passportView.hasDraft() && offlineQueue.syncState().count === 0)) {
++      passportView = passportPanel(job.properties, reload);
++      clear(passportHost).append(passportView.root);
++    }
+     clear(checklistHost).append(checklistPanel(job.properties));
+     measurementsPanel.render({ measurements, pricing });
+     quotePanel.render({ quotes });
+@@ -439,7 +486,9 @@ export async function renderVisit({ mount, navigate }, jobId) {
+       // offline save (e.g. the passport), so the same guard is needed here.
+       await photosPanel.render();
+     } catch (err) {
+-      if (!offlineQueue.looksOffline(err)) throw err;
++      if (!measurementsPanel.isCurrent(refresh)) return;
++      if (initial && !offlineQueue.looksOffline(err)) throw err;
++      showRefreshError(err);
+     }
+   }
+ 
+@@ -518,6 +567,7 @@ export async function renderVisit({ mount, navigate }, jobId) {
+         text: 'No Google review link on file yet — add one under app_settings.company.google_review_url ' +
+               'to include it automatically.' }) : null
+     ]),
++    refreshStatus,
+     passportHost,
+     checklistHost,
+     sectionsHost,
+@@ -534,11 +584,11 @@ export async function renderVisit({ mount, navigate }, jobId) {
+       el('label', { class: 'field' }, [el('span', { text: 'New note' }), noteBody]),
+       el('label', { class: 'field' }, [el('span', { text: 'Who can see it' }), noteVisibility]),
+       el('div', { class: 'btn-row', style: 'margin-bottom:12px' }, [noteBtn]),
+-      notesList
++      notesStatus, notesList
+     ])
+   );
+ 
+   paintCompletion();
+-  await reload();
++  await reload({ initial: true });
+   await refreshNotes();
+ }
+diff --git a/tests/field-resilience-fixture.mjs b/tests/field-resilience-fixture.mjs
+new file mode 100644
+index 0000000..3eca01c
+--- /dev/null
++++ b/tests/field-resilience-fixture.mjs
+@@ -0,0 +1,108 @@
++import { BASE, FAKE_CAPACITOR_CORE } from './test-harness.mjs';
++import { execFileSync } from 'node:child_process';
++
++export const JOB_A = '11111111-1111-4111-8111-111111111111';
++export const JOB_B = '22222222-2222-4222-8222-222222222222';
++
++const api = `
++  function job(id) {
++    return { id, status: 'in_progress', customers: { name: __customerName || (id === '${JOB_B}' ? 'Second Visit' : 'First Visit'),
++      phone: '5550100', email: 'customer@example.test' }, properties: {
++      id: 'property-' + id, address_line1: 'Test address', city: 'Test City', passport: __passportOverride } };
++  }
++  function value(name, id) {
++    if (name === 'getJob') return job(id);
++    if (name === 'getSettings') return { company: { website: 'https://example.test' } };
++    if (name === 'listServices') return [{ id: 'service', key: 'test_service', name: __serviceName || 'Test Service',
++      unit: 'linear_ft', quotable: true }];
++    if (name === 'listMeasurements') return Array.from({ length: __measurementCount ?? 1 }, (_, i) => ({
++      id: 'measurement-' + i, service_id: 'service', unit: 'linear_ft', quantity: 7,
++      label: 'Area ' + (i + 1), measurement_modifiers: [], job_measurement_addons: [] }));
++    if (name === 'listNotes') return __notes || [];
++    if (name === 'listTodaysVisits') return Array.from({ length: __visitCount ?? 0 }, (_, i) => ({
++      ...job('${JOB_A}'), id: '33333333-3333-4333-8333-' + String(i).padStart(12, '0'),
++      customers: { name: __customerName || 'Customer ' + (i + 1) } }));
++    return [];
++  }
++  async function read(name, id) {
++    __reads.push({ name, id });
++    if (__defer[name]) await new Promise(resolve => __waiting.push({ name, id, resolve }));
++    if (__fail[name]) throw new Error(__fail[name]);
++    return value(name, id);
++  }
++  async function write(name, args) {
++    const call = { name, args }; __writes.push(call);
++    if (__defer[name]) await new Promise(resolve => { call.finish = resolve; });
++    if (__fail[name]) throw new Error(__fail[name]);
++    return {};
++  }
++  export const getJob = id => read('getJob', id);
++  ${['listServices','listModifiers','listSiteFactors','listInspectionFlags','listServiceFlagMap','getSettings',
++    'listPricingRules','listSections','listMeasurements','listJobFlags','calculatePricing','listQuotes',
++    'listAttachments','listNotes','listTodaysVisits','listUpcomingVisits'].map(name =>
++    `export const ${name} = id => read('${name}', id);`).join('\n')}
++  ${['updateProperty','createMeasurement','uploadJobPhoto','uploadSignature','saveQuoteSignature','updateJob',
++    'completeJob','createSection','updateSection','deleteSection','updateMeasurement','deleteMeasurement',
++    'addMeasurementAddon','deleteMeasurementAddon','setMeasurementModifier','addNote'].map(name =>
++    `export const ${name} = (...args) => write('${name}', args);`).join('\n')}
++  export const signedPhotoUrl = async () => '';
++`;
++
++const auth = `
++  export const supabase = { auth: { signOut: async () => {} } };
++  export async function getSession() {
++    __sessions++;
++    if (__fail.session) throw new Error(__fail.session);
++    return { session: { user: { id: 'fixture-admin' } }, isAdmin: true };
++  }
++`;
++
++export async function fieldFixture(browser, { width = 390, hash = '#/', config = {} } = {}) {
++  const context = await browser.newContext({ viewport: { width, height: 900 } });
++  await context.addInitScript(config => {
++    Object.assign(globalThis, { __fail: {}, __defer: {}, __reads: [], __writes: [], __waiting: [], __sessions: 0,
++      __serviceName: '', __customerName: '', __notes: [], __visitCount: 0, __measurementCount: 1,
++      __started: performance.now(), __passportOverride: {} }, config);
++    if (config.__storageBlocked) indexedDB.open = () => { throw new Error('Device storage unavailable'); };
++  }, config);
++  const page = await context.newPage();
++  page.setDefaultTimeout(5000);
++  const errors = [];
++  page.on('pageerror', error => errors.push(error.message));
++  const mock = (url, body) => context.route(url, route => route.fulfill({ status: 200,
++    contentType: 'application/javascript', body }));
++  // Load the exact prior product files into the same browser fixture to
++  // demonstrate failing checks without touching the working checkout.
++  if (process.env.FIELD_BASELINE === '1') {
++    for (const path of ['admin/js/field.js', 'admin/js/views/field-workspace.js',
++      'admin/js/lib/offline-queue.js', 'admin/css/admin.css']) {
++      const body = execFileSync('git', ['show', `d71f467:${path}`], { encoding: 'utf8' });
++      await context.route(`${BASE}/${path}`, route => route.fulfill({ status: 200,
++        contentType: path.endsWith('.css') ? 'text/css' : 'application/javascript', body }));
++    }
++  }
++  await mock(`${BASE}/admin/js/lib/api.js`, api);
++  await mock(`${BASE}/shared/supabase.js`, auth);
++  await mock('**/cdn.jsdelivr.net/npm/@capacitor/core@8.5.2/+esm', FAKE_CAPACITOR_CORE);
++  await mock('**/cdn.jsdelivr.net/npm/@capacitor/geolocation@8.2.3/+esm',
++    'export const Geolocation = { getCurrentPosition: async () => { throw new Error("No fixture GPS"); } };');
++  await page.goto(`${BASE}/admin/field.html${hash}`);
++  await page.waitForFunction(() => __sessions > 0);
++  await page.waitForFunction(async () => !(await import('/admin/js/lib/offline-queue.js')).syncState().syncing);
++  return { context, page, errors };
++}
++
++export async function queueAction(page, label = 'Save Property Passport') {
++  return page.evaluate(async label => {
++    const queue = await import('/admin/js/lib/offline-queue.js');
++    // Queue through the real failed-network path while the browser stays
++    // online. This also lets the real badge offer Sync Now without firing
++    // an online event that would automatically replay our seed records.
++    __fail.updateProperty = 'Failed to fetch';
++    await queue.callOrQueue('updateProperty', { id: 'fixture-property', patch: { passport: { preferences: label } } }, label);
++    // Leave the network unavailable until a test explicitly reconnects.
++    // A background online event must not consume seed records between steps.
++    __writes = []; // Subsequent assertions audit replay/discard, not seeding.
++    return (await queue.pending()).at(-1).id;
++  }, label);
++}
+diff --git a/tests/field-resilience.md b/tests/field-resilience.md
+new file mode 100644
+index 0000000..90324b8
+--- /dev/null
++++ b/tests/field-resilience.md
+@@ -0,0 +1,116 @@
++# Batch 7.2: Field Console resilience and recovery
++
++Independent branch `codex/batch-7-2`, based on `d71f467`. No Claude branch
++was fetched into this work or integrated. Repository instructions read:
++`ARCHITECTURE.md`, `START_HERE.md`, and `tests/README.md`; no AGENTS.md found.
++
++## Browser prerequisite
++
++A real browser ran: **Chromium 151.0.7922.173**, Playwright **1.58.2**.
++The brief's missing-browser premise did not match this workspace:
++`/usr/bin/chromium` exists, while `/opt/pw-browsers/chromium` does not.
++Before product changes, the existing external test adapter re-ran Batch 6.2:
++**measurement-entry 29/29**, **mobile-reliability 22/22**. Both also pass
++after this batch. This is browser execution with mocked APIs, not syntax-only
++verification or production/native-device validation.
++
++New owned scripts accept `PLAYWRIGHT_CHROMIUM` and `PLAYWRIGHT_MODULE`.
++Shared test files, harness, runner, dependencies and browser paths were not
++edited. The external adapter remains outside the checkout.
++
++## Candidates confirmed and already handled
++
++| Candidate | Finding | Implemented result |
++| --- | --- | --- |
++| Failed/empty reads | Successful empty schedules and ordinary render-failure Retry already worked. Access-check rejection was outside the router's catch; late visit responses could overwrite a newer route. An initial failed data read instead reported `pricing is not iterable`. | Access failures offer Retry. Each route owns its mount, so old responses cannot replace the current screen. Failed initial reads report the actual failure, rather than constructing empty data. |
++| Stale loaded data | A failed refresh retained data without labeling it; a permission-denied refresh after a successful passport save became an unhandled rejection. Notes showed errors without local retry. | Failed refreshes retain controls, show a persistent warning and a toast, and offer Retry visit data. Notes retry without rebuilding the visit or dropping an unsaved note. |
++| Outbox visibility/recovery | Sync status, Sync Now, ordered/coalesced replay and a label-summary toast already existed. Individual failure reasons were not durable, no item could be deliberately discarded, and storage failure could leave Sync Now disabled. | The badge opens an accessible dialog with item labels, timestamps, durable errors, retry and confirmed local discard. Replay and discard are coordinated in both directions. Storage failure is explicitly visible and the sync button recovers. |
++| Slow operations/drafts | Completion, location and note operations already had progress feedback. Passport saves did not. Slow saves could erase text entered afterward. | Passport shows Saving passport and prevents duplicate submission. New passport/note text survives an earlier save; untouched passport fields still refresh. Unknown newer backend passport fields are preserved. |
++| Large data | 500 normal visit cards and 150 measurement controls already retained their actions. Long unbroken customer/service headings overflowed phones. | Headings wrap at 390/430px. The last visit action and last measurement edit still work. No pagination or virtualization was introduced. |
++
++Visual inspection also caught a primary-button hover rule replacing the
++accent background while leaving white text. The baseline contrast was
++**1.06:1**. The background now stays accent-colored and the hover contrast
++check passes. This makes progress text readable after a click.
++
++The original Batch 7 requirements remain unrecoverable beyond the supplied
++candidate brief. No additional inventory, portal or release requirements
++were invented. The unbounded schedule query still exists; pagination would
++require excluded `field-schedule.js`/`api.js` work. Browser render timings are
++diagnostics from mocked data, not phone-performance benchmarks.
++
++## Changed files and boundaries
++
++- `admin/js/field.js`: route recovery, stale-response isolation, outbox dialog,
++  keyboard/overlay dismissal, sync failure recovery.
++- `admin/js/views/field-workspace.js`: read/refresh recovery, note retry,
++  passport progress and draft preservation.
++- `admin/js/lib/offline-queue.js`: durable item errors, storage-error state,
++  coordinated discard/replay, no replay while known offline.
++- `admin/css/admin.css`: header wrapping, dialog/badge styles, primary hover.
++- New owned files: `field-resilience-fixture.mjs`, `field-resilience.test.mjs`,
++  `screenshot-batch7-2.mjs`, and this handoff.
++
++The existing four outbox handlers and IndexedDB database/store/version remain
++unchanged. Quantities, notes, quote creation and email remain outside it.
++Delivery remains at least once; local discard cannot undo a server write.
++Pricing calculations and quote safeguards were not changed. No forbidden
++file, live setting, rate, approval state, customer row, grant or migration
++was modified. No merge, rebase, deployment or later batch was started.
++
++## Executed validation
++
++- New suite: **27/27** checks pass.
++- Against exact `d71f467` product files: **5/27** pass (preservation checks),
++  **22 fail**. The initial 12 targeted checks also failed before implementation.
++  Baseline mode serves prior files through browser routes without changing
++  the working checkout. Early fixture errors were corrected before the
++  valid baseline run and are not counted as product findings.
++- Existing suites run explicitly: `phase2` through `phase20` (including
++  `phase10-5`), `native-wrapper`, `reload-offline`, `measurement-entry`,
++  `mobile-reliability`, and `geofence`. **413/413** counted checks plus
++  geofence pass. Affected workspace suites were re-run after the final
++  passport change. Overall: **440/440 counted checks**, plus geofence.
++- **18 screenshots captured and actually inspected** at **390, 430 and
++  1200px**: failed load, stale-data recovery, pending passport save, failed
++  outbox, 500-visit schedule, and 150-measurement visit. All fit their
++  viewports. The persistent retry control was inspected after the normal
++  transient toast dismissed. Very tall lists use viewport screenshots.
++- Syntax checks and `git diff --check` pass.
++
++Artifacts: `/workspace/.nova-shield/batch7-2/logs/`,
++`/workspace/.nova-shield/batch7-2/screenshots/`, and
++`/workspace/.nova-shield/batch7-2/validation.json`.
++
++Database integration tests are **unrun**, not passed. No live database
++writing tests were executed. Real Android Back, WebView/clipboard behavior,
++cellular offline, OS storage eviction, device performance, other browser
++engines and production remain unverified. Offline cold opening/restarting
++still needs a connection: this is the existing write outbox, not full
++offline operation or a new persistent read cache. The customer-content
++freeze migration remains Claude's item and was not retried here.
++
++## Commands and later registration
++
++With the repository's normal `/opt` tool paths and a static server on 8743:
++
++```sh
++node tests/field-resilience.test.mjs
++node tests/screenshot-batch7-2.mjs /tmp/nova-shield-batch7-2-screenshots
++```
++
++Actual command in this workspace:
++
++```sh
++PLAYWRIGHT_CHROMIUM=/usr/bin/chromium \
++PLAYWRIGHT_MODULE=/workspace/.nova-shield/test-tools/node_modules/playwright/index.mjs \
++node --loader /workspace/.nova-shield/test-loader.mjs tests/field-resilience.test.mjs
++```
++
++Add `FIELD_BASELINE=1` to reproduce the expected failing prior behavior.
++Use the same environment flags for `screenshot-batch7-2.mjs`.
++
++At integration, add **`field-resilience`** to the explicit mocked-suite
++list. `mobile-reliability` also remains unregistered on this track. Keep
++screenshots separate and database integration tests separately selectable.
++`tests/run-regression.sh` was left unchanged; no blanket glob was added.
+diff --git a/tests/field-resilience.test.mjs b/tests/field-resilience.test.mjs
+new file mode 100644
+index 0000000..f8bcf67
+--- /dev/null
++++ b/tests/field-resilience.test.mjs
+@@ -0,0 +1,412 @@
++import assert from 'node:assert/strict';
++import { createRecorder, finishAndReport } from './test-harness.mjs';
++import { fieldFixture, queueAction, JOB_A, JOB_B } from './field-resilience-fixture.mjs';
++
++const { default: pkg } = await import(process.env.PLAYWRIGHT_MODULE || '/opt/node-tools/node_modules/playwright/index.js');
++const browser = await pkg.chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM || '/opt/pw-browsers/chromium' });
++console.log('Browser:', browser.version());
++const { record, results } = createRecorder();
++
++await record('An access-check failure offers Retry rather than leaving a loading screen', async () => {
++  const { context, page } = await fieldFixture(browser, { config: { __fail: { session: 'Failed to fetch' } } });
++  try {
++    await page.waitForTimeout(150);
++    assert.equal(await page.getByRole('button', { name: 'Retry', exact: true }).count(), 1);
++    await page.evaluate(() => { __fail.session = null; });
++    await page.getByRole('button', { name: 'Retry', exact: true }).click();
++    await page.getByRole('heading', { name: "Today's schedule" }).waitFor();
++  } finally { await context.close(); }
++});
++
++await record('A late visit load cannot replace the newer route', async () => {
++  const { context, page } = await fieldFixture(browser, {
++    hash: '#/visit/' + JOB_A, config: { __defer: { getJob: true } }
++  });
++  try {
++    await page.waitForFunction(() => __waiting.some(request => request.name === 'getJob'));
++    await page.evaluate(id => { __defer.getJob = false; location.hash = '/visit/' + id; }, JOB_B);
++    await page.getByRole('heading', { name: 'Second Visit', exact: true }).waitFor();
++    await page.evaluate(() => __waiting.forEach(request => request.resolve()));
++    await page.waitForTimeout(150);
++    assert.equal(await page.getByRole('heading', { name: 'Second Visit', exact: true }).count(), 1);
++    assert.equal(await page.getByRole('heading', { name: 'First Visit', exact: true }).count(), 0);
++  } finally { await context.close(); }
++});
++
++await record('An initial failed visit-data read reports the connection error, not fabricated empty data', async () => {
++  const { context, page } = await fieldFixture(browser, {
++    hash: '#/visit/' + JOB_A, config: { __fail: { listMeasurements: 'Failed to fetch' } }
++  });
++  try {
++    await page.getByRole('button', { name: 'Retry', exact: true }).waitFor();
++    const text = await page.locator('#view').innerText();
++    assert.match(text, /connection|Failed to fetch/i);
++    assert.doesNotMatch(text, /not iterable|No services on this job yet/);
++  } finally { await context.close(); }
++});
++
++await record('An offline refresh labels the retained visit data and offers retry', async () => {
++  const { context, page } = await fieldFixture(browser, { hash: '#/visit/' + JOB_A });
++  try {
++    await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).waitFor();
++    await page.evaluate(() => { __fail.listMeasurements = 'Failed to fetch'; });
++    await page.getByRole('button', { name: 'Save passport', exact: true }).click();
++    await page.waitForTimeout(150);
++    assert.equal(await page.getByRole('button', { name: 'Retry visit data', exact: true }).count(), 1);
++    assert.match(await page.locator('#view').innerText(), /last loaded|out of date/i);
++    assert.equal(await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).inputValue(), '7');
++    await page.evaluate(() => { __fail.listMeasurements = null; });
++    await page.getByRole('button', { name: 'Retry visit data', exact: true }).click();
++    await page.waitForTimeout(100);
++    assert.equal(await page.getByRole('button', { name: 'Retry visit data', exact: true }).count(), 0);
++  } finally { await context.close(); }
++});
++
++await record('Passport save announces progress and prevents double submission', async () => {
++  const { context, page } = await fieldFixture(browser, { hash: '#/visit/' + JOB_A });
++  try {
++    await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).waitFor();
++    await page.evaluate(() => { __defer.updateProperty = true; });
++    await page.getByRole('button', { name: 'Save passport', exact: true }).click();
++    await page.waitForFunction(() => __writes.length === 1);
++    const button = page.getByRole('button', { name: 'Saving passport…', exact: true });
++    assert.equal(await button.count(), 1);
++    assert.equal(await button.isDisabled(), true);
++    await page.evaluate(() => __writes[0].finish());
++    await page.getByRole('button', { name: 'Save passport', exact: true }).waitFor();
++  } finally { await context.close(); }
++});
++
++await record('A slow passport save preserves the next unsaved edit', async () => {
++  const { context, page } = await fieldFixture(browser, { hash: '#/visit/' + JOB_A });
++  try {
++    await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).waitFor();
++    await page.evaluate(() => { __defer.updateProperty = true; });
++    await page.getByLabel('Material', { exact: true }).fill('Saved material');
++    await page.getByRole('button', { name: 'Save passport', exact: true }).click();
++    await page.waitForFunction(() => __writes.length === 1);
++    await page.getByLabel('Material', { exact: true }).fill('Next unsaved material');
++    await page.evaluate(() => __writes[0].finish());
++    await page.waitForTimeout(150);
++    assert.equal(await page.getByLabel('Material', { exact: true }).inputValue(), 'Next unsaved material');
++  } finally { await context.close(); }
++});
++
++await record('An untouched passport still receives fresh backend values after an unrelated refresh', async () => {
++  const { context, page } = await fieldFixture(browser, { hash: '#/visit/' + JOB_A });
++  try {
++    await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).waitFor();
++    await page.evaluate(() => { __passportOverride = { siding: { material: 'Updated backend material' } }; });
++    await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('8');
++    await page.waitForFunction(() => document.querySelector('input[placeholder="Vinyl, wood, brick…"]').value === 'Updated backend material');
++  } finally { await context.close(); }
++});
++
++await record('A passport draft survives an unrelated refresh and preserves newer unknown backend fields', async () => {
++  const { context, page } = await fieldFixture(browser, { hash: '#/visit/' + JOB_A });
++  try {
++    await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).waitFor();
++    await page.getByLabel('Material', { exact: true }).fill('My draft material');
++    await page.evaluate(() => { __passportOverride = { siding: { material: 'Backend material', other_fact: 'Keep this backend fact' } }; });
++    await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('8');
++    await page.waitForFunction(() => __reads.filter(read => read.name === 'getJob').length >= 3);
++    await page.waitForTimeout(100);
++    assert.equal(await page.getByLabel('Material', { exact: true }).inputValue(), 'My draft material');
++    await page.getByRole('button', { name: 'Save passport', exact: true }).click();
++    await page.waitForFunction(() => __writes.some(write => write.name === 'updateProperty'));
++    const passport = await page.evaluate(() => __writes.find(write => write.name === 'updateProperty').args[1].passport);
++    assert.equal(passport.siding.material, 'My draft material');
++    assert.equal(passport.siding.other_fact, 'Keep this backend fact');
++  } finally { await context.close(); }
++});
++
++await record('A permission-denied refresh does not misreport a successful passport write or throw unhandled', async () => {
++  const { context, page, errors } = await fieldFixture(browser, { hash: '#/visit/' + JOB_A });
++  try {
++    await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).waitFor();
++    await page.evaluate(() => { __fail.listQuotes = 'Permission denied'; });
++    await page.getByRole('button', { name: 'Save passport', exact: true }).click();
++    await page.waitForTimeout(150);
++    assert.equal(await page.getByRole('button', { name: 'Retry visit data', exact: true }).count(), 1);
++    assert.match(await page.locator('#view').innerText(), /Permission denied/);
++    assert.match(await page.locator('#toast').innerText(), /Could not refresh visit data/);
++    assert.doesNotMatch(await page.locator('#toast').innerText(), /change was not saved/);
++    assert.deepEqual(errors, []);
++  } finally { await context.close(); }
++});
++
++await record('Retrying notes does not rebuild the visit or lose an unsaved note', async () => {
++  const { context, page } = await fieldFixture(browser, {
++    hash: '#/visit/' + JOB_A, config: { __fail: { listNotes: 'Failed to fetch' } }
++  });
++  try {
++    await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).waitFor();
++    await page.getByRole('textbox', { name: 'Note', exact: true }).fill('Keep this unsaved note');
++    const retry = page.getByRole('button', { name: 'Retry notes', exact: true });
++    assert.equal(await retry.count(), 1);
++    await page.evaluate(() => { __fail.listNotes = null; __notes = [{ body: 'Existing note', visibility: 'internal' }]; });
++    await retry.click();
++    await page.getByText('Existing note', { exact: true }).waitFor();
++    assert.equal(await page.getByRole('textbox', { name: 'Note', exact: true }).inputValue(), 'Keep this unsaved note');
++  } finally { await context.close(); }
++});
++
++await record('A slow note save keeps text typed after the submitted note', async () => {
++  const { context, page } = await fieldFixture(browser, { hash: '#/visit/' + JOB_A });
++  try {
++    await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).waitFor();
++    await page.evaluate(() => { __defer.addNote = true; });
++    await page.getByRole('textbox', { name: 'Note', exact: true }).fill('Submitted note');
++    await page.getByRole('button', { name: 'Save note', exact: true }).click();
++    await page.waitForFunction(() => __writes.length === 1);
++    await page.getByRole('textbox', { name: 'Note', exact: true }).fill('Next unsaved note');
++    await page.evaluate(() => __writes[0].finish());
++    await page.waitForTimeout(150);
++    assert.equal(await page.getByRole('textbox', { name: 'Note', exact: true }).inputValue(), 'Next unsaved note');
++  } finally { await context.close(); }
++});
++
++await record('Outbox failures retain the failed item and reason across a page reload', async () => {
++  const { context, page } = await fieldFixture(browser);
++  try {
++    const id = await queueAction(page);
++    await page.evaluate(async () => {
++      __fail.updateProperty = 'Permission denied';
++      await (await import('/admin/js/lib/offline-queue.js')).flush();
++    });
++    await context.addInitScript(() => {
++      Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
++    });
++    await page.reload();
++    await page.getByRole('heading', { name: "Today's schedule" }).waitFor();
++    const item = await page.evaluate(async id => (await (await import('/admin/js/lib/offline-queue.js')).pending()).find(item => item.id === id), id);
++    assert.match(item?.lastError || '', /Permission denied/);
++    assert.equal(await page.evaluate(() => __writes.length), 0, 'offline reload must not replay');
++  } finally { await context.close(); }
++});
++
++await record('The outbox shows individual items and requires confirmation to discard one', async () => {
++  const { context, page } = await fieldFixture(browser);
++  try {
++    await queueAction(page, 'First queued update');
++    await queueAction(page, 'Second queued update');
++    await page.locator('#syncBadge').click();
++    const dialog = page.getByRole('dialog', { name: 'Saved on this device' });
++    assert.equal(await dialog.count(), 1);
++    await dialog.getByText('First queued update', { exact: true }).waitFor();
++    assert.match(await dialog.innerText(), /First queued update/);
++    assert.match(await dialog.innerText(), /Second queued update/);
++    page.once('dialog', prompt => prompt.dismiss());
++    await dialog.getByRole('button', { name: 'Discard First queued update', exact: true }).click();
++    assert.equal(await page.evaluate(async () => (await import('/admin/js/lib/offline-queue.js')).count()), 2);
++    page.once('dialog', prompt => prompt.accept());
++    await dialog.getByRole('button', { name: 'Discard First queued update', exact: true }).click();
++    await page.waitForFunction(async () => (await (await import('/admin/js/lib/offline-queue.js')).count()) === 1);
++    assert.equal(await page.evaluate(() => __writes.length), 0);
++  } finally { await context.close(); }
++});
++
++await record('A discard cannot race with a replay that already owns the item', async () => {
++  const { context, page } = await fieldFixture(browser);
++  try {
++    const id = await queueAction(page);
++    await page.evaluate(async () => { __fail.updateProperty = null; __defer.updateProperty = true; __writes = [];
++      __flush = (await import('/admin/js/lib/offline-queue.js')).flush(); });
++    await page.waitForFunction(() => __writes.length === 1);
++    const message = await page.evaluate(async id => {
++      try { await (await import('/admin/js/lib/offline-queue.js')).discard(id); return null; }
++      catch (error) { return error.message; }
++    }, id);
++    assert.match(message || '', /sync|replay/i);
++    assert.doesNotMatch(message || '', /not a function/);
++    assert.equal(await page.evaluate(async () => (await import('/admin/js/lib/offline-queue.js')).count()), 1);
++    await page.evaluate(async () => { __writes[0].finish(); await __flush; });
++  } finally { await context.close(); }
++});
++
++await record('Retry sync replays in order and removes actions only after success', async () => {
++  const { context, page } = await fieldFixture(browser);
++  try {
++    await queueAction(page, 'First update');
++    await queueAction(page, 'Second update');
++    await page.evaluate(async () => {
++      __fail.updateProperty = 'Permission denied';
++      await (await import('/admin/js/lib/offline-queue.js')).flush();
++      __fail.updateProperty = null; __writes = [];
++    });
++    assert.deepEqual(await page.evaluate(async () => (await (await import('/admin/js/lib/offline-queue.js')).pending()).map(item => item.label)), ['First update', 'Second update']);
++    await page.locator('#syncBadge').click();
++    const dialog = page.getByRole('dialog', { name: 'Saved on this device' });
++    assert.equal(await dialog.count(), 1);
++    await dialog.getByText('First update', { exact: true }).waitFor();
++    assert.match(await dialog.innerText(), /Permission denied/);
++    await dialog.getByRole('button', { name: 'Retry sync', exact: true }).click();
++    await page.waitForFunction(async () => (await (await import('/admin/js/lib/offline-queue.js')).count()) === 0);
++    await page.waitForFunction(async () => !(await import('/admin/js/lib/offline-queue.js')).syncState().syncing);
++    const writes = await page.evaluate(() => __writes.map(call => call.args[1].passport.preferences));
++    assert.deepEqual(writes, ['First update', 'Second update']);
++    await dialog.getByText('Nothing waiting to sync.', { exact: true }).waitFor();
++  } finally { await context.close(); }
++});
++
++await record('Replay waits for a discard that started first', async () => {
++  const { context, page } = await fieldFixture(browser);
++  try {
++    const id = await queueAction(page, 'Discarded update');
++    await queueAction(page, 'Retained update');
++    await page.evaluate(async id => {
++      __fail.updateProperty = null; __writes = [];
++      const queue = await import('/admin/js/lib/offline-queue.js');
++      const discarding = queue.discard(id);
++      const syncing = queue.flush();
++      await Promise.all([discarding, syncing]);
++    }, id);
++    assert.deepEqual(await page.evaluate(() => __writes.map(call => call.args[1].passport.preferences)), ['Retained update']);
++    assert.equal(await page.evaluate(async () => (await import('/admin/js/lib/offline-queue.js')).count()), 0);
++  } finally { await context.close(); }
++});
++
++await record('Offline Sync Now leaves all queued items intact without issuing writes', async () => {
++  const { context, page } = await fieldFixture(browser);
++  try {
++    await queueAction(page);
++    const result = await page.evaluate(async () => {
++      Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
++      return (await import('/admin/js/lib/offline-queue.js')).flush();
++    });
++    assert.equal(await page.evaluate(() => __writes.length), 0);
++    assert.equal(result.remaining, 1);
++    assert.deepEqual(result.flushed, []);
++  } finally { await context.close(); }
++});
++
++await record('Quantity updates remain outside the four-type outbox', async () => {
++  const { context, page } = await fieldFixture(browser);
++  try {
++    const result = await page.evaluate(async () => {
++      const queue = await import('/admin/js/lib/offline-queue.js');
++      try { await queue.callOrQueue('updateMeasurement', {}, 'Quantity'); }
++      catch (error) { return { error: error.message, count: await queue.count() }; }
++    });
++    assert.match(result.error, /Unknown offline action type/);
++    assert.equal(result.count, 0);
++  } finally { await context.close(); }
++});
++
++await record('The schedule retains distinct successful-empty and failed-load states', async () => {
++  const { context, page } = await fieldFixture(browser);
++  try {
++    await page.getByText('Nothing booked for today', { exact: true }).waitFor();
++    await page.evaluate(() => { __fail.listTodaysVisits = 'Failed to fetch'; });
++    await page.locator('.field-topbar__brand').click();
++    // Clicking the same hash does not refresh; navigate away/back through the router.
++    await page.evaluate(id => { location.hash = '/visit/' + id; }, JOB_A);
++    await page.getByRole('heading', { name: 'First Visit', exact: true }).waitFor();
++    await page.locator('.field-topbar__brand').click();
++    await page.getByRole('button', { name: 'Retry', exact: true }).waitFor();
++    assert.equal(await page.getByText('Nothing booked for today', { exact: true }).count(), 0);
++  } finally { await context.close(); }
++});
++
++await record('An outbox dialog can close with Escape without navigating away', async () => {
++  const { context, page } = await fieldFixture(browser);
++  try {
++    await queueAction(page);
++    await page.locator('#syncBadge').focus();
++    await page.keyboard.press('Enter');
++    assert.equal(await page.getByRole('dialog', { name: 'Saved on this device' }).count(), 1);
++    await page.keyboard.press('Escape');
++    assert.equal(await page.getByRole('dialog', { name: 'Saved on this device' }).count(), 0);
++    assert.equal(await page.evaluate(() => location.hash), '#/');
++    assert.equal(await page.evaluate(() => document.activeElement.id), 'syncBadge');
++  } finally { await context.close(); }
++});
++
++await record('IndexedDB failure restores Sync Now and does not claim Synced', async () => {
++  const { context, page } = await fieldFixture(browser);
++  try {
++    await queueAction(page);
++    await page.evaluate(() => { indexedDB.open = () => { throw new Error('Device storage unavailable'); }; });
++    await page.locator('#syncNow').click();
++    await page.waitForTimeout(100);
++    assert.equal(await page.locator('#syncNow').isDisabled(), false);
++    assert.match(await page.locator('#syncBadge').innerText(), /failed|unavailable/i);
++    assert.doesNotMatch(await page.locator('#syncBadge').innerText(), /^Synced$/);
++  } finally { await context.close(); }
++});
++
++await record('Unavailable storage on startup is visible without an unhandled rejection', async () => {
++  const { context, page, errors } = await fieldFixture(browser, { config: { __storageBlocked: true } });
++  try {
++    await page.getByRole('heading', { name: "Today's schedule" }).waitFor();
++    assert.match(await page.locator('#syncBadge').innerText(), /storage unavailable/i);
++    assert.equal(await page.locator('#syncNow').isVisible(), true);
++    assert.deepEqual(errors, []);
++  } finally { await context.close(); }
++});
++
++for (const width of [390, 430]) {
++  await record(`${width}px: long field customer/service labels fit with 150 measurements`, async () => {
++    const long = 'UnbrokenName'.repeat(20);
++    const { context, page } = await fieldFixture(browser, { width, hash: '#/visit/' + JOB_A,
++      config: { __serviceName: long, __customerName: long, __measurementCount: 150 } });
++    try {
++      await page.waitForFunction(() => document.querySelectorAll('input[aria-label="Quantity"]').length === 150);
++      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
++    } finally { await context.close(); }
++  });
++}
++
++await record('A 500-visit schedule retains the last visit action without overflow', async () => {
++  const { context, page } = await fieldFixture(browser, { config: { __visitCount: 500 } });
++  try {
++    await page.waitForFunction(() => document.querySelectorAll('button').length >= 500);
++    assert.equal(await page.getByRole('button', { name: 'Start Site Visit', exact: true }).count(), 500);
++    console.log('500-visit mock render (ms):', Math.round(await page.evaluate(() => performance.now() - __started)));
++    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
++    await page.getByRole('button', { name: 'Start Site Visit', exact: true }).last().click();
++    await page.getByRole('heading', { name: 'First Visit', exact: true }).waitFor();
++    assert.match(await page.evaluate(() => location.hash), /000000000499$/);
++  } finally { await context.close(); }
++});
++
++await record('Editing the last of 150 measurements keeps the draft and all controls mounted', async () => {
++  const { context, page } = await fieldFixture(browser, { hash: '#/visit/' + JOB_A,
++    config: { __measurementCount: 150, __defer: { updateMeasurement: true } } });
++  try {
++    await page.waitForFunction(() => document.querySelectorAll('input[aria-label="Quantity"]').length === 150);
++    console.log('150-measurement mock render (ms):', Math.round(await page.evaluate(() => performance.now() - __started)));
++    const input = page.getByRole('spinbutton', { name: 'Quantity', exact: true }).last();
++    await input.fill('42');
++    await page.waitForFunction(() => __writes.length === 1);
++    assert.equal(await input.inputValue(), '42');
++    assert.equal(await input.evaluate(node => document.activeElement === node), true);
++    assert.equal(await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).count(), 150);
++    assert.equal(await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).first().inputValue(), '7');
++    assert.equal(await page.evaluate(() => __writes[0].args[0]), 'measurement-149');
++  } finally { await context.close(); }
++});
++
++await record('Primary-button progress text remains readable while hovered after a tap', async () => {
++  const { context, page } = await fieldFixture(browser, { hash: '#/visit/' + JOB_A });
++  try {
++    await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).waitFor();
++    const button = page.getByRole('button', { name: 'Save passport', exact: true });
++    await button.hover();
++    const ratio = await button.evaluate(node => {
++      const style = getComputedStyle(node);
++      const luminance = color => {
++        const [r, g, b] = color.match(/[\d.]+/g).slice(0, 3).map(Number).map(value => {
++          const channel = value / 255;
++          return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4;
++        });
++        return .2126 * r + .7152 * g + .0722 * b;
++      };
++      const text = luminance(style.color), background = luminance(style.backgroundColor);
++      return (Math.max(text, background) + .05) / (Math.min(text, background) + .05);
++    });
++    assert.ok(ratio >= 4.5, `primary text contrast is ${ratio.toFixed(2)}:1`);
++  } finally { await context.close(); }
++});
++
++await finishAndReport(browser, results);
+diff --git a/tests/screenshot-batch7-2.mjs b/tests/screenshot-batch7-2.mjs
+new file mode 100644
+index 0000000..7d41182
+--- /dev/null
++++ b/tests/screenshot-batch7-2.mjs
+@@ -0,0 +1,63 @@
++import assert from 'node:assert/strict';
++import { mkdir, writeFile } from 'node:fs/promises';
++import { resolve } from 'node:path';
++import { fieldFixture, queueAction, JOB_A } from './field-resilience-fixture.mjs';
++
++const { default: pkg } = await import(process.env.PLAYWRIGHT_MODULE || '/opt/node-tools/node_modules/playwright/index.js');
++const browser = await pkg.chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM || '/opt/pw-browsers/chromium' });
++const directory = resolve(process.argv[2] || '/tmp/nova-shield-batch7-2-screenshots');
++await mkdir(directory, { recursive: true });
++const views = [];
++try {
++  for (const width of [390, 430, 1200]) {
++    for (const scenario of ['load-error', 'stale-data', 'saving-passport', 'failed-outbox', 'large-schedule', 'many-measurements']) {
++      const config = scenario === 'load-error' ? { __fail: { session: 'Failed to fetch' } }
++        : scenario === 'large-schedule' ? { __visitCount: 500 }
++        : scenario === 'many-measurements' ? { __measurementCount: 150, __serviceName: 'A long service name with detailed exterior maintenance requirements' }
++        : {};
++      const hash = ['load-error', 'failed-outbox', 'large-schedule'].includes(scenario) ? '#/' : '#/visit/' + JOB_A;
++      const { context, page } = await fieldFixture(browser, { width, hash, config });
++      try {
++        if (scenario === 'load-error') await page.getByRole('button', { name: 'Retry', exact: true }).waitFor();
++        else if (scenario === 'large-schedule') await page.waitForFunction(() => document.querySelectorAll('button').length >= 500);
++        else if (scenario === 'failed-outbox') {
++          await queueAction(page, 'Save Property Passport');
++          await queueAction(page, 'Checklist update');
++          await page.evaluate(async () => {
++            __fail.updateProperty = 'Permission denied — ask an administrator to check property access';
++            await (await import('/admin/js/lib/offline-queue.js')).flush();
++          });
++          await page.locator('#syncBadge').click();
++          await page.getByRole('dialog').getByText('Save Property Passport', { exact: true }).waitFor();
++        } else {
++          await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).first().waitFor();
++          if (scenario === 'stale-data') {
++            await page.evaluate(() => { __fail.listMeasurements = 'Failed to fetch'; });
++            await page.getByRole('button', { name: 'Save passport', exact: true }).click();
++            await page.getByRole('button', { name: 'Retry visit data', exact: true }).waitFor();
++            await page.evaluate(() => window.scrollTo(0, 0));
++            // Inspect the persistent recovery control after the normal
++            // transient toast has dismissed, as a tech can do on the page.
++            await page.locator('#toast').waitFor({ state: 'hidden', timeout: 7500 });
++          } else if (scenario === 'saving-passport') {
++            await page.evaluate(() => { __defer.updateProperty = true; });
++            await page.getByLabel('Material', { exact: true }).fill('Vinyl');
++            await page.getByRole('button', { name: 'Save passport', exact: true }).click();
++            await page.getByRole('button', { name: 'Saving passport…', exact: true }).waitFor();
++          } else {
++            await page.getByRole('heading', { name: config.__serviceName, exact: false }).scrollIntoViewIfNeeded();
++          }
++        }
++        const metrics = await page.evaluate(() => ({ viewport: innerWidth, document: document.documentElement.scrollWidth }));
++        assert.ok(metrics.document <= metrics.viewport, `${width}/${scenario}: overflow`);
++        const file = `${width}-${scenario}.png`;
++        // Viewport captures are deliberate: 150 measurements and 500 visits
++        // produce extremely tall documents. Inspect their usable controls.
++        await page.screenshot({ path: resolve(directory, file) });
++        views.push({ file, scenario, ...metrics });
++      } finally { await context.close(); }
++    }
++  }
++  await writeFile(resolve(directory, 'views.json'), JSON.stringify({ browser: browser.version(), views }, null, 2));
++  console.log(`Captured ${views.length} views at ${directory}; all fit their viewports.`);
++} finally { await browser.close(); }
+-- 
+2.52.0
+

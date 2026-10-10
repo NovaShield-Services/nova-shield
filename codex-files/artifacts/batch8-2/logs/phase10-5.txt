@@ -1,0 +1,14 @@
+(node:454280) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("/workspace/.nova-shield/test-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS - 1. Fence height control renders with the overridden label, not the raw DB "Height" label
+PASS - 2. Fence height defaults to Standard and offers Standard/Tall/Very tall
+PASS - 3. Per-row modifier grid uses grid--3 (Condition + Fence height + Material)
+PASS - 4. Mixed Fence height: each row keeps its own independent selection, no bleed
+PASS - 5. Changing Fence height on one row updates only that measurement, not every row
+PASS - 6. Duplicate copies Fence height along with Condition/Material/Sides
+PASS - 7. + Add fence section seeds the new row with the default Fence height
+PASS - 8. Bottom hint no longer claims height is unpriced; mentions only gates
+PASS - 9. Sides remains the single job-wide control, separate from the per-row Fence height controls
+
+9/9 passed

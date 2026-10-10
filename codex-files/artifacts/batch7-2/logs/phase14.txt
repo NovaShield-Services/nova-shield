@@ -1,0 +1,18 @@
+(node:156859) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("/workspace/.nova-shield/test-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS - 1. Basic Christmas Lighting: one run renders with correct total, correct service name
+PASS - 2. Multiple main runs: total sums correctly, pure measurement summary (no pricing in it)
+PASS - 3. Mixed heights: Front (1 storey) and Rear (2 storeys) each show their own elevation hint, no bleed
+PASS - 4. Adding jump wire creates the single child row (section_id=null, quantity 0)
+PASS - 5. Jump wire footage input accepts a combined/larger total and persists it
+PASS - 6. No minimum-applied badge ever shows (real minimum is $0.00 for Christmas Lighting)
+PASS - 7. Review flag on a main run toggles review_required without touching quantity/section/label
+PASS - 8. Duplicate main run: copies section + footage -- not review/reason/notes
+PASS - 9a. Remove main run: calls deleteMeasurement after confirm
+PASS - 9b. Edit main run: rename and footage change both persist
+PASS - 10. No bespoke RPC reference and no invented seasonal/takedown/recurring controls in the component source
+PASS - 11. Multi-service: Christmas Lighting(+jump) + Permanent Lighting(+jump) + Siding + Gutter + Windows all coexist independently
+PASS - 12. Offline add-run: createMeasurement returning null does not throw
+
+13/13 passed

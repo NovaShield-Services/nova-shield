@@ -1,0 +1,66 @@
+(node:121978) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("/workspace/.nova-shield/test-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+Browser: 151.0.7922.173
+FAIL - An access-check failure offers Retry rather than leaving a loading screen
+     Expected values to be strictly equal:
+
+0 !== 1
+
+FAIL - A late visit load cannot replace the newer route
+     Expected values to be strictly equal:
+
+0 !== 1
+
+FAIL - An initial failed visit-data read reports the connection error, not fabricated empty data
+     The input did not match the regular expression /connection|Failed to fetch/i. Input:
+
+'Something went wrong\n\npricing is not iterable\n\nRetry'
+
+FAIL - An offline refresh labels the retained visit data and offers retry
+     Expected values to be strictly equal:
+
+0 !== 1
+
+FAIL - Passport save announces progress and prevents double submission
+     Expected values to be strictly equal:
+
+0 !== 1
+
+FAIL - Retrying notes does not rebuild the visit or lose an unsaved note
+     Expected values to be strictly equal:
+
+0 !== 1
+
+FAIL - Outbox failures retain the failed item and reason across a page reload
+     The input did not match the regular expression /Permission denied/. Input:
+
+''
+
+FAIL - The outbox shows individual items and requires confirmation to discard one
+     Expected values to be strictly equal:
+
+0 !== 1
+
+FAIL - A discard cannot race with a replay that already owns the item
+     The input did not match the regular expression /sync|replay/i. Input:
+
+'(intermediate value).discard is not a function'
+
+FAIL - IndexedDB failure restores Sync Now and does not claim Synced
+     Expected values to be strictly equal:
+
+true !== false
+
+FAIL - 390px: long field customer/service labels fit with 150 measurements
+     Expected values to be strictly equal:
+
+false !== true
+
+FAIL - 430px: long field customer/service labels fit with 150 measurements
+     Expected values to be strictly equal:
+
+false !== true
+
+
+0/12 passed

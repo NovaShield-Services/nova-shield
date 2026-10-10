@@ -1,0 +1,223 @@
+[
+  {
+    "suite": "phase2",
+    "exit": 0,
+    "count": [
+      "18",
+      "18"
+    ]
+  },
+  {
+    "suite": "phase3",
+    "exit": 0,
+    "count": [
+      "11",
+      "11"
+    ]
+  },
+  {
+    "suite": "phase4",
+    "exit": 0,
+    "count": [
+      "17",
+      "17"
+    ]
+  },
+  {
+    "suite": "phase5",
+    "exit": 0,
+    "count": [
+      "13",
+      "13"
+    ]
+  },
+  {
+    "suite": "phase6",
+    "exit": 0,
+    "count": [
+      "14",
+      "14"
+    ]
+  },
+  {
+    "suite": "phase7",
+    "exit": 0,
+    "count": [
+      "16",
+      "16"
+    ]
+  },
+  {
+    "suite": "phase8",
+    "exit": 0,
+    "count": [
+      "17",
+      "17"
+    ]
+  },
+  {
+    "suite": "phase9",
+    "exit": 0,
+    "count": [
+      "15",
+      "15"
+    ]
+  },
+  {
+    "suite": "phase10",
+    "exit": 0,
+    "count": [
+      "18",
+      "18"
+    ]
+  },
+  {
+    "suite": "phase10-5",
+    "exit": 0,
+    "count": [
+      "9",
+      "9"
+    ]
+  },
+  {
+    "suite": "phase11",
+    "exit": 0,
+    "count": [
+      "18",
+      "18"
+    ]
+  },
+  {
+    "suite": "phase12",
+    "exit": 0,
+    "count": [
+      "17",
+      "17"
+    ]
+  },
+  {
+    "suite": "phase13",
+    "exit": 0,
+    "count": [
+      "17",
+      "17"
+    ]
+  },
+  {
+    "suite": "phase14",
+    "exit": 0,
+    "count": [
+      "13",
+      "13"
+    ]
+  },
+  {
+    "suite": "phase15",
+    "exit": 0,
+    "count": [
+      "15",
+      "15"
+    ]
+  },
+  {
+    "suite": "phase16",
+    "exit": 0,
+    "count": [
+      "13",
+      "13"
+    ]
+  },
+  {
+    "suite": "phase17",
+    "exit": 0,
+    "count": [
+      "16",
+      "16"
+    ]
+  },
+  {
+    "suite": "phase18",
+    "exit": 0,
+    "count": [
+      "35",
+      "35"
+    ]
+  },
+  {
+    "suite": "phase19",
+    "exit": 0,
+    "count": [
+      "25",
+      "25"
+    ]
+  },
+  {
+    "suite": "phase20",
+    "exit": 0,
+    "count": [
+      "24",
+      "24"
+    ]
+  },
+  {
+    "suite": "native-wrapper",
+    "exit": 0,
+    "count": [
+      "19",
+      "19"
+    ]
+  },
+  {
+    "suite": "reload-offline",
+    "exit": 0,
+    "count": [
+      "2",
+      "2"
+    ]
+  },
+  {
+    "suite": "measurement-entry",
+    "exit": 1,
+    "count": [
+      "28",
+      "29"
+    ]
+  },
+  {
+    "suite": "mobile-reliability",
+    "exit": 1,
+    "count": [
+      "20",
+      "22"
+    ]
+  },
+  {
+    "suite": "field-resilience",
+    "exit": 0,
+    "count": [
+      "27",
+      "27"
+    ]
+  },
+  {
+    "suite": "native-readiness",
+    "exit": 0,
+    "count": [
+      "21",
+      "21"
+    ]
+  },
+  {
+    "suite": "geofence",
+    "exit": 0,
+    "count": null
+  },
+  {
+    "suite": "native-bundle",
+    "exit": 0,
+    "count": [
+      "10",
+      "10"
+    ]
+  }
+]

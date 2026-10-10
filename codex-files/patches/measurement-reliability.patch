@@ -1,0 +1,1507 @@
+From f4cdbe552ebd4289920fe533af10371a1d4c7f0d Mon Sep 17 00:00:00 2001
+From: sachin shrestha <shresthasachin673@gmail.com>
+Date: Fri, 9 Oct 2026 04:18:26 +0000
+Subject: [PATCH] Make measurement quantity saves ordered and recoverable
+
+---
+ .../christmas-lighting-calculator.js          |  14 +-
+ .../concrete-cleaning-calculator.js           |   9 +-
+ .../js/components/deck-cleaning-calculator.js |   9 +-
+ .../components/fence-cleaning-calculator.js   |   9 +-
+ .../components/graffiti-removal-calculator.js |   9 +-
+ .../gutter-brightening-calculator.js          |   9 +-
+ .../js/components/heating-wire-calculator.js  |  20 +-
+ .../js/components/moss-removal-calculator.js  |   9 +-
+ .../permanent-lighting-calculator.js          |  14 +-
+ .../js/components/roof-cleaning-calculator.js |   9 +-
+ admin/js/components/siding-calculator.js      |   9 +-
+ .../components/window-cleaning-calculator.js  |   9 +-
+ .../winter-property-care-calculator.js        |  11 +-
+ admin/js/field.js                             |   5 +
+ admin/js/lib/measurement-entry.js             | 227 ++++++++++
+ admin/js/main.js                              |   5 +
+ admin/js/views/field-workspace.js             |   4 +
+ admin/js/views/job.js                         |   4 +
+ admin/js/views/measurements.js                |  24 +-
+ tests/README.md                               |   8 +
+ tests/measurement-entry.test.mjs              | 411 ++++++++++++++++++
+ tests/phase10.test.mjs                        |   2 +-
+ tests/phase11.test.mjs                        |   2 +-
+ tests/phase12.test.mjs                        |   2 +-
+ tests/phase13.test.mjs                        |   4 +-
+ tests/phase14.test.mjs                        |   4 +-
+ tests/phase7.test.mjs                         |   2 +-
+ tests/phase8.test.mjs                         |   2 +-
+ tests/phase9.test.mjs                         |   2 +-
+ tests/run-regression.sh                       |   2 +-
+ 30 files changed, 737 insertions(+), 113 deletions(-)
+ create mode 100644 admin/js/lib/measurement-entry.js
+ create mode 100644 tests/measurement-entry.test.mjs
+
+diff --git a/admin/js/components/christmas-lighting-calculator.js b/admin/js/components/christmas-lighting-calculator.js
+index a8dd233..83fb5b2 100644
+--- a/admin/js/components/christmas-lighting-calculator.js
++++ b/admin/js/components/christmas-lighting-calculator.js
+@@ -1,5 +1,5 @@
+ import * as api from '../lib/api.js';
+-import { el, select, numberInput, confirmAction, toast } from '../../../shared/dom.js';
++import { el, select, confirmAction, toast } from '../../../shared/dom.js';
+ import { qty, money, unitLabel } from '../../../shared/format.js';
+ import { reviewFlag } from './review-flag.js';
+ import { modifierGroupsFor } from './modifier-groups.js';
+@@ -44,7 +44,7 @@ import { modifierGroupsFor } from './modifier-groups.js';
+  *  a single job-wide row, added/edited/removed directly, same reasoning
+  *  as Permanent Lighting's. */
+ 
+-export function createChristmasLightingCalculator({ job, service, refs, measurements, pricedRows, onChange, createMeasurement }) {
++export function createChristmasLightingCalculator({ job, service, refs, measurements, pricedRows, onChange, createMeasurement, quantityInput }) {
+   const jumpService = refs.services.find((s) => s.key === 'christmas_lighting_jump');
+   const mainRuns = measurements.filter((m) => m.service_id === service.id);
+   const jumpRow = jumpService ? measurements.find((m) => m.service_id === jumpService.id) : null;
+@@ -88,10 +88,7 @@ export function createChristmasLightingCalculator({ job, service, refs, measurem
+ 
+   function lightingRunRow(measurement) {
+     const section = refs.sections.find((s) => s.id === measurement.section_id);
+-    const qtyInput = numberInput(measurement.quantity, async (e) => {
+-      await api.updateMeasurement(measurement.id, { quantity: Number(e.target.value) || 0 });
+-      onChange();
+-    }, { step: '1', 'aria-label': 'Feet' });
++    const qtyInput = quantityInput(measurement, { step: '1', 'aria-label': 'Feet' });
+ 
+     const selectedIds = new Set((measurement.measurement_modifiers || []).map((r) => r.modifier_id));
+     const modifierControls = rowGroups.map((group) => {
+@@ -194,10 +191,7 @@ export function createChristmasLightingCalculator({ job, service, refs, measurem
+       ]);
+     }
+ 
+-    const qtyInput = numberInput(jumpRow.quantity, async (e) => {
+-      await api.updateMeasurement(jumpRow.id, { quantity: Number(e.target.value) || 0 });
+-      onChange();
+-    }, { step: '1', 'aria-label': 'Jump wire feet' });
++    const qtyInput = quantityInput(jumpRow, { step: '1', 'aria-label': 'Jump wire feet' });
+ 
+     return el('div', { class: 'section-box' }, [
+       el('div', { class: 'section-box__head' }, [
+diff --git a/admin/js/components/concrete-cleaning-calculator.js b/admin/js/components/concrete-cleaning-calculator.js
+index 65d43e6..b66a1f1 100644
+--- a/admin/js/components/concrete-cleaning-calculator.js
++++ b/admin/js/components/concrete-cleaning-calculator.js
+@@ -1,5 +1,5 @@
+ import * as api from '../lib/api.js';
+-import { el, select, numberInput, confirmAction, toast } from '../../../shared/dom.js';
++import { el, select, confirmAction, toast } from '../../../shared/dom.js';
+ import { qty, money } from '../../../shared/format.js';
+ import { reviewFlag } from './review-flag.js';
+ import { modifierGroupsFor } from './modifier-groups.js';
+@@ -38,7 +38,7 @@ import { modifierGroupsFor } from './modifier-groups.js';
+  *  review_reason/notes, which describe something found on THIS physical
+  *  zone, not a safe default for an uninspected copy. */
+ 
+-export function createConcreteCleaningCalculator({ job, service, refs, measurements, onChange, createMeasurement }) {
++export function createConcreteCleaningCalculator({ job, service, refs, measurements, onChange, createMeasurement, quantityInput }) {
+   const rows = measurements.filter((m) => m.service_id === service.id);
+   const allGroups = modifierGroupsFor(refs.modifiers, service.id);
+ 
+@@ -78,10 +78,7 @@ export function createConcreteCleaningCalculator({ job, service, refs, measureme
+ 
+   function zoneRow(measurement) {
+     const section = refs.sections.find((s) => s.id === measurement.section_id);
+-    const qtyInput = numberInput(measurement.quantity, async (e) => {
+-      await api.updateMeasurement(measurement.id, { quantity: Number(e.target.value) || 0 });
+-      onChange();
+-    }, { step: '1', 'aria-label': 'Square feet' });
++    const qtyInput = quantityInput(measurement, { step: '1', 'aria-label': 'Square feet' });
+ 
+     const selectedIds = new Set((measurement.measurement_modifiers || []).map((r) => r.modifier_id));
+     const modifierControls = allGroups.map((group) => {
+diff --git a/admin/js/components/deck-cleaning-calculator.js b/admin/js/components/deck-cleaning-calculator.js
+index 6f51d04..54e3a32 100644
+--- a/admin/js/components/deck-cleaning-calculator.js
++++ b/admin/js/components/deck-cleaning-calculator.js
+@@ -1,5 +1,5 @@
+ import * as api from '../lib/api.js';
+-import { el, select, numberInput, confirmAction, toast } from '../../../shared/dom.js';
++import { el, select, confirmAction, toast } from '../../../shared/dom.js';
+ import { qty } from '../../../shared/format.js';
+ import { reviewFlag } from './review-flag.js';
+ import { modifierGroupsFor } from './modifier-groups.js';
+@@ -35,7 +35,7 @@ import { modifierGroupsFor } from './modifier-groups.js';
+  *  Concrete and Roof Cleaning -- copies section, square footage, and
+  *  modifier selections; never review_required/review_reason/notes. */
+ 
+-export function createDeckCleaningCalculator({ job, service, refs, measurements, onChange, createMeasurement }) {
++export function createDeckCleaningCalculator({ job, service, refs, measurements, onChange, createMeasurement, quantityInput }) {
+   const rows = measurements.filter((m) => m.service_id === service.id);
+   const allGroups = modifierGroupsFor(refs.modifiers, service.id);
+ 
+@@ -75,10 +75,7 @@ export function createDeckCleaningCalculator({ job, service, refs, measurements,
+ 
+   function deckSectionRow(measurement) {
+     const section = refs.sections.find((s) => s.id === measurement.section_id);
+-    const qtyInput = numberInput(measurement.quantity, async (e) => {
+-      await api.updateMeasurement(measurement.id, { quantity: Number(e.target.value) || 0 });
+-      onChange();
+-    }, { step: '1', 'aria-label': 'Square feet' });
++    const qtyInput = quantityInput(measurement, { step: '1', 'aria-label': 'Square feet' });
+ 
+     const selectedIds = new Set((measurement.measurement_modifiers || []).map((r) => r.modifier_id));
+     const modifierControls = allGroups.map((group) => {
+diff --git a/admin/js/components/fence-cleaning-calculator.js b/admin/js/components/fence-cleaning-calculator.js
+index 29fd343..c60d43a 100644
+--- a/admin/js/components/fence-cleaning-calculator.js
++++ b/admin/js/components/fence-cleaning-calculator.js
+@@ -1,5 +1,5 @@
+ import * as api from '../lib/api.js';
+-import { el, select, numberInput, confirmAction, toast } from '../../../shared/dom.js';
++import { el, select, confirmAction, toast } from '../../../shared/dom.js';
+ import { qty, unitLabel } from '../../../shared/format.js';
+ import { reviewFlag } from './review-flag.js';
+ import { modifierGroupsFor } from './modifier-groups.js';
+@@ -55,7 +55,7 @@ import { modifierGroupsFor } from './modifier-groups.js';
+  *  selections (Condition/Material/Sides/Fence height); never
+  *  review_required/review_reason/notes. */
+ 
+-export function createFenceCleaningCalculator({ job, service, refs, measurements, onChange, createMeasurement }) {
++export function createFenceCleaningCalculator({ job, service, refs, measurements, onChange, createMeasurement, quantityInput }) {
+   const rows = measurements.filter((m) => m.service_id === service.id);
+ 
+   const allGroups = modifierGroupsFor(refs.modifiers, service.id);
+@@ -138,10 +138,7 @@ export function createFenceCleaningCalculator({ job, service, refs, measurements
+ 
+   function fenceRunRow(measurement) {
+     const section = refs.sections.find((s) => s.id === measurement.section_id);
+-    const qtyInput = numberInput(measurement.quantity, async (e) => {
+-      await api.updateMeasurement(measurement.id, { quantity: Number(e.target.value) || 0 });
+-      onChange();
+-    }, { step: '1', 'aria-label': 'Linear feet' });
++    const qtyInput = quantityInput(measurement, { step: '1', 'aria-label': 'Linear feet' });
+ 
+     const selectedIds = new Set((measurement.measurement_modifiers || []).map((r) => r.modifier_id));
+     const modifierControls = rowGroups.map((group) => {
+diff --git a/admin/js/components/graffiti-removal-calculator.js b/admin/js/components/graffiti-removal-calculator.js
+index 80edee0..cb238d5 100644
+--- a/admin/js/components/graffiti-removal-calculator.js
++++ b/admin/js/components/graffiti-removal-calculator.js
+@@ -1,5 +1,5 @@
+ import * as api from '../lib/api.js';
+-import { el, select, numberInput, confirmAction, toast } from '../../../shared/dom.js';
++import { el, select, confirmAction, toast } from '../../../shared/dom.js';
+ import { qty, unitLabel } from '../../../shared/format.js';
+ import { reviewFlag } from './review-flag.js';
+ import { modifierGroupsFor } from './modifier-groups.js';
+@@ -46,7 +46,7 @@ import { modifierGroupsFor } from './modifier-groups.js';
+  *  calculator -- copies section, square footage, and modifier selections
+  *  (Difficulty/Surface); never review_required/review_reason/notes. */
+ 
+-export function createGraffitiRemovalCalculator({ job, service, refs, measurements, onChange, createMeasurement }) {
++export function createGraffitiRemovalCalculator({ job, service, refs, measurements, onChange, createMeasurement, quantityInput }) {
+   const rows = measurements.filter((m) => m.service_id === service.id);
+   const allGroups = modifierGroupsFor(refs.modifiers, service.id);
+ 
+@@ -86,10 +86,7 @@ export function createGraffitiRemovalCalculator({ job, service, refs, measuremen
+ 
+   function affectedAreaRow(measurement) {
+     const section = refs.sections.find((s) => s.id === measurement.section_id);
+-    const qtyInput = numberInput(measurement.quantity, async (e) => {
+-      await api.updateMeasurement(measurement.id, { quantity: Number(e.target.value) || 0 });
+-      onChange();
+-    }, { step: '1', 'aria-label': 'Affected area (sq ft)' });
++    const qtyInput = quantityInput(measurement, { step: '1', 'aria-label': 'Affected area (sq ft)' });
+ 
+     const selectedIds = new Set((measurement.measurement_modifiers || []).map((r) => r.modifier_id));
+     const modifierControls = allGroups.map((group) => {
+diff --git a/admin/js/components/gutter-brightening-calculator.js b/admin/js/components/gutter-brightening-calculator.js
+index bd6847a..6bca63f 100644
+--- a/admin/js/components/gutter-brightening-calculator.js
++++ b/admin/js/components/gutter-brightening-calculator.js
+@@ -1,5 +1,5 @@
+ import * as api from '../lib/api.js';
+-import { el, select, numberInput, confirmAction, toast } from '../../../shared/dom.js';
++import { el, select, confirmAction, toast } from '../../../shared/dom.js';
+ import { qty, unitLabel } from '../../../shared/format.js';
+ import { reviewFlag } from './review-flag.js';
+ import { modifierGroupsFor } from './modifier-groups.js';
+@@ -32,7 +32,7 @@ import { modifierGroupsFor } from './modifier-groups.js';
+  *  both are real, already-configured groups; this only decides where in
+  *  the UI each one's control lives. */
+ 
+-export function createGutterBrighteningCalculator({ job, service, refs, measurements, onChange, createMeasurement }) {
++export function createGutterBrighteningCalculator({ job, service, refs, measurements, onChange, createMeasurement, quantityInput }) {
+   const rows = measurements.filter((m) => m.service_id === service.id);
+ 
+   const allGroups = modifierGroupsFor(refs.modifiers, service.id);
+@@ -107,10 +107,7 @@ export function createGutterBrighteningCalculator({ job, service, refs, measurem
+ 
+   function gutterRow(measurement) {
+     const section = refs.sections.find((s) => s.id === measurement.section_id);
+-    const qtyInput = numberInput(measurement.quantity, async (e) => {
+-      await api.updateMeasurement(measurement.id, { quantity: Number(e.target.value) || 0 });
+-      onChange();
+-    }, { step: '1', 'aria-label': 'Linear feet' });
++    const qtyInput = quantityInput(measurement, { step: '1', 'aria-label': 'Linear feet' });
+ 
+     const selectedIds = new Set((measurement.measurement_modifiers || []).map((r) => r.modifier_id));
+     const modifierControls = rowGroups.map((group) => {
+diff --git a/admin/js/components/heating-wire-calculator.js b/admin/js/components/heating-wire-calculator.js
+index 632a47b..6f954e0 100644
+--- a/admin/js/components/heating-wire-calculator.js
++++ b/admin/js/components/heating-wire-calculator.js
+@@ -1,5 +1,5 @@
+ import * as api from '../lib/api.js';
+-import { el, select, numberInput, confirmAction, toast } from '../../../shared/dom.js';
++import { el, select, confirmAction, toast } from '../../../shared/dom.js';
+ import { money } from '../../../shared/format.js';
+ import { reviewFlag } from './review-flag.js';
+ import { modifierGroupsFor } from './modifier-groups.js';
+@@ -30,7 +30,7 @@ const CHILD_KEYS = {
+   corner2nd: 'winter_deicing_cables_corner_2nd'
+ };
+ 
+-export function createHeatingWireCalculator({ job, service, refs, measurements, pricedRows, onChange, createMeasurement }) {
++export function createHeatingWireCalculator({ job, service, refs, measurements, pricedRows, onChange, createMeasurement, quantityInput, changeQuantity }) {
+   const pricedByService = new Map(pricedRows.map(p => [p.service_id, p]));
+   const childIds = Object.fromEntries(
+     Object.entries(CHILD_KEYS).map(([k, key]) => [k, refs.services.find(s => s.key === key)?.id])
+@@ -76,10 +76,7 @@ export function createHeatingWireCalculator({ job, service, refs, measurements,
+ 
+   function cableRunRow(measurement, { removable = true } = {}) {
+     const section = refs.sections.find(s => s.id === measurement.section_id);
+-    const qtyInput = numberInput(measurement.quantity, async (e) => {
+-      await api.updateMeasurement(measurement.id, { quantity: Number(e.target.value) || 0 });
+-      onChange();
+-    }, { step: '1', 'aria-label': 'Feet' });
++    const qtyInput = quantityInput(measurement, { step: '1', 'aria-label': 'Feet' });
+ 
+     const selectedIds = new Set((measurement.measurement_modifiers || []).map(r => r.modifier_id));
+     const modifierControls = modifierGroupsFor(refs.modifiers, service.id).map((group) => {
+@@ -181,6 +178,7 @@ export function createHeatingWireCalculator({ job, service, refs, measurements,
+ 
+     async function apply(next) {
+       next = Math.max(0, next);
++      const before = count;
+       count = next; // the +/- handlers below close over `count`, not `next` -- without this every click recomputes from the original value instead of the last one
+       countLabel.textContent = String(next);
+       // Disabled for the round trip, not just visually mid-count: a second
+@@ -191,12 +189,13 @@ export function createHeatingWireCalculator({ job, service, refs, measurements,
+       // offline tap before the first ever syncs still creates a second
+       // row) -- a real, narrow, documented limitation, not solved here.
+       minus.disabled = true; plus.disabled = true;
+-      try {
++      const saved = await changeQuantity(async () => {
+         if (next === 0 && existing) {
+           await api.deleteMeasurement(existing.id);
+           existing = null;
+         } else if (existing) {
+           await api.updateMeasurement(existing.id, { quantity: next });
++          existing.quantity = next;
+         } else if (next > 0) {
+           const created = await createMeasurement(job.id, {
+             service_id: childId, section_id: null, unit: 'each', quantity: next,
+@@ -212,10 +211,9 @@ export function createHeatingWireCalculator({ job, service, refs, measurements,
+           if (created) existing = created;
+           else toast('Offline — saved locally, will sync automatically');
+         }
+-      } finally {
+-        minus.disabled = false; plus.disabled = false;
+-        onChange();
+-      }
++      });
++      if (!saved) { count = before; countLabel.textContent = String(before); }
++      minus.disabled = false; plus.disabled = false;
+     }
+ 
+     minus.addEventListener('click', () => apply(count - 1));
+diff --git a/admin/js/components/moss-removal-calculator.js b/admin/js/components/moss-removal-calculator.js
+index 1ce1f77..0443add 100644
+--- a/admin/js/components/moss-removal-calculator.js
++++ b/admin/js/components/moss-removal-calculator.js
+@@ -1,5 +1,5 @@
+ import * as api from '../lib/api.js';
+-import { el, select, numberInput, confirmAction, toast } from '../../../shared/dom.js';
++import { el, select, confirmAction, toast } from '../../../shared/dom.js';
+ import { qty, unitLabel } from '../../../shared/format.js';
+ import { reviewFlag } from './review-flag.js';
+ import { modifierGroupsFor } from './modifier-groups.js';
+@@ -52,7 +52,7 @@ import { modifierGroupsFor } from './modifier-groups.js';
+  *  square footage, and modifier selections (Coverage/Surface/Follow-up);
+  *  never review_required/review_reason/notes. */
+ 
+-export function createMossRemovalCalculator({ job, service, refs, measurements, onChange, createMeasurement }) {
++export function createMossRemovalCalculator({ job, service, refs, measurements, onChange, createMeasurement, quantityInput }) {
+   const rows = measurements.filter((m) => m.service_id === service.id);
+ 
+   const allGroups = modifierGroupsFor(refs.modifiers, service.id);
+@@ -127,10 +127,7 @@ export function createMossRemovalCalculator({ job, service, refs, measurements,
+ 
+   function affectedAreaRow(measurement) {
+     const section = refs.sections.find((s) => s.id === measurement.section_id);
+-    const qtyInput = numberInput(measurement.quantity, async (e) => {
+-      await api.updateMeasurement(measurement.id, { quantity: Number(e.target.value) || 0 });
+-      onChange();
+-    }, { step: '1', 'aria-label': 'Affected area (sq ft)' });
++    const qtyInput = quantityInput(measurement, { step: '1', 'aria-label': 'Affected area (sq ft)' });
+ 
+     const selectedIds = new Set((measurement.measurement_modifiers || []).map((r) => r.modifier_id));
+     const modifierControls = rowGroups.map((group) => {
+diff --git a/admin/js/components/permanent-lighting-calculator.js b/admin/js/components/permanent-lighting-calculator.js
+index 8d6fbef..858974f 100644
+--- a/admin/js/components/permanent-lighting-calculator.js
++++ b/admin/js/components/permanent-lighting-calculator.js
+@@ -1,5 +1,5 @@
+ import * as api from '../lib/api.js';
+-import { el, select, numberInput, confirmAction, toast } from '../../../shared/dom.js';
++import { el, select, confirmAction, toast } from '../../../shared/dom.js';
+ import { qty, money, unitLabel } from '../../../shared/format.js';
+ import { reviewFlag } from './review-flag.js';
+ import { modifierGroupsFor } from './modifier-groups.js';
+@@ -42,7 +42,7 @@ import { modifierGroupsFor } from './modifier-groups.js';
+  *  job-wide row, so it is added/edited/removed directly rather than
+  *  duplicated. */
+ 
+-export function createPermanentLightingCalculator({ job, service, refs, measurements, pricedRows, onChange, createMeasurement }) {
++export function createPermanentLightingCalculator({ job, service, refs, measurements, pricedRows, onChange, createMeasurement, quantityInput }) {
+   const jumpService = refs.services.find((s) => s.key === 'permanent_lighting_jump');
+   const mainRuns = measurements.filter((m) => m.service_id === service.id);
+   const jumpRow = jumpService ? measurements.find((m) => m.service_id === jumpService.id) : null;
+@@ -86,10 +86,7 @@ export function createPermanentLightingCalculator({ job, service, refs, measurem
+ 
+   function lightingRunRow(measurement) {
+     const section = refs.sections.find((s) => s.id === measurement.section_id);
+-    const qtyInput = numberInput(measurement.quantity, async (e) => {
+-      await api.updateMeasurement(measurement.id, { quantity: Number(e.target.value) || 0 });
+-      onChange();
+-    }, { step: '1', 'aria-label': 'Feet' });
++    const qtyInput = quantityInput(measurement, { step: '1', 'aria-label': 'Feet' });
+ 
+     const selectedIds = new Set((measurement.measurement_modifiers || []).map((r) => r.modifier_id));
+     const modifierControls = rowGroups.map((group) => {
+@@ -192,10 +189,7 @@ export function createPermanentLightingCalculator({ job, service, refs, measurem
+       ]);
+     }
+ 
+-    const qtyInput = numberInput(jumpRow.quantity, async (e) => {
+-      await api.updateMeasurement(jumpRow.id, { quantity: Number(e.target.value) || 0 });
+-      onChange();
+-    }, { step: '1', 'aria-label': 'Jump wire feet' });
++    const qtyInput = quantityInput(jumpRow, { step: '1', 'aria-label': 'Jump wire feet' });
+ 
+     return el('div', { class: 'section-box' }, [
+       el('div', { class: 'section-box__head' }, [
+diff --git a/admin/js/components/roof-cleaning-calculator.js b/admin/js/components/roof-cleaning-calculator.js
+index 9e2f4c9..663a39d 100644
+--- a/admin/js/components/roof-cleaning-calculator.js
++++ b/admin/js/components/roof-cleaning-calculator.js
+@@ -1,5 +1,5 @@
+ import * as api from '../lib/api.js';
+-import { el, select, numberInput, confirmAction, toast } from '../../../shared/dom.js';
++import { el, select, confirmAction, toast } from '../../../shared/dom.js';
+ import { qty } from '../../../shared/format.js';
+ import { reviewFlag } from './review-flag.js';
+ import { modifierGroupsFor } from './modifier-groups.js';
+@@ -41,7 +41,7 @@ import { modifierGroupsFor } from './modifier-groups.js';
+  *  consistent with every other internal tool in this system never
+  *  carrying marketing copy. */
+ 
+-export function createRoofCleaningCalculator({ job, service, refs, measurements, onChange, createMeasurement }) {
++export function createRoofCleaningCalculator({ job, service, refs, measurements, onChange, createMeasurement, quantityInput }) {
+   const rows = measurements.filter((m) => m.service_id === service.id);
+   const allGroups = modifierGroupsFor(refs.modifiers, service.id);
+ 
+@@ -81,10 +81,7 @@ export function createRoofCleaningCalculator({ job, service, refs, measurements,
+ 
+   function roofSectionRow(measurement) {
+     const section = refs.sections.find((s) => s.id === measurement.section_id);
+-    const qtyInput = numberInput(measurement.quantity, async (e) => {
+-      await api.updateMeasurement(measurement.id, { quantity: Number(e.target.value) || 0 });
+-      onChange();
+-    }, { step: '1', 'aria-label': 'Square feet' });
++    const qtyInput = quantityInput(measurement, { step: '1', 'aria-label': 'Square feet' });
+ 
+     const selectedIds = new Set((measurement.measurement_modifiers || []).map((r) => r.modifier_id));
+     const modifierControls = allGroups.map((group) => {
+diff --git a/admin/js/components/siding-calculator.js b/admin/js/components/siding-calculator.js
+index 509a3d4..af35ba0 100644
+--- a/admin/js/components/siding-calculator.js
++++ b/admin/js/components/siding-calculator.js
+@@ -1,5 +1,5 @@
+ import * as api from '../lib/api.js';
+-import { el, select, numberInput, confirmAction, toast } from '../../../shared/dom.js';
++import { el, select, confirmAction, toast } from '../../../shared/dom.js';
+ import { qty, unitLabel } from '../../../shared/format.js';
+ import { reviewFlag } from './review-flag.js';
+ import { modifierGroupsFor } from './modifier-groups.js';
+@@ -18,7 +18,7 @@ import { modifierGroupsFor } from './modifier-groups.js';
+  *  figure: the card showing this component already got its total from
+  *  calculate_job_pricing before this ever renders. */
+ 
+-export function createSidingCalculator({ job, service, refs, measurements, onChange, createMeasurement }) {
++export function createSidingCalculator({ job, service, refs, measurements, onChange, createMeasurement, quantityInput }) {
+   const rows = measurements.filter((m) => m.service_id === service.id);
+ 
+   async function pickOrCreateSection(currentId) {
+@@ -57,10 +57,7 @@ export function createSidingCalculator({ job, service, refs, measurements, onCha
+ 
+   function wallRow(measurement) {
+     const section = refs.sections.find((s) => s.id === measurement.section_id);
+-    const qtyInput = numberInput(measurement.quantity, async (e) => {
+-      await api.updateMeasurement(measurement.id, { quantity: Number(e.target.value) || 0 });
+-      onChange();
+-    }, { step: '1', 'aria-label': 'Square feet' });
++    const qtyInput = quantityInput(measurement, { step: '1', 'aria-label': 'Square feet' });
+ 
+     const selectedIds = new Set((measurement.measurement_modifiers || []).map((r) => r.modifier_id));
+     const modifierControls = modifierGroupsFor(refs.modifiers, service.id).map((group) => {
+diff --git a/admin/js/components/window-cleaning-calculator.js b/admin/js/components/window-cleaning-calculator.js
+index 18c70e7..49e74e9 100644
+--- a/admin/js/components/window-cleaning-calculator.js
++++ b/admin/js/components/window-cleaning-calculator.js
+@@ -39,7 +39,7 @@ import { modifierGroupsFor } from './modifier-groups.js';
+  *  wouldn't save real work, it would just be a wrong number sitting
+  *  there until someone notices. Count from zero every time. */
+ 
+-export function createWindowCleaningCalculator({ job, service, refs, measurements, onChange, createMeasurement }) {
++export function createWindowCleaningCalculator({ job, service, refs, measurements, onChange, createMeasurement, saveQuantity }) {
+   const rows = measurements.filter((m) => m.service_id === service.id);
+ 
+   const allGroups = modifierGroupsFor(refs.modifiers, service.id);
+@@ -153,8 +153,11 @@ export function createWindowCleaningCalculator({ job, service, refs, measurement
+       count = next; // close over the last value, not the stale initial one -- see heating wire's stepper for why this matters
+       countLabel.textContent = String(next);
+       minus.disabled = true; plus.disabled = true;
+-      try { await api.updateMeasurement(measurement.id, { quantity: next }); }
+-      finally { minus.disabled = false; plus.disabled = false; onChange(); }
++      if (!await saveQuantity(measurement, next)) {
++        count = measurement.quantity || 0;
++        countLabel.textContent = String(count);
++      }
++      minus.disabled = false; plus.disabled = false;
+     }
+     minus.addEventListener('click', () => apply(count - 1));
+     plus.addEventListener('click', () => apply(count + 1));
+diff --git a/admin/js/components/winter-property-care-calculator.js b/admin/js/components/winter-property-care-calculator.js
+index 45d2380..5766e54 100644
+--- a/admin/js/components/winter-property-care-calculator.js
++++ b/admin/js/components/winter-property-care-calculator.js
+@@ -66,7 +66,7 @@ import { modifierGroupsFor } from './modifier-groups.js';
+  *  "Front entrance" as a starting point for "Side entrance"); never
+  *  copies review state or notes. */
+ 
+-export function createWinterPropertyCareCalculator({ job, service, refs, measurements, onChange, createMeasurement }) {
++export function createWinterPropertyCareCalculator({ job, service, refs, measurements, onChange, createMeasurement, saveQuantity }) {
+   const rows = measurements.filter((m) => m.service_id === service.id);
+   const rowGroups = modifierGroupsFor(refs.modifiers, service.id);
+ 
+@@ -116,12 +116,11 @@ export function createWinterPropertyCareCalculator({ job, service, refs, measure
+       count = next;
+       countLabel.textContent = String(next);
+       minus.disabled = true; plus.disabled = true;
+-      try {
+-        await api.updateMeasurement(measurement.id, { quantity: next });
+-      } finally {
+-        minus.disabled = false; plus.disabled = false;
+-        onChange();
++      if (!await saveQuantity(measurement, next)) {
++        count = measurement.quantity || 0;
++        countLabel.textContent = String(count);
+       }
++      minus.disabled = false; plus.disabled = false;
+     }
+     minus.addEventListener('click', () => applyCount(count - 1));
+     plus.addEventListener('click', () => applyCount(count + 1));
+diff --git a/admin/js/field.js b/admin/js/field.js
+index e6c072f..a746650 100644
+--- a/admin/js/field.js
++++ b/admin/js/field.js
+@@ -1,3 +1,4 @@
++import { flushMeasurementEdits } from './lib/measurement-entry.js';
+ import { supabase, getSession } from '../../shared/supabase.js';
+ import { el, clear, toast } from '../../shared/dom.js';
+ import { renderLogin } from './views/login.js';
+@@ -62,7 +63,10 @@ function showMessage(title, body, action) {
+   );
+ }
+ 
++let measurementRouteAttempt = 0;
+ async function router() {
++  const attempt = ++measurementRouteAttempt;
++  if (!await flushMeasurementEdits() || attempt !== measurementRouteAttempt) return;
+   syncNavDepth();
+   const { session, isAdmin } = await getSession();
+ 
+@@ -102,6 +106,7 @@ export function navigate(path) {
+ }
+ 
+ document.getElementById('signOut')?.addEventListener('click', async () => {
++  if (!await flushMeasurementEdits()) return;
+   await supabase.auth.signOut();
+   toast('Signed out');
+   navigate('/');
+diff --git a/admin/js/lib/measurement-entry.js b/admin/js/lib/measurement-entry.js
+new file mode 100644
+index 0000000..9abbbbe
+--- /dev/null
++++ b/admin/js/lib/measurement-entry.js
+@@ -0,0 +1,227 @@
++import { el, numberInput, toast } from '../../../shared/dom.js';
++import { describeWriteError } from './save.js';
++
++const editors = new Set();
++let statusId = 0;
++
++// A tab/WebView reload cannot wait for an async write. Warn rather than
++// claiming the field outbox holds these edits (it does not queue quantities).
++window.addEventListener('beforeunload', event => {
++  if ([...editors].some(editor => editor.root.isConnected && editor.pending())) {
++    event.preventDefault();
++    event.returnValue = '';
++  }
++});
++
++/** Called before either router replaces the current screen, including Back.
++ * Invalid/failed quantities keep that screen and its recoverable input alive. */
++export async function flushMeasurementEdits() {
++  for (const editor of [...editors]) {
++    if (!editor.root.isConnected) { editors.delete(editor); continue; }
++    if (!await editor.flush()) {
++      if (window.location.hash !== editor.route) {
++        history.replaceState(history.state, '', editor.route || window.location.pathname);
++      }
++      return false;
++    }
++  }
++  return true;
++}
++
++/** Quantity persistence only: dollar figures still come from backend RPCs. */
++export function createMeasurementEditor({ root, save, onChange, delay = 350 }) {
++  const entries = new Map();
++  const rowWrites = new Map();
++  const writes = new Set();
++  let version = 0;
++  let refreshSequence = 0;
++  let refreshTimer;
++  let suspended = 0;
++  let guarding = false;
++  const replaying = new WeakSet();
++
++  function pending() {
++    return writes.size > 0 || [...entries.values()].some(entry => entry.dirty || entry.running);
++  }
++
++  function requestRefresh() {
++    if (suspended || !root.isConnected) return;
++    clearTimeout(refreshTimer);
++    refreshTimer = setTimeout(async () => {
++      if (pending() || suspended || !root.isConnected) return;
++      try { await onChange(); }
++      catch (err) { toast(`Quantity saved, but the screen could not refresh: ${describeWriteError(err)}`, 'error'); }
++    }, 0);
++  }
++
++  // One write per row in flight, even when a new value arrives during a save.
++  // Captured numbers, never mutable control.value, are used after the await.
++  function write(measurement, value) {
++    const previous = rowWrites.get(measurement.id) || Promise.resolve();
++    const next = previous.catch(() => {}).then(() => save(measurement.id, { quantity: value }))
++      .then(result => { version++; return result; });
++    rowWrites.set(measurement.id, next);
++    writes.add(next);
++    next.finally(() => {
++      writes.delete(next);
++      if (rowWrites.get(measurement.id) === next) rowWrites.delete(measurement.id);
++    }).catch(() => {});
++    return next;
++  }
++
++  function valid(entry) {
++    const value = Number(entry.input.value);
++    return entry.input.value.trim() !== '' && !entry.input.validity.badInput &&
++      Number.isFinite(value) && value >= 0 &&
++      (entry.measurement.unit !== 'each' || Number.isInteger(value));
++  }
++
++  function paint(entry) {
++    const invalid = entry.dirty && !valid(entry);
++    entry.input.setAttribute('aria-invalid', String(invalid));
++    entry.message.textContent = invalid ? 'Not saved — enter a non-negative quantity.'
++      : entry.error ? `Not saved — ${describeWriteError(entry.error)}`
++      : entry.running ? 'Saving quantity…'
++      : entry.dirty ? 'Quantity not saved yet.' : '';
++    entry.retry.hidden = !entry.error || invalid;
++    entry.discard.hidden = !entry.dirty || !!entry.running;
++  }
++
++  function drain(entry) {
++    clearTimeout(entry.timer);
++    if (entry.running) return entry.running;
++    if (!entry.dirty || !valid(entry)) { paint(entry); return Promise.resolve(); }
++    entry.running = (async () => {
++      while (entry.dirty && valid(entry)) {
++        const value = Number(entry.input.value);
++        const revision = entry.revision;
++        entry.error = null;
++        try {
++          await write(entry.measurement, value);
++          entry.saved = value;
++          entry.measurement.quantity = value;
++          if (revision === entry.revision) entry.dirty = false;
++        } catch (err) {
++          // An earlier failure must not revert or annotate a newer edit.
++          if (revision === entry.revision) { entry.error = err; break; }
++        }
++      }
++    })().finally(() => {
++      entry.running = null;
++      paint(entry);
++      if (!entry.dirty) requestRefresh();
++    });
++    paint(entry);
++    return entry.running;
++  }
++
++  function quantityInput(measurement, attrs = {}) {
++    const id = `measurement-save-${++statusId}`;
++    const message = el('span', { id, class: 'hint', role: 'status', 'aria-live': 'polite' });
++    const input = numberInput(measurement.quantity, null, {
++      ...attrs, 'aria-describedby': id
++    });
++    const entry = { measurement, input, message, saved: Number(measurement.quantity || 0),
++      revision: 0, dirty: false, error: null, running: null };
++    const retry = el('button', { type: 'button', class: 'btn btn--sm', text: 'Retry quantity save',
++      dataset: { measurementRecovery: 'true' }, onClick: () => drain(entry) });
++    const discard = el('button', { type: 'button', class: 'btn btn--sm', text: 'Use saved quantity',
++      dataset: { measurementRecovery: 'true' }, onClick: () => {
++        clearTimeout(entry.timer);
++        input.value = String(entry.saved);
++        entry.measurement.quantity = entry.saved;
++        entry.revision++;
++        version++;
++        entry.dirty = false;
++        entry.error = null;
++        paint(entry);
++        requestRefresh();
++      } });
++    Object.assign(entry, { retry, discard });
++    entries.set(measurement.id, entry);
++    input.addEventListener('input', () => {
++      entry.revision++;
++      version++;
++      entry.dirty = true;
++      entry.error = null;
++      clearTimeout(entry.timer);
++      paint(entry);
++      if (valid(entry)) entry.timer = setTimeout(() => drain(entry), delay);
++    });
++    input.addEventListener('blur', () => { (entry.error ? Promise.resolve() : drain(entry)).then(() => {
++      if (!entry.dirty) requestRefresh();
++    }); });
++    paint(entry);
++    return el('div', {}, [input, message, retry, discard]);
++  }
++
++  async function changeQuantity(fn) {
++    version++;
++    const operation = Promise.resolve().then(fn).then(result => { version++; return result; });
++    writes.add(operation);
++    try {
++      await operation;
++      requestRefresh();
++      return true;
++    } catch (err) {
++      toast(describeWriteError(err), 'error');
++      return false;
++    } finally { writes.delete(operation); }
++  }
++
++  function saveQuantity(measurement, value) {
++    return changeQuantity(async () => {
++      await write(measurement, value);
++      measurement.quantity = value;
++    });
++  }
++
++  async function flush() {
++    suspended++;
++    clearTimeout(refreshTimer);
++    try {
++      await Promise.all([...entries.values()].map(drain));
++      await Promise.allSettled([...writes]);
++      const unsaved = [...entries.values()].find(entry => entry.dirty);
++      if (unsaved) {
++        paint(unsaved);
++        unsaved.input.focus();
++        toast('Finish or retry the unsaved quantity before continuing.', 'error');
++        return false;
++      }
++      return true;
++    } finally { suspended--; }
++  }
++
++  /** Save before delete/duplicate/quote actions, without changing their logic.
++   * Keep the original controls mounted until their original handler runs. */
++  function guardActions(host) {
++    host.addEventListener('click', async event => {
++      const target = event.target.closest('button, a');
++      if (!target || !host.contains(target) || target.disabled ||
++          target.dataset.measurementRecovery || replaying.has(target)) return;
++      if (!pending() && !guarding) return;
++      event.preventDefault();
++      event.stopImmediatePropagation();
++      if (guarding) return;
++      guarding = true;
++      try {
++        if (await flush() && target.isConnected) {
++          replaying.add(target);
++          try { target.click(); } finally { replaying.delete(target); }
++        }
++      } finally { guarding = false; }
++    }, true);
++  }
++
++  const editor = {
++    root, route: window.location.hash, pending, flush, quantityInput, saveQuantity, changeQuantity, guardActions,
++    refreshToken: () => ({ version, sequence: ++refreshSequence }),
++    isCurrent: token => token.version === version && token.sequence === refreshSequence && root.isConnected,
++    canRender: () => !pending() && ![...entries.values()].some(entry => entry.input === document.activeElement),
++    reset: () => { for (const entry of entries.values()) clearTimeout(entry.timer); entries.clear(); }
++  };
++  editors.add(editor);
++  guardActions(root);
++  return editor;
++}
+diff --git a/admin/js/main.js b/admin/js/main.js
+index 8e610ed..5772d6c 100644
+--- a/admin/js/main.js
++++ b/admin/js/main.js
+@@ -1,3 +1,4 @@
++import { flushMeasurementEdits } from './lib/measurement-entry.js';
+ import { supabase, getSession } from '../../shared/supabase.js';
+ import { el, clear, toast } from '../../shared/dom.js';
+ import { installUnhandledRejectionToast } from './lib/save.js';
+@@ -140,7 +141,10 @@ function showMessage(title, body, action) {
+   );
+ }
+ 
++let measurementRouteAttempt = 0;
+ async function router() {
++  const attempt = ++measurementRouteAttempt;
++  if (!await flushMeasurementEdits() || attempt !== measurementRouteAttempt) return;
+   syncNavDepth();
+   contextParentPath = null;
+   const { session, isAdmin } = await getSession();
+@@ -214,6 +218,7 @@ navEl.addEventListener('click', e => {
+ });
+ 
+ document.getElementById('signOut')?.addEventListener('click', async () => {
++  if (!await flushMeasurementEdits()) return;
+   await supabase.auth.signOut();
+   toast('Signed out');
+   navigate('/dashboard');
+diff --git a/admin/js/views/field-workspace.js b/admin/js/views/field-workspace.js
+index 02ae976..f3908c3 100644
+--- a/admin/js/views/field-workspace.js
++++ b/admin/js/views/field-workspace.js
+@@ -273,6 +273,7 @@ export async function renderVisit({ mount, navigate }, jobId) {
+     saveSignatureFn: async (jobId, quoteId, pngBlob, signerName) =>
+       offlineQueue.callOrQueue('saveSignature', { jobId, quoteId, pngBlob, signerName }, 'Customer signature')
+   });
++  measurementsPanel.guardActions(quotePanel.root);
+   const photosPanel = createPhotosPanel({
+     jobId: job.id,
+     uploadFn: async (jobId, file, opts) => {
+@@ -401,12 +402,14 @@ export async function renderVisit({ mount, navigate }, jobId) {
+   let lastQuotes = [];
+ 
+   async function reload() {
++    const refresh = measurementsPanel.refreshToken();
+     let sections = refs.sections, measurements = lastMeasurements, pricing = lastPricing, quotes = lastQuotes;
+     try {
+       const [fresh, freshSections, freshMeasurements, jobFlags, freshPricing, freshQuotes] = await Promise.all([
+         api.getJob(job.id), api.listSections(job.id), api.listMeasurements(job.id),
+         api.listJobFlags(job.id), api.calculatePricing(job.id), api.listQuotes(job.id)
+       ]);
++      if (!measurementsPanel.isCurrent(refresh)) return;
+       job.status = fresh.status;
+       job.properties = fresh.properties;
+       if (statusSelect.value !== fresh.status) statusSelect.value = fresh.status;
+@@ -423,6 +426,7 @@ export async function renderVisit({ mount, navigate }, jobId) {
+       if (!offlineQueue.looksOffline(err)) throw err;
+     }
+ 
++    if (!measurementsPanel.isCurrent(refresh)) return;
+     clear(sectionsHost).append(sectionsPanel(job, refs, reload));
+     clear(passportHost).append(passportPanel(job.properties, reload));
+     clear(checklistHost).append(checklistPanel(job.properties));
+diff --git a/admin/js/views/job.js b/admin/js/views/job.js
+index 1178002..45bdd51 100644
+--- a/admin/js/views/job.js
++++ b/admin/js/views/job.js
+@@ -315,6 +315,7 @@ export async function renderJob({ mount }, jobId) {
+   const activityHost = el('div', {});
+   const measurementsPanel = createMeasurementsPanel({ job, refs, onChange: reload });
+   const quotePanel = createQuotePanel({ job, onChange: reload });
++  measurementsPanel.guardActions(quotePanel.root);
+ 
+   /* ------------------------------------------------------------ sections -- */
+ 
+@@ -908,6 +909,7 @@ export async function renderJob({ mount }, jobId) {
+   /* -------------------------------------------------------------- reload -- */
+ 
+   async function reload() {
++    const refresh = measurementsPanel.refreshToken();
+     const [fresh, sections, measurements, jobFlags, pricing, quotes, attachments, notes] =
+       await Promise.all([
+         api.getJob(job.id),
+@@ -920,6 +922,8 @@ export async function renderJob({ mount }, jobId) {
+         api.listNotes(job.id)
+       ]);
+ 
++    if (!measurementsPanel.isCurrent(refresh)) return;
++
+     // sending a quote advances the job server-side, so re-sync the header
+     // rather than leaving a stale status in the dropdown. scheduled_for and
+     // completed_at are re-synced for the same reason: the field console can
+diff --git a/admin/js/views/measurements.js b/admin/js/views/measurements.js
+index 134b400..85ad943 100644
+--- a/admin/js/views/measurements.js
++++ b/admin/js/views/measurements.js
+@@ -1,9 +1,10 @@
+ import * as api from '../lib/api.js';
+-import { el, clear, toast, select, numberInput, confirmAction } from '../../../shared/dom.js';
++import { el, clear, toast, select, confirmAction } from '../../../shared/dom.js';
+ import { unitLabel, money, num } from '../../../shared/format.js';
+ import { reviewFlag } from '../components/review-flag.js';
+ import { modifierGroupsFor } from '../components/modifier-groups.js';
+ import { trySave } from '../lib/save.js';
++import { createMeasurementEditor } from '../lib/measurement-entry.js';
+ import { createHeatingWireCalculator } from '../components/heating-wire-calculator.js';
+ import { createSidingCalculator } from '../components/siding-calculator.js';
+ import { createGutterBrighteningCalculator } from '../components/gutter-brightening-calculator.js';
+@@ -20,6 +21,8 @@ import { createWinterPropertyCareCalculator } from '../components/winter-propert
+ 
+ export function createMeasurementsPanel({ job, refs, onChange, createMeasurementFn }) {
+   const root = el('div', {});
++  const editor = createMeasurementEditor({ root, save: api.updateMeasurement, onChange });
++  const { quantityInput, saveQuantity, changeQuantity } = editor;
+   // Desktop calls api.createMeasurement directly (always online). The field
+   // console passes a wrapped version that goes through its offline outbox
+   // instead -- this component stays unaware of that distinction either way.
+@@ -43,17 +46,7 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
+   function renderMeasurement(measurement, service) {
+     const selectedIds = new Set((measurement.measurement_modifiers || []).map(r => r.modifier_id));
+ 
+-    const qtyInput = numberInput(measurement.quantity, async e => {
+-      const control = e.target;
+-      const before = measurement.quantity;
+-      await trySave(
+-        async () => {
+-          await api.updateMeasurement(measurement.id, { quantity: num(control.value) });
+-          measurement.quantity = num(control.value);
+-        },
+-        { revert: () => { control.value = before; }, after: onChange }
+-      );
+-    }, { step: service.unit === 'each' ? '1' : '10', 'aria-label': 'Quantity' });
++    const qtyInput = quantityInput(measurement, { step: service.unit === 'each' ? '1' : '10', 'aria-label': 'Quantity' });
+ 
+     const sectionSelect = select(
+       [{ value: '', label: 'No section' },
+@@ -254,7 +247,7 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
+       hint ? el('p', { class: 'hint', style: 'margin:-4px 0 10px', text: hint }) : null,
+ 
+       specialized
+-        ? specialized({ job, service, refs, measurements, pricedRows, onChange, createMeasurement })
++        ? specialized({ job, service, refs, measurements, pricedRows, onChange, createMeasurement, quantityInput, saveQuantity, changeQuantity })
+         : el('div', {}, [
+             ...measurements.map(m => renderMeasurement(m, resolveService(m.service_id) || service)),
+             el('div', { class: 'btn-row' }, [
+@@ -296,6 +289,8 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
+   }
+ 
+   function render({ measurements, pricing }) {
++    if (!editor.canRender()) return;
++    editor.reset();
+     const byGroup = new Map();
+     for (const m of measurements) {
+       const svc = resolveService(m.service_id);
+@@ -406,5 +401,6 @@ export function createMeasurementsPanel({ job, refs, onChange, createMeasurement
+     ].filter(Boolean));
+   }
+ 
+-  return { root, render };
++  return { root, render, flush: editor.flush, guardActions: editor.guardActions,
++    refreshToken: editor.refreshToken, isCurrent: editor.isCurrent };
+ }
+diff --git a/tests/README.md b/tests/README.md
+index e9fc191..a1e6526 100644
+--- a/tests/README.md
++++ b/tests/README.md
+@@ -21,6 +21,14 @@ This starts a static file server on :8743, runs every `phase*.test.mjs`
+ `geofence.test.mjs` / `native-wrapper.test.mjs` / `reload-offline.test.mjs`
+ (the native-wrapper/offline suite), and stops the server on exit.
+ 
++It also runs `measurement-entry.test.mjs`: delayed and failed quantity
++writes, rapid typing, blank/incomplete input, focus preservation, reversed
++refresh responses, and saving before delete, quote creation, navigation,
++or sign-out. It exercises both the desktop and field screens with mocked
++API calls, without writing to Supabase. Typed quantities intentionally
++debounce; calculator tests wait for the expected persisted-value call
++rather than assuming a write on each keystroke.
++
+ ## What these do and don't cover
+ 
+ Every test here mocks `admin/js/lib/api.js` and asserts against the
+diff --git a/tests/measurement-entry.test.mjs b/tests/measurement-entry.test.mjs
+new file mode 100644
+index 0000000..2bc9018
+--- /dev/null
++++ b/tests/measurement-entry.test.mjs
+@@ -0,0 +1,411 @@
++import assert from 'node:assert/strict';
++import { BASE, BASE_FAKE_API_PANEL, createRecorder, launchPanelPage, finishAndReport } from './test-harness.mjs';
++
++const { results, record } = createRecorder();
++const fakeApi = BASE_FAKE_API_PANEL.replace('export async function updateMeasurement', 'async function unusedUpdateMeasurement') + `
++  export async function updateMeasurement(id, patch) {
++    const call = { id, patch };
++    globalThis.__calls.push(call);
++    globalThis.__active++;
++    globalThis.__maximum = Math.max(globalThis.__maximum, globalThis.__active);
++    return new Promise((resolve, reject) => {
++      call.finish = (error) => {
++        globalThis.__active--;
++        if (error) reject(new Error(error));
++        else {
++          Object.assign(globalThis.__store.find(row => row.id === id), patch);
++          resolve({ id, ...patch });
++        }
++      };
++      if (globalThis.__autoSave) call.finish();
++    });
++  }
++  export async function getSettings() { return {}; }
++  export async function createQuoteFromCalculation() {
++    globalThis.__quotesBuilt.push(globalThis.__store.map(row => row.quantity));
++  }
++`;
++
++const { browser, page } = await launchPanelPage({ fakeApi });
++page.removeAllListeners('dialog');
++page.on('dialog', dialog => dialog.accept());
++
++async function fresh(key = 'generic', unit = 'linear_ft') {
++  // Reload isolates pending saves, timers, editor registrations and modules.
++  await page.goto(`${BASE}/admin/field.html`);
++  await page.evaluate(async ({ key, unit }) => {
++    const { createMeasurementsPanel } = await import('/admin/js/views/measurements.js');
++    const { createQuotePanel } = await import('/admin/js/views/quote.js');
++    globalThis.__store = [{ id: 'm1', service_id: 's1', unit, quantity: 7,
++      measurement_modifiers: [], job_measurement_addons: [] }];
++    globalThis.__calls = []; globalThis.__active = 0; globalThis.__maximum = 0;
++    globalThis.__quotesBuilt = []; globalThis.__autoSave = false;
++    globalThis.__refreshes = []; globalThis.__manualRefresh = false;
++    const refs = { services: [{ id: 's1', key, unit, name: 'Test service', quotable: true }],
++      modifiers: [], sections: [], siteFactors: [], pricingRules: [] };
++    if (key === 'winter_deicing_cables') {
++      refs.services.push({ id: 's2', key: 'winter_deicing_cables_valley_1st', name: 'Valley',
++        parent_key: key, unit: 'each', quotable: true });
++      __store.push({ id: 'm2', service_id: 's2', unit: 'each', quantity: 2,
++        measurement_modifiers: [], job_measurement_addons: [] });
++    }
++    const job = { id: 'j1' };
++    const panel = createMeasurementsPanel({ job, refs, onChange: reload });
++    async function reload() {
++      const token = panel.refreshToken();
++      const snapshot = structuredClone(globalThis.__store);
++      if (globalThis.__manualRefresh) await new Promise(resolve => globalThis.__refreshes.push(resolve));
++      if (panel.isCurrent(token)) panel.render({ measurements: snapshot, pricing: [] });
++    }
++    const quote = createQuotePanel({ job, onChange: reload });
++    panel.guardActions(quote.root);
++    document.body.append(panel.root, quote.root);
++    panel.render({ measurements: structuredClone(globalThis.__store), pricing: [] });
++    quote.render({ quotes: [] });
++    globalThis.__panel = panel; globalThis.__reload = reload;
++    globalThis.__input = panel.root.querySelector('input[type="number"]');
++  }, { key, unit });
++}
++
++const input = () => page.locator('input[type="number"]').first();
++async function waitCalls(count) { await page.waitForFunction(count => globalThis.__calls.length === count, count); }
++async function finish(index = 0, error) {
++  await page.evaluate(({ index, error }) => globalThis.__calls[index].finish(error), { index, error });
++}
++async function state() {
++  return page.evaluate(() => ({ value: __input.value, same: __input.isConnected,
++    focused: document.activeElement === __input, quantity: __store[0]?.quantity,
++    calls: __calls.map(({ id, patch }) => ({ id, patch })), maximum: __maximum }));
++}
++
++await record('Rapid typing coalesces into one save and keeps the focused input mounted', async () => {
++  await fresh();
++  await input().fill('1'); await input().fill('12'); await input().fill('123');
++  await waitCalls(1); await finish();
++  await page.waitForTimeout(30);
++  assert.deepEqual(await state(), { value: '123', same: true, focused: true, quantity: 123,
++    calls: [{ id: 'm1', patch: { quantity: 123 } }], maximum: 1 });
++});
++
++await record('A second edit waits for the first write and persists the latest captured value', async () => {
++  await fresh(); await input().fill('1'); await waitCalls(1);
++  await input().fill('12'); await input().fill('123');
++  await page.waitForTimeout(400);
++  assert.equal((await state()).calls.length, 1);
++  await finish(); await waitCalls(2);
++  assert.equal((await state()).quantity, 1);
++  await finish(1);
++  assert.equal((await state()).quantity, 123);
++  assert.equal((await state()).maximum, 1);
++  assert.equal((await state()).value, '123');
++});
++
++await record('An older failed write cannot revert a newer edit', async () => {
++  await fresh(); await input().fill('10'); await waitCalls(1);
++  await input().fill('20'); await finish(0, 'Permission denied');
++  await waitCalls(2); await finish(1);
++  assert.equal((await state()).value, '20');
++  assert.equal((await state()).quantity, 20);
++  assert.equal(await page.getByText('Retry quantity save', { exact: true }).isVisible(), false);
++});
++
++await record('A failed latest save retains the intended quantity and supports explicit retry', async () => {
++  await fresh(); await input().fill('42'); await waitCalls(1); await finish(0, 'Network request failed');
++  const retry = page.getByRole('button', { name: 'Retry quantity save', exact: true });
++  await retry.waitFor({ state: 'visible' });
++  assert.equal((await state()).value, '42'); assert.equal((await state()).quantity, 7);
++  await retry.click(); await waitCalls(2); await finish(1);
++  await page.waitForFunction(() => __store[0].quantity === 42);
++});
++
++await record('Blank input is not silently persisted as zero and blocks navigation until resolved', async () => {
++  await fresh(); await input().fill(''); await page.waitForTimeout(400);
++  assert.equal((await state()).calls.length, 0);
++  assert.equal(await page.evaluate(() => __panel.flush()), false);
++  await page.getByRole('button', { name: 'Use saved quantity', exact: true }).click();
++  assert.equal(await input().inputValue(), '7');
++  assert.equal(await page.evaluate(() => __panel.flush()), true);
++  assert.equal((await state()).calls.length, 0);
++});
++
++await record('An incomplete exponent remains unsaved', async () => {
++  await fresh(); await input().fill(''); await input().pressSequentially('1e');
++  await page.waitForTimeout(400);
++  assert.equal((await state()).calls.length, 0);
++  assert.equal(await page.evaluate(() => __panel.flush()), false);
++});
++
++await record('Negative and fractional each quantities are rejected; explicit zero is saved', async () => {
++  await fresh('generic', 'each'); await input().fill('-1'); await page.waitForTimeout(400);
++  assert.equal((await state()).calls.length, 0);
++  await input().fill('1.5'); await page.waitForTimeout(400);
++  assert.equal((await state()).calls.length, 0);
++  await input().fill('0'); await waitCalls(1); await finish();
++  assert.equal((await state()).quantity, 0);
++});
++
++await record('Blur flushes the debounce immediately, then allows a fresh panel render', async () => {
++  await fresh(); await input().fill('80');
++  await input().evaluate(node => node.blur());
++  await waitCalls(1); await finish();
++  await page.waitForFunction(() => !__input.isConnected);
++  assert.equal(await input().inputValue(), '80');
++});
++
++await record('An old refresh cannot overwrite an edit made after it started', async () => {
++  await fresh();
++  await page.evaluate(() => { __manualRefresh = true; void __reload(); });
++  await input().fill('60');
++  await page.evaluate(() => __refreshes[0]());
++  assert.equal((await state()).value, '60'); assert.equal((await state()).same, true);
++});
++
++await record('A later refresh wins when responses complete in reverse order', async () => {
++  await fresh();
++  await page.evaluate(() => {
++    __manualRefresh = true; void __reload();
++    __store[0].quantity = 90; void __reload();
++  });
++  await page.evaluate(() => __refreshes[1]());
++  assert.equal(await input().inputValue(), '90');
++  await page.evaluate(() => __refreshes[0]());
++  assert.equal(await input().inputValue(), '90');
++});
++
++await record('A refresh started before commit is rejected even if its edit version was current', async () => {
++  await fresh(); await input().fill('81'); await waitCalls(1);
++  await page.evaluate(() => { __manualRefresh = true; void __reload(); });
++  await finish();
++  await page.evaluate(() => __refreshes[0]());
++  await input().evaluate(node => node.blur());
++  await page.waitForFunction(() => __refreshes.length >= 2);
++  await page.evaluate(() => __refreshes.at(-1)());
++  await page.waitForFunction(() => !__input.isConnected);
++  assert.equal(await input().inputValue(), '81');
++});
++
++await record('Discarding a failed draft restores the confirmed value without retrying it', async () => {
++  await fresh(); await input().fill('42'); await waitCalls(1); await finish(0, 'Permission denied');
++  await page.getByRole('button', { name: 'Use saved quantity', exact: true }).click();
++  await page.waitForTimeout(40);
++  assert.equal(await input().inputValue(), '7');
++  assert.equal((await state()).calls.length, 1);
++});
++
++await record('Delete waits for the pending quantity before its original handler runs', async () => {
++  await fresh(); await input().fill('99');
++  await page.getByRole('button', { name: 'Remove', exact: true }).click();
++  await waitCalls(1);
++  assert.equal(await page.evaluate(() => globalThis.__deleteMeasurementCalls?.length || 0), 0);
++  await finish();
++  await page.waitForFunction(() => globalThis.__deleteMeasurementCalls?.length === 1);
++  assert.equal((await state()).quantity, 99);
++});
++
++await record('Build quote waits for the latest quantity and ignores duplicate clicks while saving', async () => {
++  await fresh(); await input().fill('55');
++  await page.getByRole('button', { name: 'Build quote', exact: true }).click();
++  await waitCalls(1);
++  await page.getByRole('button', { name: 'Build quote', exact: true }).click();
++  assert.deepEqual(await page.evaluate(() => __quotesBuilt), []);
++  await finish();
++  await page.waitForFunction(() => __quotesBuilt.length === 1);
++  assert.deepEqual(await page.evaluate(() => __quotesBuilt), [[55]]);
++});
++
++await record('A failed quantity prevents quote creation and leaves the draft recoverable', async () => {
++  await fresh(); await input().fill('55');
++  await page.getByRole('button', { name: 'Build quote', exact: true }).click();
++  await waitCalls(1); await finish(0, 'Permission denied');
++  await page.getByRole('button', { name: 'Retry quantity save', exact: true }).waitFor({ state: 'visible' });
++  assert.deepEqual(await page.evaluate(() => __quotesBuilt), []);
++  assert.equal((await state()).value, '55');
++});
++
++await record('Navigation flush waits for pending writes and restores the route for an invalid draft', async () => {
++  await fresh(); await input().fill('66');
++  await page.evaluate(async () => {
++    const { flushMeasurementEdits } = await import('/admin/js/lib/measurement-entry.js');
++    __navigationDone = false;
++    void flushMeasurementEdits().then(ok => { __navigationDone = ok; });
++  });
++  await waitCalls(1); assert.equal(await page.evaluate(() => __navigationDone), false);
++  await finish(); await page.waitForFunction(() => __navigationDone);
++  await input().fill('');
++  await page.evaluate(() => history.replaceState(history.state, '', '#/another-job'));
++  const ok = await page.evaluate(async () => (await import('/admin/js/lib/measurement-entry.js')).flushMeasurementEdits());
++  assert.equal(ok, false); assert.equal(await page.evaluate(() => location.hash), '');
++});
++
++for (const key of ['siding', 'permanent_lighting']) {
++  await record(`${key} specialized footage uses the same ordered save and preserves focus`, async () => {
++    await fresh(key); await input().fill('145'); await waitCalls(1); await finish();
++    await page.waitForTimeout(30);
++    assert.equal((await state()).quantity, 145);
++    assert.equal((await state()).same, true); assert.equal((await state()).focused, true);
++  });
++}
++
++for (const key of ['windows', 'winter_property_care']) {
++  await record(`${key} stepper restores the confirmed count after a failed write`, async () => {
++    await fresh(key, 'each');
++    const plus = page.getByRole('button', { name: key === 'windows' ? 'More' : 'More visits', exact: true });
++    await plus.click(); await waitCalls(1);
++    assert.equal(await plus.isDisabled(), true);
++    await finish(0, 'Permission denied');
++    await page.waitForFunction(() => document.getElementById('toast')?.textContent.includes('Permission denied'));
++    assert.equal(await plus.isDisabled(), false);
++    assert.equal((await page.locator('.section-box').first().innerText()).includes('7'), true);
++    assert.equal(await page.evaluate(() => __store[0].quantity), 7);
++  });
++}
++
++await record('Heating-wire child counts block quote creation while saving and restore failed counts', async () => {
++  await fresh('winter_deicing_cables');
++  const plus = page.getByRole('button', { name: 'More Valley — 1st floor', exact: true });
++  await plus.click(); await waitCalls(1);
++  await page.getByRole('button', { name: 'Build quote', exact: true }).click();
++  assert.deepEqual(await page.evaluate(() => __quotesBuilt), []);
++  await finish(0, 'Permission denied');
++  await page.waitForFunction(() => __quotesBuilt.length === 1);
++  assert.deepEqual(await page.evaluate(() => __quotesBuilt), [[7, 2]]);
++  assert.equal(await plus.isDisabled(), false);
++});
++
++const screenApi = fakeApi + `
++  const job = { id: 'j1', status: 'new', customers: { name: 'Test Customer' },
++    properties: { id: 'p1', address_line1: 'Test address', passport: {} } };
++  export async function getJob() { return structuredClone(job); }
++  export async function currentUserId() { return 'u1'; }
++  export async function listServices() {
++    return [{ id: 's1', key: 'generic', name: 'Test service', unit: 'linear_ft', quotable: true }];
++  }
++  export async function listModifiers() { return []; }
++  export async function listSiteFactors() { return []; }
++  export async function listInspectionFlags() { return []; }
++  export async function listServiceFlagMap() { return []; }
++  export async function listPricingRules() { return []; }
++  export async function listSections() { return []; }
++  export async function listMeasurements() {
++    const snapshot = structuredClone(globalThis.__store);
++    if (globalThis.__delayReads) await new Promise(resolve => globalThis.__readResolvers.push(resolve));
++    return snapshot;
++  }
++  export async function listJobFlags() { return []; }
++  export async function calculatePricing() {
++    return [{ service_id: 's1', service_name: 'Test service', amount: globalThis.__store[0].quantity * 10 }];
++  }
++  export async function listQuotes() { return []; }
++  export async function listAttachments() { return []; }
++  export async function listNotes() { return []; }
++  export async function jobActivity() { return []; }
++  export async function searchJobs() { return { rows: [], total: 0, limit: 50, offset: 0 }; }
++  export async function listTodaysVisits() { return []; }
++  export async function listUpcomingVisits() { return []; }
++`;
++
++async function screen(view) {
++  await page.route(`${BASE}/admin/js/lib/api.js`, route => route.fulfill({
++    status: 200, contentType: 'application/javascript', body: screenApi
++  }));
++  await page.goto(`${BASE}/admin/field.html`);
++  await page.evaluate(async view => {
++    __store = [{ id: 'm1', service_id: 's1', unit: 'linear_ft', quantity: 7,
++      measurement_modifiers: [], job_measurement_addons: [] }];
++    __calls = []; __active = 0; __maximum = 0; __quotesBuilt = []; __autoSave = false;
++    __delayReads = false; __readResolvers = [];
++    const mount = document.createElement('div'); document.body.append(mount);
++    if (view === 'desktop') {
++      const { renderJob } = await import('/admin/js/views/job.js');
++      await renderJob({ mount }, 'j1');
++    } else {
++      const { renderVisit } = await import('/admin/js/views/field-workspace.js');
++      await renderVisit({ mount, navigate: () => {} }, 'j1');
++    }
++    __input = mount.querySelector('input[aria-label="Quantity"]');
++  }, view);
++}
++
++for (const view of ['desktop', 'field']) {
++  await record(`${view} screen flushes quantity before its real Build quote handler`, async () => {
++    await screen(view);
++    const quantity = page.getByRole('spinbutton', { name: 'Quantity', exact: true });
++    await quantity.fill('150');
++    await page.getByRole('button', { name: 'Build quote', exact: true }).click();
++    await waitCalls(1);
++    assert.deepEqual(await page.evaluate(() => __quotesBuilt), []);
++    await finish(); await page.waitForFunction(() => __quotesBuilt.length === 1);
++    assert.deepEqual(await page.evaluate(() => __quotesBuilt), [[150]]);
++  });
++
++  await record(`${view} screen rejects reversed reload responses after separate saves`, async () => {
++    await screen(view);
++    await page.evaluate(() => { __delayReads = true; });
++    const quantity = page.getByRole('spinbutton', { name: 'Quantity', exact: true });
++    await quantity.fill('100'); await waitCalls(1); await finish();
++    await page.waitForFunction(() => __readResolvers.length === 1);
++    await quantity.fill('200'); await waitCalls(2); await finish(1);
++    await page.waitForFunction(() => __readResolvers.length === 2);
++    await page.evaluate(() => __readResolvers[1]());
++    await page.evaluate(() => __readResolvers[0]());
++    await quantity.evaluate(node => node.blur());
++    await page.waitForFunction(() => __readResolvers.length === 3);
++    await page.evaluate(() => __readResolvers[2]());
++    await page.waitForFunction(() => !__input.isConnected);
++    assert.equal(await quantity.inputValue(), '200');
++    assert.equal(await page.locator('.money').filter({ hasText: '$2,000' }).count() > 0, true);
++  });
++}
++
++async function routedScreen(view) {
++  await page.route(`${BASE}/admin/js/lib/api.js`, route => route.fulfill({
++    status: 200, contentType: 'application/javascript', body: screenApi
++  }));
++  await page.route(`${BASE}/shared/supabase.js`, route => route.fulfill({
++    status: 200, contentType: 'application/javascript', body: `
++      export const supabase = { auth: { signOut: async () => { globalThis.__signedOutCount++; } } };
++      export async function getSession() { return { session: { user: { id: 'u1' } }, isAdmin: true }; }
++    `
++  }));
++  await page.addInitScript(() => {
++    globalThis.__store = [{ id: 'm1', service_id: 's1', unit: 'linear_ft', quantity: 7,
++      measurement_modifiers: [], job_measurement_addons: [] }];
++    globalThis.__calls = []; globalThis.__active = 0; globalThis.__maximum = 0;
++    globalThis.__quotesBuilt = []; globalThis.__autoSave = false;
++    globalThis.__signedOutCount = 0; globalThis.__delayReads = false; globalThis.__readResolvers = [];
++  });
++  const route = view === 'desktop' ? '#/jobs/1111' : '#/visit/1111';
++  await page.goto(`${BASE}/admin/${view === 'desktop' ? 'index' : 'field'}.html${route}`);
++  // A goto that changes only the hash reuses the document and its prior
++  // mock state. Reload explicitly so every router case starts independently.
++  await page.reload();
++  await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).waitFor();
++  return route;
++}
++
++for (const view of ['desktop', 'field']) {
++  await record(`${view} router waits for the quantity write before changing screens`, async () => {
++    await routedScreen(view);
++    await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('78');
++    await page.evaluate(view => { location.hash = view === 'desktop' ? '/jobs' : '/'; }, view);
++    await waitCalls(1);
++    assert.equal(await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).count(), 1);
++    await finish();
++    await page.waitForFunction(() => !document.querySelector('input[aria-label="Quantity"]'));
++    assert.equal(await page.evaluate(() => __store[0].quantity), 78);
++    assert.equal(await page.getByText('Something went wrong', { exact: true }).count(), 0);
++  });
++
++  await record(`${view} router and sign-out retain invalid input on the current screen`, async () => {
++    const route = await routedScreen(view);
++    await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).fill('');
++    await page.evaluate(view => { location.hash = view === 'desktop' ? '/jobs' : '/'; }, view);
++    await page.waitForFunction(route => location.hash === route, route);
++    assert.equal(await page.getByRole('spinbutton', { name: 'Quantity', exact: true }).inputValue(), '');
++    await page.locator('#signOut').click();
++    assert.equal(await page.evaluate(() => __signedOutCount), 0, 'sign-out must not run');
++    assert.equal(await page.evaluate(() => __calls.length), 0, 'blank quantity must not be written');
++  });
++}
++
++await finishAndReport(browser, results);
+diff --git a/tests/phase10.test.mjs b/tests/phase10.test.mjs
+index 9675b83..565cdbf 100644
+--- a/tests/phase10.test.mjs
++++ b/tests/phase10.test.mjs
+@@ -222,7 +222,7 @@ async function main() {
+       qtyInput.value = '85';
+       qtyInput.dispatchEvent(new Event('input', { bubbles: true }));
+     });
+-    await page.waitForTimeout(60);
++    await page.waitForFunction(() => (globalThis.__updateMeasurementCalls || []).some(c => c.patch.quantity === 85));
+     const calls = await page.evaluate(() => globalThis.__updateMeasurementCalls);
+     assert.ok(calls.some(c => c.patch.label === 'Main Front Fence'));
+     assert.ok(calls.some(c => c.patch.quantity === 85));
+diff --git a/tests/phase11.test.mjs b/tests/phase11.test.mjs
+index b9703ea..48f1401 100644
+--- a/tests/phase11.test.mjs
++++ b/tests/phase11.test.mjs
+@@ -218,7 +218,7 @@ async function main() {
+       qtyInput.value = '450';
+       qtyInput.dispatchEvent(new Event('input', { bubbles: true }));
+     });
+-    await page.waitForTimeout(60);
++    await page.waitForFunction(() => (globalThis.__updateMeasurementCalls || []).some(c => c.patch.quantity === 450));
+     const calls = await page.evaluate(() => globalThis.__updateMeasurementCalls);
+     assert.ok(calls.some(c => c.patch.label === 'Main roof, north slope'));
+     assert.ok(calls.some(c => c.patch.quantity === 450));
+diff --git a/tests/phase12.test.mjs b/tests/phase12.test.mjs
+index cee9406..21a883f 100644
+--- a/tests/phase12.test.mjs
++++ b/tests/phase12.test.mjs
+@@ -190,7 +190,7 @@ async function main() {
+       qtyInput.value = '135';
+       qtyInput.dispatchEvent(new Event('input', { bubbles: true }));
+     });
+-    await page.waitForTimeout(60);
++    await page.waitForFunction(() => (globalThis.__updateMeasurementCalls || []).some(c => c.patch.quantity === 135));
+     const calls = await page.evaluate(() => globalThis.__updateMeasurementCalls);
+     assert.ok(calls.some(c => c.patch.label === 'Front wall, east section'));
+     assert.ok(calls.some(c => c.patch.quantity === 135));
+diff --git a/tests/phase13.test.mjs b/tests/phase13.test.mjs
+index 4143f69..757b83a 100644
+--- a/tests/phase13.test.mjs
++++ b/tests/phase13.test.mjs
+@@ -151,7 +151,7 @@ async function main() {
+       input.value = '55';
+       input.dispatchEvent(new Event('input', { bubbles: true }));
+     });
+-    await page.waitForTimeout(60);
++    await page.waitForFunction(() => (globalThis.__updateMeasurementCalls || []).some(c => c.id === 'mj' && c.patch.quantity === 55));
+     const calls = await page.evaluate(() => globalThis.__updateMeasurementCalls);
+     assert.ok(calls.some(c => c.id === 'mj' && c.patch.quantity === 55));
+   });
+@@ -240,7 +240,7 @@ async function main() {
+       qtyInput.value = '85';
+       qtyInput.dispatchEvent(new Event('input', { bubbles: true }));
+     });
+-    await page.waitForTimeout(60);
++    await page.waitForFunction(() => (globalThis.__updateMeasurementCalls || []).some(c => c.patch.quantity === 85));
+     const calls = await page.evaluate(() => globalThis.__updateMeasurementCalls);
+     assert.ok(calls.some(c => c.patch.label === 'Front roofline, east side'));
+     assert.ok(calls.some(c => c.patch.quantity === 85));
+diff --git a/tests/phase14.test.mjs b/tests/phase14.test.mjs
+index be80833..f67e92d 100644
+--- a/tests/phase14.test.mjs
++++ b/tests/phase14.test.mjs
+@@ -132,7 +132,7 @@ async function main() {
+       input.value = '60';
+       input.dispatchEvent(new Event('input', { bubbles: true }));
+     });
+-    await page.waitForTimeout(60);
++    await page.waitForFunction(() => (globalThis.__updateMeasurementCalls || []).some(c => c.id === 'mj' && c.patch.quantity === 60));
+     const calls = await page.evaluate(() => globalThis.__updateMeasurementCalls);
+     assert.ok(calls.some(c => c.id === 'mj' && c.patch.quantity === 60));
+   });
+@@ -199,7 +199,7 @@ async function main() {
+       qtyInput.value = '80';
+       qtyInput.dispatchEvent(new Event('input', { bubbles: true }));
+     });
+-    await page.waitForTimeout(60);
++    await page.waitForFunction(() => (globalThis.__updateMeasurementCalls || []).some(c => c.patch.quantity === 80));
+     const calls = await page.evaluate(() => globalThis.__updateMeasurementCalls);
+     assert.ok(calls.some(c => c.patch.label === 'Front roofline, east side'));
+     assert.ok(calls.some(c => c.patch.quantity === 80));
+diff --git a/tests/phase7.test.mjs b/tests/phase7.test.mjs
+index 5149e98..f8be718 100644
+--- a/tests/phase7.test.mjs
++++ b/tests/phase7.test.mjs
+@@ -171,7 +171,7 @@ async function main() {
+       qtyInput.value = '1350';
+       qtyInput.dispatchEvent(new Event('input', { bubbles: true }));
+     });
+-    await page.waitForTimeout(60);
++    await page.waitForFunction(() => (globalThis.__updateMeasurementCalls || []).some(c => c.patch.quantity === 1350));
+     const calls = await page.evaluate(() => globalThis.__updateMeasurementCalls);
+     assert.ok(calls.some(c => c.patch.label === 'Main Driveway'));
+     assert.ok(calls.some(c => c.patch.quantity === 1350));
+diff --git a/tests/phase8.test.mjs b/tests/phase8.test.mjs
+index 4bf1c55..303ec10 100644
+--- a/tests/phase8.test.mjs
++++ b/tests/phase8.test.mjs
+@@ -176,7 +176,7 @@ async function main() {
+       qtyInput.value = '820';
+       qtyInput.dispatchEvent(new Event('input', { bubbles: true }));
+     });
+-    await page.waitForTimeout(60);
++    await page.waitForFunction(() => (globalThis.__updateMeasurementCalls || []).some(c => c.patch.quantity === 820));
+     const calls = await page.evaluate(() => globalThis.__updateMeasurementCalls);
+     assert.ok(calls.some(c => c.patch.label === 'Main Front Slope'));
+     assert.ok(calls.some(c => c.patch.quantity === 820));
+diff --git a/tests/phase9.test.mjs b/tests/phase9.test.mjs
+index 03ece74..4589f4f 100644
+--- a/tests/phase9.test.mjs
++++ b/tests/phase9.test.mjs
+@@ -173,7 +173,7 @@ async function main() {
+       qtyInput.value = '450';
+       qtyInput.dispatchEvent(new Event('input', { bubbles: true }));
+     });
+-    await page.waitForTimeout(60);
++    await page.waitForFunction(() => (globalThis.__updateMeasurementCalls || []).some(c => c.patch.quantity === 450));
+     const calls = await page.evaluate(() => globalThis.__updateMeasurementCalls);
+     assert.ok(calls.some(c => c.patch.label === 'Main Rear Deck'));
+     assert.ok(calls.some(c => c.patch.quantity === 450));
+diff --git a/tests/run-regression.sh b/tests/run-regression.sh
+index 36b7931..fd51102 100755
+--- a/tests/run-regression.sh
++++ b/tests/run-regression.sh
+@@ -27,7 +27,7 @@ done
+ FAILED=0
+ for f in phase2 phase3 phase4 phase5 phase6 phase7 phase8 phase9 phase10 phase10-5 \
+          phase11 phase12 phase13 phase14 phase15 phase16 phase17 phase18 phase19 phase20 \
+-         geofence native-wrapper reload-offline; do
++         geofence native-wrapper reload-offline measurement-entry; do
+   echo "===== $f ====="
+   if ! node "tests/$f.test.mjs"; then FAILED=1; fi
+   echo
+-- 
+2.52.0
+

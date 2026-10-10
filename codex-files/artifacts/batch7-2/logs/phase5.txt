@@ -1,0 +1,18 @@
+(node:155112) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("/workspace/.nova-shield/test-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS - Normal linear calc: total matches the spec example (42+55+24+18=139 ft across 4 sections)
+PASS - Mixed elevation: Front (1 storey) and Rear (2 storey) each show their own hint
+PASS - Oxidation (condition) is independent per row: Front=light, Rear=heavy, each keeps its own selection
+PASS - Scope renders as exactly one job-level control, not a per-row dropdown
+PASS - Changing the job-level Scope control fans out setMeasurementModifier to every existing row
+PASS - Minimum charge: card shows "minimum applied" without replacing the total
+PASS - Review flag toggles review_required without touching quantity/section/label
+PASS - Duplicate: copies section, footage, Oxidation AND Scope -- not review flag/reason/notes
+PASS - Add section: new row picks up the CURRENT visit-wide scope, not scope's own default
+PASS - No child-service behavior: gutter brightening never spawns a second card or extra service rows
+PASS - Multi-service: Gutter Brightening + Siding Washing coexist with correct independent totals
+PASS - Multi-service: Gutter Brightening + Heating Wire (with a valley child) coexist; child stays under its own parent
+PASS - Interaction model is distinct: no steppers, no bracket authorization, no per-row surface/scope duplication
+
+13/13 passed
