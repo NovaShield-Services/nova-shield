@@ -1,4 +1,4 @@
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import { createClient } from './vendor/@supabase/supabase-js/dist/index.js';
 
 /* Shared by the public site and the admin tool so the project reference and
    key can never drift between the two.
@@ -10,9 +10,16 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 export const SUPABASE_URL = 'https://xrgutmdgjzclaeyugsqg.supabase.co';
 export const SUPABASE_ANON_KEY = 'sb_publishable_sh-M40urSjGvRODkAP7mFg_itg8ZUfY';
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+// Source and staged copies can resolve to different module URLs in dev.
+// Reuse one client per JS realm/configuration, including its auth lock/timer.
+// Assignment happens only after construction succeeds, allowing startup Retry.
+const clientsKey = Symbol.for('nova-shield.supabase.clients');
+const clients = globalThis[clientsKey] ||= new Map();
+const clientKey = `${SUPABASE_URL}|${SUPABASE_ANON_KEY}`;
+export const supabase = clients.get(clientKey) || createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: true, autoRefreshToken: true }
 });
+clients.set(clientKey, supabase);
 
 /** Resolves the signed-in user and whether they are an admin. */
 export async function getSession() {

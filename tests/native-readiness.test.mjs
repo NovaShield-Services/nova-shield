@@ -238,18 +238,18 @@ for (const theme of ['light', 'dark']) {
   }));
 }
 
-await record('Cold bundled start cannot initialise when both CDN entry imports are unavailable (known limitation)', async () => {
+await record('Cold bundled start with external network blocked shows an honest unavailable screen', async () => {
   const context = await browser.newContext({ serviceWorkers: 'block' });
   try {
+    await context.addInitScript(() => Object.defineProperty(navigator, 'onLine', { get: () => false }));
     const page = await context.newPage(); const failures = [];
     await context.route('https://**', route => route.abort('internetdisconnected'));
     page.on('requestfailed', request => failures.push(request.url()));
     await page.goto('http://localhost:8743/mobile/www/admin/field.html');
-    await page.waitForTimeout(500);
-    assert.ok(failures.some(url => url.includes('@capacitor/core@8.5.2')));
-    assert.ok(failures.some(url => url.includes('@supabase/supabase-js@2')));
-    assert.equal(await page.locator('#view').innerText(), 'Loading…');
-    assert.equal(await page.locator('#syncBadge').getAttribute('role'), null);
+    await page.getByRole('heading', { name: 'Work unavailable offline' }).waitFor();
+    assert.match(await page.locator('#view').innerText(), /does not cache jobs/);
+    assert.ok(!failures.some(url => url.includes('cdn.jsdelivr.net')));
+    assert.equal(await page.locator('#syncBadge').getAttribute('role'), 'button');
   } finally { await context.close(); }
 });
 await browser.close();

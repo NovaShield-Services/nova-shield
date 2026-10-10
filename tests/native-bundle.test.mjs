@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { mkdtempSync, mkdirSync, cpSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, cpSync, rmSync, readFileSync, writeFileSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -44,6 +44,7 @@ try {
     cpSync(join(scratch, 'shared'), join(root, 'shared'), { recursive: true });
     const file = join(root, 'admin/js/field.js');
     writeFileSync(file, readFileSync(file, 'utf8') + '\nimport("./missing-runtime.js");\n');
+    symlinkSync(new URL('../node_modules', import.meta.url).pathname, join(root, 'node_modules'), 'dir');
     const script = join(root, 'scripts/sync-mobile.js');
     writeFileSync(script, execFileSync('git', ['show', 'a8b573f:scripts/sync-mobile.js']));
     assert.match(execFileSync(process.execPath, [script], { encoding: 'utf8' }), /Synced/);
@@ -58,10 +59,10 @@ try {
     writeFileSync(file, body.replace('isNative() ? publicUrl : quoteUrl', 'quoteUrl'));
     try { assert.throws(() => auditBundle(scratch), /Native quote link/); } finally { writeFileSync(file, body); }
   });
-  record('The audit reports eager core/Supabase and all seven lazy CDN plugin dependencies', () => {
-    assert.equal(report.remote.filter(url => url.startsWith('https://cdn.jsdelivr.net/')).length, 9);
-    assert.ok(report.remote.some(url => url.includes('@capacitor/app@8.1.2')));
-    assert.ok(report.remote.some(url => url.includes('@supabase/supabase-js@2')));
+  record('Core, Supabase and all seven lazy plugins are local audited dependencies', () => {
+    assert.equal(report.remote.filter(url => url.startsWith('https://cdn.jsdelivr.net/')).length, 0);
+    assert.ok(report.local.some(item => item.resolved === 'shared/vendor/@capacitor/app/dist/esm/index.js'));
+    assert.ok(report.local.some(item => item.resolved === 'shared/vendor/@supabase/supabase-js/dist/index.js'));
   });
   record('Android declares foreground coarse and fine location used by high-accuracy GPS', () => {
     const manifest = current('android/app/src/main/AndroidManifest.xml');

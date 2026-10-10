@@ -1,3 +1,7 @@
+> Updated Batch 8.2 startup and reproducible packaging are documented in
+> [native-startup.md](native-startup.md). The report below records the original
+> d33d17e readiness work; its lockfile/CDN limitations are addressed in the continuation.
+
 # Batch 8.2 — Native readiness and Field Console accessibility
 
 ## Browser execution comes first

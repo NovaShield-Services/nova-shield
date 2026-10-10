@@ -1,0 +1,128 @@
+[
+  {
+    "width": 390,
+    "theme": "light",
+    "scenario": "quantity-recovery",
+    "file": "390-light-quantity-recovery.png",
+    "overflow": false
+  },
+  {
+    "width": 390,
+    "theme": "light",
+    "scenario": "passport-progress",
+    "file": "390-light-passport-progress.png",
+    "overflow": false
+  },
+  {
+    "width": 390,
+    "theme": "light",
+    "scenario": "outbox-error",
+    "file": "390-light-outbox-error.png",
+    "overflow": false
+  },
+  {
+    "width": 390,
+    "theme": "dark",
+    "scenario": "quantity-recovery",
+    "file": "390-dark-quantity-recovery.png",
+    "overflow": false
+  },
+  {
+    "width": 390,
+    "theme": "dark",
+    "scenario": "passport-progress",
+    "file": "390-dark-passport-progress.png",
+    "overflow": false
+  },
+  {
+    "width": 390,
+    "theme": "dark",
+    "scenario": "outbox-error",
+    "file": "390-dark-outbox-error.png",
+    "overflow": false
+  },
+  {
+    "width": 430,
+    "theme": "light",
+    "scenario": "quantity-recovery",
+    "file": "430-light-quantity-recovery.png",
+    "overflow": false
+  },
+  {
+    "width": 430,
+    "theme": "light",
+    "scenario": "passport-progress",
+    "file": "430-light-passport-progress.png",
+    "overflow": false
+  },
+  {
+    "width": 430,
+    "theme": "light",
+    "scenario": "outbox-error",
+    "file": "430-light-outbox-error.png",
+    "overflow": false
+  },
+  {
+    "width": 430,
+    "theme": "dark",
+    "scenario": "quantity-recovery",
+    "file": "430-dark-quantity-recovery.png",
+    "overflow": false
+  },
+  {
+    "width": 430,
+    "theme": "dark",
+    "scenario": "passport-progress",
+    "file": "430-dark-passport-progress.png",
+    "overflow": false
+  },
+  {
+    "width": 430,
+    "theme": "dark",
+    "scenario": "outbox-error",
+    "file": "430-dark-outbox-error.png",
+    "overflow": false
+  },
+  {
+    "width": 1200,
+    "theme": "light",
+    "scenario": "quantity-recovery",
+    "file": "1200-light-quantity-recovery.png",
+    "overflow": false
+  },
+  {
+    "width": 1200,
+    "theme": "light",
+    "scenario": "passport-progress",
+    "file": "1200-light-passport-progress.png",
+    "overflow": false
+  },
+  {
+    "width": 1200,
+    "theme": "light",
+    "scenario": "outbox-error",
+    "file": "1200-light-outbox-error.png",
+    "overflow": false
+  },
+  {
+    "width": 1200,
+    "theme": "dark",
+    "scenario": "quantity-recovery",
+    "file": "1200-dark-quantity-recovery.png",
+    "overflow": false
+  },
+  {
+    "width": 1200,
+    "theme": "dark",
+    "scenario": "passport-progress",
+    "file": "1200-dark-passport-progress.png",
+    "overflow": false
+  },
+  {
+    "width": 1200,
+    "theme": "dark",
+    "scenario": "outbox-error",
+    "file": "1200-dark-outbox-error.png",
+    "overflow": false
+  }
+]

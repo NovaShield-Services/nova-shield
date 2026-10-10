@@ -45,3 +45,7 @@ ios/App/build/
 ios/App/output/
 ios/.xcode.env.local
 ios/DerivedData/
+
+# Official runtime ESM files are committed source assets, including dist/.
+!/shared/vendor/
+!/shared/vendor/**

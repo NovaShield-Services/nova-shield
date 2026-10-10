@@ -1,0 +1,49 @@
+{
+  "registered": {
+    "passed": 391,
+    "total": 391,
+    "exit": 0
+  },
+  "mobile-reliability": {
+    "passed": 22,
+    "total": 22,
+    "exit": 0
+  },
+  "field-resilience": {
+    "passed": 27,
+    "total": 27,
+    "exit": 0
+  },
+  "native-readiness": {
+    "passed": 24,
+    "total": 24,
+    "exit": 0
+  },
+  "native-bundle": {
+    "passed": 10,
+    "total": 10,
+    "exit": 0
+  },
+  "native-packaging": {
+    "passed": 19,
+    "total": 19,
+    "exit": 0
+  },
+  "native-startup": {
+    "passed": 18,
+    "total": 18,
+    "exit": 0
+  },
+  "passed": 511,
+  "total": 511,
+  "geofence": true,
+  "screenshots": {
+    "readiness": 18,
+    "startup": 7
+  },
+  "base": "6f4076860fbd3e00ad2ccceb482a208846283288",
+  "branch": "codex/batch-8-2-startup",
+  "native_compile": "UNRUN \u2014 Android SDK unavailable",
+  "database": "UNRUN",
+  "production": "UNRUN"
+}

@@ -15,6 +15,8 @@
 
 const fs = require('fs');
 const path = require('path');
+const { parse, initSync } = require('es-module-lexer');
+initSync();
 
 const ROOT = path.join(__dirname, '..');
 const WWW = path.join(ROOT, 'mobile', 'www');
@@ -53,14 +55,16 @@ function auditBundle(www) {
       const absolute = path.join(dir, item.name);
       if (item.isDirectory()) { walk(absolute); continue; }
       const source = path.relative(www, absolute).split(path.sep).join('/');
-      if (!/\.(js|html|css|webmanifest)$/.test(source)) continue;
+      if (!/\.(mjs|js|html|css|webmanifest)$/.test(source)) continue;
       const body = stripComments(fs.readFileSync(absolute, 'utf8').replace(/<!--[\s\S]*?-->/g, ' '));
-      if (source.endsWith('.js')) {
-        for (const match of body.matchAll(/\bfrom\s*['"]([^'"]+)['"]|\bimport\s*\(?\s*['"]([^'"]+)['"]/g)) {
-          reference(source, match[1] || match[2]);
+      if (/\.m?js$/.test(source)) {
+        for (const item of parse(fs.readFileSync(absolute, 'utf8'), source)[0]) if (item.n) reference(source, item.n);
+        if (source === 'admin/js/lib/native.js') {
+          const map = body.match(/const PINNED = \{([\s\S]*?)\};/);
+          for (const match of (map?.[1] || '').matchAll(/:\s*['"]([^'"]+)['"]/g)) reference(source, match[1]);
         }
         // DOM URLs resolve against the document, not against the module.
-        for (const match of body.matchAll(/\b(?:src|href)\s*:\s*(['"`])([^'"`]+)\1|\bfetch\s*\(\s*(['"`])([^'"`]+)\3/g)) {
+        for (const match of (source.startsWith('shared/vendor/') ? '' : body).matchAll(/\b(?:src|href)\s*:\s*(['"`])([^'"`]+)\1|\bfetch\s*\(\s*(['"`])([^'"`]+)\3/g)) {
           reference(source, match[2] || match[4], 'admin/field.html');
         }
         // This browser-only quote path is intentionally absent. Assert its
@@ -77,7 +81,7 @@ function auditBundle(www) {
         }
       }
       if (source.endsWith('.html')) {
-        for (const match of body.matchAll(/\b(?:src|href)\s*=\s*['"]([^'"]+)['"]/g)) reference(source, match[1]);
+        for (const match of (source.startsWith('shared/vendor/') ? '' : body).matchAll(/\b(?:src|href)\s*=\s*['"]([^'"]+)['"]/g)) reference(source, match[1]);
         for (const match of body.matchAll(/(?:url=|location\.replace\(['"])([^'";<>]+)/g)) reference(source, match[1]);
       }
       for (const match of body.matchAll(/\burl\(\s*['"]?([^'"\s)]+)['"]?\s*\)/g)) reference(source, match[1]);
@@ -94,6 +98,16 @@ function auditBundle(www) {
     }
   }
   walk(www);
+  const vendorManifest = path.join(www, 'shared/vendor/manifest.json');
+  if (fs.existsSync(vendorManifest)) {
+    const { files } = JSON.parse(fs.readFileSync(vendorManifest, 'utf8'));
+    const crypto = require('crypto');
+    for (const [file, expected] of Object.entries(files)) {
+      const absolute = path.join(www, 'shared/vendor', file);
+      if (!fs.existsSync(absolute) || crypto.createHash('sha256').update(fs.readFileSync(absolute)).digest('hex') !== expected)
+        throw new Error(`Missing or changed vendor asset: ${file}`);
+    }
+  }
   if (missing.length) throw new Error('Missing native bundle references:\n' + missing.map(item =>
     `${item.source}: ${item.value} -> ${item.resolved}`).join('\n'));
   return { local, remote: [...remote].sort(), excluded };
@@ -115,6 +129,7 @@ function syncMobile(www = WWW) {
   '<body>Loading Nova Shield Field…</body></html>\n');
 
   const report = auditBundle(www);
+  require('./verify-mobile.js').stampBundle(ROOT, www);
   console.log(`Synced admin/ + shared/ -> ${path.relative(ROOT, www)}/; checked ${report.local.length} local references`);
   return report;
 }

@@ -5,6 +5,16 @@ Codex application code in its normal repository paths, the revised plans under
 `docs/plans/`, and the previously local material collected here. No Claude
 branch was merged and no database/deployment action was performed.
 
+## Batch 8.2 startup continuation
+
+Branch `codex/batch-8-2-startup` continues the archived d33d17e work from the
+handoff base. Current implementation is in the canonical app paths; see
+[findings](../tests/native-startup.md) and [new evidence](artifacts/batch-8-2-startup/).
+The original source/patch/handoff snapshots below remain historical. The
+continuation's evidence has its own manifest, separate from the original
+import manifest. Final verification: 511/511 counted checks plus geofence;
+Android SDK/device/production/database verification remains unrun.
+
 ## Contents
 
 | Folder/file | Purpose |

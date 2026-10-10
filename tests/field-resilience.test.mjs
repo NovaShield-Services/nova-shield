@@ -178,7 +178,8 @@ await record('Outbox failures retain the failed item and reason across a page re
       Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
     });
     await page.reload();
-    await page.getByRole('heading', { name: "Today's schedule" }).waitFor();
+    await page.getByRole('heading', { name: 'Work unavailable offline' }).waitFor();
+    assert.match(await page.locator('#view').innerText(), /does not cache jobs/);
     const item = await page.evaluate(async id => (await (await import('/admin/js/lib/offline-queue.js')).pending()).find(item => item.id === id), id);
     assert.match(item?.lastError || '', /Permission denied/);
     assert.equal(await page.evaluate(() => __writes.length), 0, 'offline reload must not replay');
@@ -338,9 +339,11 @@ await record('IndexedDB failure restores Sync Now and does not claim Synced', as
 await record('Unavailable storage on startup is visible without an unhandled rejection', async () => {
   const { context, page, errors } = await fieldFixture(browser, { config: { __storageBlocked: true } });
   try {
-    await page.getByRole('heading', { name: "Today's schedule" }).waitFor();
-    assert.match(await page.locator('#syncBadge').innerText(), /storage unavailable/i);
-    assert.equal(await page.locator('#syncNow').isVisible(), true);
+    await page.getByRole('heading', { name: 'Could not start Nova Shield' }).waitFor();
+    assert.match(await page.locator('#view').innerText(), /Local storage could not be opened/);
+    await page.getByRole('button', { name: 'Retry startup' }).waitFor();
+    assert.match(await page.locator('#syncBadge').innerText(), /unavailable/i);
+    assert.equal(await page.locator('#syncNow').isDisabled(), true);
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
 });

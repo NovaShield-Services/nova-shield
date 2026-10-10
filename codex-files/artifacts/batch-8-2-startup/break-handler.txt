@@ -1,0 +1,9 @@
+FAIL - A missing module shows recovery; Retry reloads it and preserves full queued payloads
+  locator.waitFor: Timeout 7000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('heading', { name: 'Could not start Nova Shield' }) to be visible[22m
+
+
+0/1 passed
+
+Exit status: 1

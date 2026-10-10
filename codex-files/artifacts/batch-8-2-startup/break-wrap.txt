@@ -1,0 +1,6 @@
+FAIL - Long section headers with a badge and action wrap at phone widths
+  {"document":426,"viewport":390}
+
+0/1 passed
+
+Exit status: 1

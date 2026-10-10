@@ -1,0 +1,4 @@
+# Preserve official vendor bytes (including upstream CRLF/whitespace).
+shared/vendor/** -whitespace
+# Raw terminal evidence preserves its original trailing newlines.
+codex-files/artifacts/batch-8-2-startup/*.txt -whitespace

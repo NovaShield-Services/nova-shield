@@ -74,7 +74,13 @@ async function router() {
   clear(viewEl).append(mount);
   mount.append(el('div', { class: 'loading', text: 'Checking access…' }));
   try {
-    const { session, isAdmin } = await getSession();
+    if (!navigator.onLine) {
+      return showMessage('Work unavailable offline',
+        'Reconnect to sign in or load scheduled work. This build does not cache jobs for offline reading. Saved outbox actions remain available from the sync badge.',
+        el('button', { class: 'btn', text: 'Retry connection', onClick: () => router() }), mount);
+    }
+    const { session, isAdmin, error } = await getSession();
+    if (error) throw error;
     if (attempt !== measurementRouteAttempt) return;
 
     if (!session) return renderLogin({ mount, onSignedIn: router });
@@ -301,4 +307,13 @@ syncNowBtn.addEventListener('click', async () => {
 });
 
 window.addEventListener('hashchange', router);
-router();
+// Start the route immediately, preserving the existing module-load timing.
+// Check durable storage alongside it; the loader handles either rejection.
+export const startupReady = window.nsStartupLoaderFailed ? Promise.resolve() : Promise.all([
+  router(),
+  offlineQueue.count().catch(error => {
+    throw new Error(`Local outbox storage could not open: ${error.message}`, { cause: error });
+  })
+]);
+
+window.nsStartup?.watch(startupReady);

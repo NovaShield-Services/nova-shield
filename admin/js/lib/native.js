@@ -1,25 +1,16 @@
-/* This project has no bundler -- every module here is loaded by the
-   browser/webview exactly as written, the same convention shared/supabase.js
-   already uses for supabase-js. Bare specifiers like `@capacitor/core`
-   can't resolve without one, so every Capacitor import below is a full
-   jsdelivr ESM URL, pinned to the exact version installed in package.json
-   (see that file's own comment on why the pin matters: cap sync draws the
-   native bridge runtime from the locally installed version, and loading a
-   different version of the JS side here would be a real, if subtle,
-   version-skew bug). Plugin modules are loaded lazily (dynamic import) so a
-   plain desktop browser tab -- which will call none of them -- never
-   fetches six plugin bundles it has no use for; @capacitor/core itself is
-   small and needed for the platform check, so it loads eagerly. */
-import { Capacitor } from 'https://cdn.jsdelivr.net/npm/@capacitor/core@8.5.2/+esm';
+/* Official npm ESM modules are vendored with exact lockfile versions.
+   Core is eager; all seven plugins remain lazy and are packaged locally.
+   See shared/vendor/manifest.json and npm run vendor:mobile. */
+import { Capacitor } from '../../../shared/vendor/@capacitor/core/dist/index.js';
 
 const PINNED = {
-  camera: 'https://cdn.jsdelivr.net/npm/@capacitor/camera@8.2.5/+esm',
-  share: 'https://cdn.jsdelivr.net/npm/@capacitor/share@8.0.3/+esm',
-  filesystem: 'https://cdn.jsdelivr.net/npm/@capacitor/filesystem@8.1.4/+esm',
-  haptics: 'https://cdn.jsdelivr.net/npm/@capacitor/haptics@8.0.2/+esm',
-  statusBar: 'https://cdn.jsdelivr.net/npm/@capacitor/status-bar@8.0.4/+esm',
-  geolocation: 'https://cdn.jsdelivr.net/npm/@capacitor/geolocation@8.2.3/+esm',
-  app: 'https://cdn.jsdelivr.net/npm/@capacitor/app@8.1.2/+esm'
+  camera: '../../../shared/vendor/@capacitor/camera/dist/esm/index.js',
+  share: '../../../shared/vendor/@capacitor/share/dist/esm/index.js',
+  filesystem: '../../../shared/vendor/@capacitor/filesystem/dist/esm/index.js',
+  haptics: '../../../shared/vendor/@capacitor/haptics/dist/esm/index.js',
+  statusBar: '../../../shared/vendor/@capacitor/status-bar/dist/esm/index.js',
+  geolocation: '../../../shared/vendor/@capacitor/geolocation/dist/esm/index.js',
+  app: '../../../shared/vendor/@capacitor/app/dist/esm/index.js'
 };
 
 /** Single place every other file asks "are we native?" and reaches for a

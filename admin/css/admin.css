@@ -320,7 +320,7 @@ input[inputmode="decimal"], input[type="number"] {
   padding: 12px; margin-bottom: 10px; background: var(--surface-2);
 }
 .section-box__head {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
   gap: 10px; margin-bottom: 10px;
 }
 

@@ -52,3 +52,11 @@ try {
 } catch(Exception e) {
     logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
 }
+
+// Every assemble/bundle path reaches preBuild, including Android Studio.
+// A prior cap sync is required; direct Gradle builds cannot ship stale JS.
+def verifyNovaAssets = tasks.register('verifyNovaAssets', Exec) {
+    workingDir rootProject.projectDir.parentFile
+    commandLine 'node', 'scripts/verify-mobile.js', '--android'
+}
+tasks.named('preBuild').configure { dependsOn verifyNovaAssets }

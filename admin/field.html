@@ -86,6 +86,7 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
+<script src="js/bootstrap.js" onerror="window.nsStartupLoaderFailed = true; document.querySelector('.field-topbar')?.setAttribute('hidden', ''); document.getElementById('view').innerHTML = '&lt;section role=&quot;alert&quot; class=&quot;card&quot;&gt;&lt;h1&gt;An app file could not load&lt;/h1&gt;&lt;p&gt;Retry leaves previously saved outbox actions in place.&lt;/p&gt;&lt;button class=&quot;btn&quot; onclick=&quot;location.reload()&quot;&gt;Retry startup&lt;/button&gt;&lt;/section&gt;';"></script>
 <script type="module" src="js/field.js"></script>
 </body>
 </html>

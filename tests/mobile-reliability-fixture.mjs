@@ -25,7 +25,7 @@ export async function mobileFixture(browser, { width = 1200, height = 900, layou
   const mock = (url, body) => context.route(url, route => route.fulfill({
     status: 200, contentType: 'application/javascript', body
   }));
-  await mock('**/cdn.jsdelivr.net/npm/@capacitor/core@8.5.2/+esm', FAKE_CAPACITOR_CORE);
+  await mock('**/shared/vendor/@capacitor/core/dist/index.js', FAKE_CAPACITOR_CORE);
   await mock(`${BASE}/shared/supabase.js`, DEFAULT_FAKE_SUPABASE);
   await mock(`${BASE}/admin/js/lib/api.js`, api);
   await context.route('**/site/quote.html*', route => route.fulfill({

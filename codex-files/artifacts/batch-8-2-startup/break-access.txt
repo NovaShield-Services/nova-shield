@@ -1,0 +1,9 @@
+FAIL - A failed access RPC with a saved session shows Retry rather than an authorization verdict
+  locator.waitFor: Timeout 7000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('heading', { name: 'Could not load this screen' }) to be visible[22m
+
+
+0/1 passed
+
+Exit status: 1

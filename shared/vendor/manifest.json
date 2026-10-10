@@ -1,0 +1,216 @@
+{
+  "format": 1,
+  "packages": {
+    "@supabase/supabase-js": {
+      "version": "2.117.3",
+      "integrity": "sha512-K+f8PimXDunPWQ63CKRXaF5pbVPJxmfw5ryAnh0s9S9PkwcuqBjiSpIaqpF7KLDljeYwXIL85ST8QxaO0+XuvA==",
+      "entry": "dist/index.mjs",
+      "runtimeEntry": "dist/index.js",
+      "installedPath": "node_modules/@supabase/supabase-js"
+    },
+    "@supabase/auth-js": {
+      "version": "2.117.3",
+      "integrity": "sha512-XOZV+jllcU2Hzij8SwgM78zl0lOEr6BTjzi2MYkBb39nOAQzb5AelGpMUvVj7lwGSB11JmpAs/FEQroAyFzWEA==",
+      "entry": "dist/module/index.js",
+      "runtimeEntry": "dist/module/index.js",
+      "installedPath": "node_modules/@supabase/auth-js"
+    },
+    "tslib": {
+      "version": "2.8.1",
+      "integrity": "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==",
+      "entry": "tslib.es6.js",
+      "runtimeEntry": "tslib.es6.js",
+      "installedPath": "node_modules/tslib"
+    },
+    "@supabase/realtime-js": {
+      "version": "2.117.3",
+      "integrity": "sha512-4W4ISbreRygNXbhwqxeqyuRul8RPx+SF+Hp2IT8wctebQEHSVCULfKatiRiEhmasfoXvYm2AHV4XFsOxhoousA==",
+      "entry": "dist/module/index.js",
+      "runtimeEntry": "dist/module/index.js",
+      "installedPath": "node_modules/@supabase/realtime-js"
+    },
+    "@supabase/phoenix": {
+      "version": "0.4.5",
+      "integrity": "sha512-aAn9H9ovVyeApKy11OWOrrOGq8DV68yWeH4ud2lN9fzn4aO8Zb5GLL9m1pUg9nLqIcT+ZDfAcsZe0E/nqdv2lw==",
+      "entry": "./priv/static/phoenix.mjs",
+      "runtimeEntry": "priv/static/phoenix.js",
+      "installedPath": "node_modules/@supabase/phoenix"
+    },
+    "@supabase/storage-js": {
+      "version": "2.117.3",
+      "integrity": "sha512-QhUxFC33Crlw6WDeA4hLADdi1PzjI3c4UJs7ivWHHEnU7ulmCWEZSDaRCuIfmsjUwbHYaIfRNFQNsm+IsGYS6w==",
+      "entry": "dist/index.mjs",
+      "runtimeEntry": "dist/index.js",
+      "installedPath": "node_modules/@supabase/storage-js"
+    },
+    "iceberg-js": {
+      "version": "0.8.1",
+      "integrity": "sha512-1dhVQZXhcHje7798IVM+xoo/1ZdVfzOMIc8/rgVSijRK38EDqOJoGula9N/8ZI5RD8QTxNQtK/Gozpr+qUqRRA==",
+      "entry": "./dist/index.mjs",
+      "runtimeEntry": "dist/index.js",
+      "installedPath": "node_modules/iceberg-js"
+    },
+    "@supabase/postgrest-js": {
+      "version": "2.117.3",
+      "integrity": "sha512-NpyTgullu6tw11ojYKTdZg9HannZ4mu4FUlhc9V5zDXOVllUJzEmuyLM+WWoYF0BurfrRvarimpm3SR8P0Gzfw==",
+      "entry": "dist/index.mjs",
+      "runtimeEntry": "dist/index.js",
+      "installedPath": "node_modules/@supabase/postgrest-js"
+    },
+    "@supabase/functions-js": {
+      "version": "2.117.3",
+      "integrity": "sha512-6GuizbP4N5xWaxEVUsI+UQpJdmMmn0t3sYNpObo9gCAldvM22gFjnYzRVmkHxp5ylU21azEYmiWVwk9iDgCMkQ==",
+      "entry": "dist/module/index.js",
+      "runtimeEntry": "dist/module/index.js",
+      "installedPath": "node_modules/@supabase/functions-js"
+    },
+    "@capacitor/core": {
+      "version": "8.5.2",
+      "integrity": "sha512-agnQbGdhGw/KZFuLf7H9SY2o+oE7upkr/WPQsYaokXP6f9chaE8iVmbKkfN6SVl4w3pmz7oZ3Ur1hbkmy1hx+w==",
+      "entry": "dist/index.js",
+      "runtimeEntry": "dist/index.js",
+      "installedPath": "node_modules/@capacitor/core"
+    },
+    "@capacitor/app": {
+      "version": "8.1.2",
+      "integrity": "sha512-uKBlsrXH0IdvUn69e/KKYbZ32A06pcrUdG8LWuZ/6y33YMXZXLEEdNSwl+jKS/SrsTWqnePs8EqSWaiQM3mUGA==",
+      "entry": "dist/esm/index.js",
+      "runtimeEntry": "dist/esm/index.js",
+      "installedPath": "node_modules/@capacitor/app"
+    },
+    "@capacitor/camera": {
+      "version": "8.2.5",
+      "integrity": "sha512-FPuwY7byjTlBjeUKm17eTjLCPhuqBPJqTF4N3JCQuymLn2FUgfu0SMSN6OUQvCiiz/EVJVyZ9Mmg5GEmDfFoIA==",
+      "entry": "dist/esm/index.js",
+      "runtimeEntry": "dist/esm/index.js",
+      "installedPath": "node_modules/@capacitor/camera"
+    },
+    "@capacitor/filesystem": {
+      "version": "8.1.4",
+      "integrity": "sha512-8MXmt10cb+dGWoh8jUeO8on0U6iETQCX5k+fmdB278PZ3MYDEVGQo08+hroaOtUbK3+5stiRk4/K6QBHKepv0A==",
+      "entry": "dist/esm/index.js",
+      "runtimeEntry": "dist/esm/index.js",
+      "installedPath": "node_modules/@capacitor/filesystem"
+    },
+    "@capacitor/synapse": {
+      "version": "1.0.4",
+      "integrity": "sha512-/C1FUo8/OkKuAT4nCIu/34ny9siNHr9qtFezu4kxm6GY1wNFxrCFWjfYx5C1tUhVGz3fxBABegupkpjXvjCHrw==",
+      "entry": "./dist/synapse.mjs",
+      "runtimeEntry": "dist/synapse.js",
+      "installedPath": "node_modules/@capacitor/synapse"
+    },
+    "@capacitor/geolocation": {
+      "version": "8.2.3",
+      "integrity": "sha512-tJWi6Vmj1tncFaFpruxrmXRsmvDb8i9Pp6Z04Bxsp39JeBavvvtHPMaNVf/jN/lKlohI8i7BqHqbrDVq3RD+cA==",
+      "entry": "dist/esm/index.js",
+      "runtimeEntry": "dist/esm/index.js",
+      "installedPath": "node_modules/@capacitor/geolocation"
+    },
+    "@capacitor/haptics": {
+      "version": "8.0.2",
+      "integrity": "sha512-c2hZzRR5Fk1tbTvhG1jhh2XBAf3EhnIerMIb2sl7Mt41Gxx1fhBJFDa0/BI1IbY4loVepyyuqNC9820/GZuoWQ==",
+      "entry": "dist/esm/index.js",
+      "runtimeEntry": "dist/esm/index.js",
+      "installedPath": "node_modules/@capacitor/haptics"
+    },
+    "@capacitor/share": {
+      "version": "8.0.3",
+      "integrity": "sha512-gnvZBV1NPu2B8vd1UKncR56G15ueHd0aZLqgDov++t3SmTBG9Q0VrAZ1VnHn5stxlmglVaTb4RwopMgbpLzroA==",
+      "entry": "dist/esm/index.js",
+      "runtimeEntry": "dist/esm/index.js",
+      "installedPath": "node_modules/@capacitor/share"
+    },
+    "@capacitor/status-bar": {
+      "version": "8.0.4",
+      "integrity": "sha512-ZMzBUyHBzwDUxcHadEhvOvmoPmMQGMZgaMRJu8ohELeI6IaxoVH9ZhdF/OHnY3/yykv3Glev8Tnbh4aZY/0B0w==",
+      "entry": "dist/esm/index.js",
+      "runtimeEntry": "dist/esm/index.js",
+      "installedPath": "node_modules/@capacitor/status-bar"
+    }
+  },
+  "files": {
+    "@supabase/supabase-js/LICENSE": "334dd6820e2eaeab2064e7c59001b810566728a28a41a7c1dbf69bbee17d0936",
+    "@supabase/auth-js/LICENSE": "334dd6820e2eaeab2064e7c59001b810566728a28a41a7c1dbf69bbee17d0936",
+    "@supabase/auth-js/dist/module/lib/base64url.js": "22acc3dbf6580ad796576ece180b632f399719e04b52278262afefc6382f2f7f",
+    "@supabase/auth-js/dist/module/lib/errors.js": "9d9d6a5d086f8cc8d1a96227ed2ca66a932059ca9b737d17bc72ffd1851a2cae",
+    "@supabase/auth-js/dist/module/lib/version.js": "b13f9769d247f787a1f660baaa87aa596bcb61cf515740f4e28eb221a67de7d8",
+    "@supabase/auth-js/dist/module/lib/constants.js": "c093d18af87d5b079ed8e2b12bb8302067f933fd9c5f117b2f9627ed3b5f5fed",
+    "@supabase/auth-js/dist/module/lib/helpers.js": "c8aef1187da26b37e23ba6be9823101c14d047b1b036f7fe76a1fd7a6255bf6b",
+    "@supabase/auth-js/dist/module/lib/locks.js": "23adf589042fc9b23a842233e16f14aff07dd18f55c282102d2a4e0143bbf214",
+    "@supabase/auth-js/dist/module/lib/types.js": "2fca55106ea6a8cf8599bec6904e864aff60c45f3e90c3fc99f682006e3a14e5",
+    "@supabase/auth-js/dist/module/lib/webauthn.errors.js": "3f45c89b02397fe979815996c86fce9329390e66db9ae4d33fcf681f238c48af",
+    "tslib/LICENSE.txt": "210b19e543130388c68654b7497e967119ce17145f66ab7d85688fbd70f08751",
+    "tslib/tslib.es6.js": "480042d65f5abdacdcf9d9ade38f9d484455be82aa34bd472bf6ab87ea0e3620",
+    "@supabase/auth-js/dist/module/lib/webauthn.js": "3c6c8515c5d160e0ec48a80b5bd826f7da8d3beb3d41d8acded2e6e78bb4a5c0",
+    "@supabase/auth-js/dist/module/lib/web3/ethereum.js": "239ff2734093772fcabaf5e0f2ea1f90bd6a9eebcad144c709a19a941288c967",
+    "@supabase/auth-js/dist/module/lib/polyfills.js": "e0c3efb0bdba0f288de90f6c9d139cec1be42984d6d296db50d2df7a653a465d",
+    "@supabase/auth-js/dist/module/lib/local-storage.js": "75ecf8150d733e2b95cb638b8a593176add05c5a523801f8edc06c6c925c5fdf",
+    "@supabase/auth-js/dist/module/lib/fetch.js": "fddea3cc025db2a4d8c73fac74070ead374a8cca8c1602c81bfdfde98bf4c448",
+    "@supabase/auth-js/dist/module/GoTrueAdminApi.js": "dabcf2d723a24442c68ab17dea06ede290ab7e61087bcfe37c8df0a3ef0ec5cb",
+    "@supabase/auth-js/dist/module/GoTrueClient.js": "caf4d618f8e24e5d87289b141546a80308a3253888fcc879d5ee799a67617cc2",
+    "@supabase/auth-js/dist/module/AuthClient.js": "3f8fddb2f52dbf5dc6b3c64af4a1cb69eb0426147340ea66c3d49033509a04e0",
+    "@supabase/auth-js/dist/module/AuthAdminApi.js": "5e7d8aa9dfe29b44ae8d599219c7cc27976622ca94e47b1aec4c6d86b7029ae1",
+    "@supabase/auth-js/dist/module/index.js": "fb4719f174decb99b7dc9ae566df0fc7751dfa14627815728458fd0bf74e8480",
+    "@supabase/realtime-js/LICENSE": "334dd6820e2eaeab2064e7c59001b810566728a28a41a7c1dbf69bbee17d0936",
+    "@supabase/realtime-js/dist/module/lib/websocket-factory.js": "041bebb99d5bd11cf5e54ef415f1f934dd017bf4b206017a555d63ef1781699f",
+    "@supabase/phoenix/LICENSE.md": "41a686069f0199ff369d7e5277d5267385cc54d9199f1efc960bacbe2e799255",
+    "@supabase/phoenix/priv/static/phoenix.js": "4ee5951c6011ecc7c6cd9ead6922eba1982e9ec8bd4c4ef80e9ad54082e51274",
+    "@supabase/realtime-js/dist/module/phoenix/presenceAdapter.js": "6bbd431799514b65136fecd19737d8a60174d716cb8f2ddbd8d3fdc932ae3367",
+    "@supabase/realtime-js/dist/module/RealtimePresence.js": "316f4ee489ecc5107eee1bada805265339b8b284238d7bbcb343b962ee864216",
+    "@supabase/realtime-js/dist/module/RealtimePostgresFilterBuilder.js": "5f771cded525de21fc6ee040ed50544a674de8a45e82af7ea26d7ef5ed92155e",
+    "@supabase/realtime-js/dist/module/lib/version.js": "b13f9769d247f787a1f660baaa87aa596bcb61cf515740f4e28eb221a67de7d8",
+    "@supabase/realtime-js/dist/module/lib/constants.js": "0d50868461fbe90698c0a0c846d438550246d205ad15519ee5ee327bf6f1d931",
+    "@supabase/realtime-js/dist/module/phoenix/channelAdapter.js": "6ccede54403209968af8695298cadf24766fd152e6307494b92316516f0d0576",
+    "@supabase/realtime-js/dist/module/lib/normalizeChannelError.js": "1074df4d25e94198c34d2e8d509375e7facbc68b43fc8c5b9a9fbd42ca6fc555",
+    "@supabase/realtime-js/dist/module/lib/transformers.js": "a8ee5cbf82a665dead5941a81a94ef840ed7601440520c527df9de9721c17cbe",
+    "@supabase/realtime-js/dist/module/RealtimeChannel.js": "0dfedb567877245580304ec2dc436aea7e979733289404024e0789ea2d3b0687",
+    "@supabase/realtime-js/dist/module/phoenix/socketAdapter.js": "69496c15cb717e5502306dae68fbfd461a2272c82a5bc498479ee6748c9c91a3",
+    "@supabase/realtime-js/dist/module/lib/serializer.js": "0643e4c520e08cd4b859d9ab18dde25cb902d41d2e20491cd483b11e3e4e5dd1",
+    "@supabase/realtime-js/dist/module/RealtimeClient.js": "01efe04e7ee3f943409c3e193f822e1b52bbfdf23e4bca72f4b47a8b8e11a83a",
+    "@supabase/realtime-js/dist/module/index.js": "9d6c4fce24f4841a408d5f5125b8c8f9c25f57f63c8ab9a6200ec3e3592a28d1",
+    "@supabase/storage-js/LICENSE": "334dd6820e2eaeab2064e7c59001b810566728a28a41a7c1dbf69bbee17d0936",
+    "iceberg-js/LICENSE": "e6e972dba808fb9d80863fe90ca222a47710cb850f6e6e2af95cdc0d022f79bd",
+    "iceberg-js/dist/index.js": "c313b85263d710c7e4acd938daee7828fec4f1154952897109b281d22a4d687b",
+    "@supabase/storage-js/dist/index.js": "9c0e851e541af152a7423dfd0c49984a1b0a9d5590a92c584de656f03f1f86b3",
+    "@supabase/postgrest-js/LICENSE": "334dd6820e2eaeab2064e7c59001b810566728a28a41a7c1dbf69bbee17d0936",
+    "@supabase/postgrest-js/dist/index.js": "e510f4f5096a1d0961f043c7a81fd801665627e6e55f393e5c87625ab2ed1ecc",
+    "@supabase/functions-js/LICENSE": "334dd6820e2eaeab2064e7c59001b810566728a28a41a7c1dbf69bbee17d0936",
+    "@supabase/functions-js/dist/module/types.js": "76fcb820e0a1aa2b98bb7123e6714487d1e82852a9fcff95afe3362c4fc37b9f",
+    "@supabase/functions-js/dist/module/helper.js": "38e3e37881481b462573db7b01fab3a041476024bd0e15e758cad86e06b03eb6",
+    "@supabase/functions-js/dist/module/FunctionsClient.js": "f8ac787d23ee18f793d7f6877bee59ea5fb0cea80b4617ac505267bec90f6ee3",
+    "@supabase/functions-js/dist/module/index.js": "4b819308ff0085f4d38f91da8cd209ccfac764e0cffc12506913afc07ad87051",
+    "@supabase/supabase-js/dist/tracingRegistry.js": "a592d93424b73e1a1c7bd9a5604eadefe52c0f53fc718ba49a98d7b686da42dd",
+    "@supabase/supabase-js/dist/index.js": "5157b9eabdc27bd2f4278c43e8024f7145d87bed9844aa73dffa9d7b3dcae0ff",
+    "@capacitor/core/LICENSE": "9c6ebf3e5ab832ba4d5af38f340978e1fedbfee6e3d23662dfdb8917a9d864dd",
+    "@capacitor/core/dist/index.js": "b81c1c3e42ba3b85bd3b0222ff1d5400c51569e7fd681e0f3b3efb444bbcc363",
+    "@capacitor/app/LICENSE": "e8f989836e88732576472006444b65fd3d7d3c2455becdaaa4d82cd0dd43110f",
+    "@capacitor/app/dist/esm/definitions.js": "e3cfb7e61b92c6c15011f163ab6cf3037ee0e32779851212037098af2097615d",
+    "@capacitor/app/dist/esm/web.js": "aa88d67a61db5a355d396b1998a7cf3bb203f036f021394b3295a0eb6235316f",
+    "@capacitor/app/dist/esm/index.js": "f6d5f9fa9469525adc76f921ee782bb148ff0a8721fdbc17a95e004cae86eaba",
+    "@capacitor/camera/LICENSE": "eb99a0d61b507ad0182e18e9d2a91537c1d9025c94e098e4e7603a53b4b5218a",
+    "@capacitor/camera/dist/esm/definitions.js": "7f7dc388d7ed06647a70228aad9f3e75f96829c76289ab5545cc7c77b68087ed",
+    "@capacitor/camera/dist/esm/web.js": "4d709a8f7425e5039c874186823f255dc02588d2a3c804ccfdb931ebca2808a7",
+    "@capacitor/camera/dist/esm/index.js": "0f1690fed591def52c578bd0ed085e79f522f976d7a665114ea9f22bf9867dbf",
+    "@capacitor/filesystem/LICENSE": "de884404585ed20280150b0768082b6004d3548aaa0d6e596d6bfa0538ab331d",
+    "@capacitor/filesystem/dist/esm/definitions.js": "f9c9be42147ac3e6f6f702cc0fac11fc8b9d4ede55925ce8bfb35fcb3d9d6f0a",
+    "@capacitor/filesystem/dist/esm/web.js": "083857dee4baf48373f8ba5c2f417c29b55a4241d01bc899aec07787987e9f4b",
+    "@capacitor/synapse/LICENSE.md": "de884404585ed20280150b0768082b6004d3548aaa0d6e596d6bfa0538ab331d",
+    "@capacitor/synapse/dist/synapse.js": "28fc2e358867013ea6812da3136112d952637ff62f215fd1f476cc16133dd1ea",
+    "@capacitor/filesystem/dist/esm/index.js": "b6a8212b65494d8e7c7345f1e7438a23f8e45b9ee2727cb49c509fda3c1620a0",
+    "@capacitor/geolocation/LICENSE": "de884404585ed20280150b0768082b6004d3548aaa0d6e596d6bfa0538ab331d",
+    "@capacitor/geolocation/dist/esm/definitions.js": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881",
+    "@capacitor/geolocation/dist/esm/web.js": "17f0dbc5f63e4e54138e59c6378dbab6b2c097ea2f17f087e242139c6eaa5e24",
+    "@capacitor/geolocation/dist/esm/index.js": "cad404ebb8b6b0e053e7e7712096b0bdc922acdcf8bb783e36b33e1eb6df10b2",
+    "@capacitor/haptics/LICENSE": "e8f989836e88732576472006444b65fd3d7d3c2455becdaaa4d82cd0dd43110f",
+    "@capacitor/haptics/dist/esm/definitions.js": "2617427e19230b03266f3848fcb964fe3992db15220582b0c5561ccf62ad3231",
+    "@capacitor/haptics/dist/esm/web.js": "59c4cae0cff1d3e93d7446f9034722208b9ba2b8ce4d5d4fd762442b306c6696",
+    "@capacitor/haptics/dist/esm/index.js": "3e682683938169c138a24f4faf382747a0222bcdefc831fc7478002704f494c1",
+    "@capacitor/share/LICENSE": "eb99a0d61b507ad0182e18e9d2a91537c1d9025c94e098e4e7603a53b4b5218a",
+    "@capacitor/share/dist/esm/definitions.js": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881",
+    "@capacitor/share/dist/esm/web.js": "2fa2aa7400f5e50ab8bf06b0efcd1585a8c484b6ab61ef25668ea78c7e002efc",
+    "@capacitor/share/dist/esm/index.js": "6d83cb31fd3e4683d67a9f129b5bc585a9a68db82c53b43cfd79273b4f6d89d0",
+    "@capacitor/status-bar/LICENSE": "e8f989836e88732576472006444b65fd3d7d3c2455becdaaa4d82cd0dd43110f",
+    "@capacitor/status-bar/dist/esm/definitions.js": "3be962254d50fc15731458c89380e811fdedffdd2aef46027f9a3eb037917bc7",
+    "@capacitor/status-bar/dist/esm/index.js": "c6ced63c2d718a16f795332e130e293fce707184ade516e126689bba138019ad"
+  }
+}

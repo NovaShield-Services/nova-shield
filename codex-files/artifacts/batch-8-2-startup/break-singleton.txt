@@ -1,0 +1,17 @@
+FAIL - Source, staged and query alias paths share one actual Supabase client/auth instance
+  Expected values to be strictly deep-equal:
++ actual - expected
+
+  {
++   same: false,
++   sameAuth: false,
+-   same: true,
+-   sameAuth: true,
+    session: null,
+    size: 1
+  }
+
+
+0/1 passed
+
+Exit status: 1

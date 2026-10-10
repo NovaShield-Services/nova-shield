@@ -98,13 +98,13 @@ async function main() {
   const mock = (urlPattern, body, contentType = 'application/javascript') =>
     page.route(urlPattern, (route) => route.fulfill({ status: 200, contentType, body }));
 
-  await mock('**/cdn.jsdelivr.net/npm/@capacitor/core@8.5.2/+esm', FAKE_CAPACITOR_CORE);
-  await mock('**/cdn.jsdelivr.net/npm/@capacitor/camera@8.2.5/+esm', FAKE_CAMERA);
-  await mock('**/cdn.jsdelivr.net/npm/@capacitor/share@8.0.3/+esm', FAKE_SHARE);
-  await mock('**/cdn.jsdelivr.net/npm/@capacitor/filesystem@8.1.4/+esm', FAKE_FILESYSTEM);
-  await mock('**/cdn.jsdelivr.net/npm/@capacitor/haptics@8.0.2/+esm', FAKE_HAPTICS);
-  await mock('**/cdn.jsdelivr.net/npm/@capacitor/status-bar@8.0.4/+esm', FAKE_STATUSBAR);
-  await mock('**/cdn.jsdelivr.net/npm/@capacitor/geolocation@8.2.3/+esm', FAKE_GEOLOCATION);
+  await mock('**/shared/vendor/@capacitor/core/dist/index.js', FAKE_CAPACITOR_CORE);
+  await mock('**/shared/vendor/@capacitor/camera/dist/esm/index.js', FAKE_CAMERA);
+  await mock('**/shared/vendor/@capacitor/share/dist/esm/index.js', FAKE_SHARE);
+  await mock('**/shared/vendor/@capacitor/filesystem/dist/esm/index.js', FAKE_FILESYSTEM);
+  await mock('**/shared/vendor/@capacitor/haptics/dist/esm/index.js', FAKE_HAPTICS);
+  await mock('**/shared/vendor/@capacitor/status-bar/dist/esm/index.js', FAKE_STATUSBAR);
+  await mock('**/shared/vendor/@capacitor/geolocation/dist/esm/index.js', FAKE_GEOLOCATION);
   await mock(`${BASE}/shared/supabase.js`, FAKE_SUPABASE);
   await mock(`${BASE}/admin/js/lib/api.js`, FAKE_API);
 
@@ -349,7 +349,7 @@ async function main() {
   await record('native.js: isNative() reflects the mocked native platform', async () => {
     const isNative = await page.evaluate(async () => {
       const core = await import('/admin/js/lib/native.js');
-      const capMod = await import('https://cdn.jsdelivr.net/npm/@capacitor/core@8.5.2/+esm');
+      const capMod = await import('/shared/vendor/@capacitor/core/dist/index.js');
       capMod._state.native = true;
       return core.isNative();
     });

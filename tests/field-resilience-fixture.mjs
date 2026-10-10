@@ -83,8 +83,8 @@ export async function fieldFixture(browser, { width = 390, hash = '#/', config =
   }
   await mock(`${BASE}/admin/js/lib/api.js`, api);
   await mock(`${BASE}/shared/supabase.js`, auth);
-  await mock('**/cdn.jsdelivr.net/npm/@capacitor/core@8.5.2/+esm', FAKE_CAPACITOR_CORE);
-  await mock('**/cdn.jsdelivr.net/npm/@capacitor/geolocation@8.2.3/+esm',
+  await mock('**/shared/vendor/@capacitor/core/dist/index.js', FAKE_CAPACITOR_CORE);
+  await mock('**/shared/vendor/@capacitor/geolocation/dist/esm/index.js',
     'export const Geolocation = { getCurrentPosition: async () => { throw new Error("No fixture GPS"); } };');
   await page.goto(`${BASE}/admin/field.html${hash}`);
   await page.waitForFunction(() => __sessions > 0);

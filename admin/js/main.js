@@ -258,4 +258,5 @@ installBackHandler({
 });
 
 window.addEventListener('hashchange', router);
-router();
+export const startupReady = window.nsStartupLoaderFailed ? Promise.resolve() : router();
+window.nsStartup?.watch(startupReady);

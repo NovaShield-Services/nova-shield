@@ -1,0 +1,4 @@
+(node:529953) ExperimentalWarning: `--experimental-loader` may be removed in the future; instead use `register()`:
+--import 'data:text/javascript,import { register } from "node:module"; import { pathToFileURL } from "node:url"; register("/workspace/nova-shield/codex-files/tooling/test-loader.mjs", pathToFileURL("./"));'
+(Use `node --trace-warnings ...` to show where the warning was created)
+Captured 18 views in /workspace/.nova-shield/batch8-2-startup/screenshots/readiness

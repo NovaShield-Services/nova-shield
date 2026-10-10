@@ -1,0 +1,9 @@
+FAIL - Cold /mobile/www/admin/field.html loads offline without any external request
+  locator.waitFor: Timeout 7000ms exceeded.
+Call log:
+[2m  - waiting for getByRole('heading', { name: 'Work unavailable offline' }) to be visible[22m
+
+
+0/1 passed
+
+Exit status: 1

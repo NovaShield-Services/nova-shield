@@ -1,0 +1,20 @@
+{
+  "node": "v24.19.0",
+  "npm": "11.9.0",
+  "java": "openjdk version \"21.0.12.1\" 2026-08-18\nOpenJDK Runtime Environment (build 21.0.12.1+1-1-deb13u1-Debian)\nOpenJDK 64-Bit Server VM (build 21.0.12.1+1-1-deb13u1-Debian, mixed mode, sharing)",
+  "chromium": "Chromium 151.0.7922.173 built on Debian GNU/Linux 13 (trixie)",
+  "sdk_environment": {
+    "ANDROID_HOME": null,
+    "ANDROID_SDK_ROOT": null,
+    "JAVA_HOME": null
+  },
+  "sdk_locations": {
+    "/opt/android-sdk": false,
+    "/opt/android": false,
+    "/usr/lib/android-sdk": false,
+    "/workspace/android-sdk": false
+  },
+  "native_compile": "UNRUN \u2014 no Android SDK configured",
+  "database": "UNRUN \u2014 no live database action authorized",
+  "production": "UNRUN \u2014 no deployment or production verification"
+}
