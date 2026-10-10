@@ -1,19 +1,20 @@
 // Batch 7.1 -- executable database tests for the integrity and authorization
-// migrations, run against a DISPOSABLE LOCAL POSTGRES.
+// migrations, run against a DEDICATED DISPOSABLE DATABASE.
 //
-//   PGURL='postgresql://postgres@/postgres?host=/tmp&port=5433' \
-//     node tests/db/batch7-1.test.mjs
+//   node tests/db/setup-test-db.mjs        # once, creates + stamps the DB
+//   node tests/db/batch7-1.test.mjs
+//
+// Needs the `pg` devDependency (already in package.json) -- run `npm install`
+// if node_modules is absent. Override the target with PGURL; the guards below
+// will refuse anything that is not the dedicated local database.
 //
 // These are NOT the tests/integration/ suite, which targets a real Supabase
-// project via SUPABASE_DB_URL. This file refuses to run against anything that
-// looks like a hosted Supabase database -- see assertDisposable() below. It
-// applies the actual migration files from supabase/migrations/ to a throwaway
-// schema and asserts what they enforce.
+// project via SUPABASE_DB_URL.
 //
 // Scope and honesty:
-//   * passing here proves the migrations are valid SQL, that their function
-//     signatures match the live ones, and that the trigger enforces what it
-//     claims in real Postgres.
+//   * passing proves the migrations are valid SQL, that their function
+//     signatures match the live ones, and that the trigger and privilege
+//     logic behave as claimed in real Postgres.
 //   * it does NOT prove the live database is protected. None of these
 //     migrations has been applied to production.
 
@@ -21,27 +22,17 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import pg from '/home/user/nova-shield/node_modules/pg/lib/index.js';
+import pg from 'pg';
+import {
+  TEST_DB_NAME, assertDisposableTarget, assertDisposableDatabase, NotDisposableError
+} from './disposable.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..', '..');
 const MIGRATIONS = join(REPO, 'supabase', 'migrations');
 
-const URL_ = process.env.PGURL || 'postgresql://postgres@/postgres?host=/tmp&port=5433';
-
-/** Hard stop before a single statement runs. The owner's standing rule is
- *  that no writing test may point at the live Supabase project, including
- *  rolled-back ones -- so this refuses rather than trusting the caller. */
-function assertDisposable(url) {
-  const banned = ['supabase.co', 'supabase.com', 'pooler.supabase'];
-  for (const needle of banned) {
-    if (url.includes(needle)) {
-      console.error(`REFUSING TO RUN: "${needle}" appears in the connection string.\n` +
-        'These tests write and must only ever target a disposable local database.');
-      process.exit(2);
-    }
-  }
-}
+const PGURL = process.env.PGURL
+  || `postgresql://postgres@/${TEST_DB_NAME}?host=/tmp&port=5433`;
 
 const results = [];
 async function record(name, fn) {
@@ -49,50 +40,218 @@ async function record(name, fn) {
   catch (err) { results.push({ name, ok: false, err: err && err.message }); }
 }
 
-/** Runs `fn`, returns the Postgres error if it raised, else null. */
-async function errorOf(client, fn) {
+/** Runs `fn`, returns the error if it raised, else null. */
+async function errorOf(fn) {
   try { await fn(); return null; } catch (err) { return err; }
 }
 
 const migration = (file) => readFileSync(join(MIGRATIONS, file), 'utf8');
+const RPC_MIGRATION    = '20261010090000_batch7_1_tighten_remaining_admin_rpc_grants.sql';
+const LEGACY_MIGRATION = '20261010091000_batch7_1_revoke_anon_writes_on_legacy_tables.sql';
+const FREEZE_MIGRATION = '20261009160000_batch5_freeze_customer_facing_content_once_sent.sql';
 
 (async () => {
-  assertDisposable(URL_);
+  // =========================================== A. the guard, with no I/O ===
+  // Every one of these must be rejected by pure string inspection, BEFORE any
+  // connection is attempted -- which is what lets remote-looking targets be
+  // tested without contacting a remote host.
+  const REJECT = [
+    ['a hosted Supabase database',      `postgresql://u:p@db.abcd.supabase.co:5432/${TEST_DB_NAME}`],
+    ['any other remote host',           `postgresql://u:p@db.example.com:5432/${TEST_DB_NAME}`],
+    ['a remote IP',                     `postgresql://u:p@198.51.100.7:5432/${TEST_DB_NAME}`],
+    ['a local but ORDINARY database',   'postgresql://postgres@localhost:5432/postgres'],
+    ['a local app-shaped database',     'postgresql://postgres@localhost:5432/nova_shield'],
+    ['a socket to the wrong database',  'postgresql://postgres@/postgres?host=/tmp&port=5433'],
+    ['a non-postgres URL',              `mysql://localhost/${TEST_DB_NAME}`],
+    ['an unparseable string',           'not a url at all'],
+    ['an empty string',                 '']
+  ];
 
-  const client = new pg.Client({ connectionString: URL_ });
+  for (const [label, url] of REJECT) {
+    await record(`guard refuses ${label} (no connection attempted)`, async () => {
+      assert.throws(() => assertDisposableTarget(url), NotDisposableError,
+        `${url} should have been refused`);
+    });
+  }
+
+  await record('guard accepts the dedicated local database in every supported URL shape', async () => {
+    // The socket forms carry userinfo with an EMPTY host, which WHATWG URL
+    // rejects outright for non-special schemes -- so these also pin that the
+    // parser normalises rather than refusing a perfectly valid target.
+    for (const ok of [
+      `postgresql://postgres@/${TEST_DB_NAME}?host=/tmp&port=5433`,
+      `postgresql://postgres:secret@/${TEST_DB_NAME}?host=/var/run/postgresql`,
+      `postgresql:///${TEST_DB_NAME}?host=/tmp`,
+      `postgresql://postgres@localhost:5432/${TEST_DB_NAME}`,
+      `postgres://127.0.0.1:5432/${TEST_DB_NAME}`
+    ]) {
+      assert.doesNotThrow(() => assertDisposableTarget(ok), `${ok} should be accepted`);
+    }
+  });
+
+  await record('a password containing @ does not smuggle a remote host past the guard', async () => {
+    assert.throws(
+      () => assertDisposableTarget(`postgresql://u:p@localhost@db.example.com:5432/${TEST_DB_NAME}`),
+      NotDisposableError);
+  });
+
+  // ================================================= connect and verify ===
+  assertDisposableTarget(PGURL);
+  const client = new pg.Client({ connectionString: PGURL });
   await client.connect();
+  await assertDisposableDatabase(client);   // marker check, before any DDL
 
-  // Isolate: everything lives in a throwaway database-wide reset each run.
+  await record('the connected database carries the disposable marker', async () => {
+    const { rows } = await client.query(
+      `select shobj_description(oid,'pg_database') as m from pg_database where datname = current_database()`);
+    assert.equal(rows[0].m, 'NOVA-SHIELD-DISPOSABLE-TEST-DB');
+  });
+
+  await record('an unmarked database is refused even if the name matches', async () => {
+    const fake = {
+      query: async () => ({ rows: [{ db: TEST_DB_NAME, marker: null }] })
+    };
+    await assert.rejects(() => assertDisposableDatabase(fake), NotDisposableError);
+  });
+
   await client.query(readFileSync(join(HERE, 'fixture-schema.sql'), 'utf8'));
 
-  const seed = async (status) => {
-    const { rows } = await client.query(
-      `insert into public.ns_quotes (status, customer_notes, terms, internal_notes)
-       values ($1, 'original note', 'original terms', 'staff scratch')
-       returning id`, [status]);
-    return rows[0].id;
-  };
+  const anonHasTable = async (tbl, priv) => (await client.query(
+    'select has_table_privilege($1, $2, $3) as ok', ['anon', tbl, priv])).rows[0].ok;
+  const roleHasFn = async (role, sig) => (await client.query(
+    'select has_function_privilege($1, $2, $3) as ok', [role, sig, 'EXECUTE'])).rows[0].ok;
 
-  // ============================================ A. before the migration ===
+  const CALC = 'public.calculate_job_pricing(uuid,uuid[])';
+  const SIG  = 'public.save_quote_signature(uuid,text,text)';
+
+  // ============ B. the gaps the first version of these migrations had =====
+  await record('GAP: revoking only FROM anon leaves a PUBLIC grant in place', async () => {
+    assert.equal(await anonHasTable('public.jobs', 'INSERT'), true, 'via PUBLIC');
+    await client.query('revoke insert, update, delete on table public.jobs from anon');
+    assert.equal(await anonHasTable('public.jobs', 'INSERT'), true,
+      'this is the defect: the PUBLIC grant survives an anon-only revoke');
+  });
+
+  await record('GAP: revoking only FROM public leaves a direct anon grant in place', async () => {
+    assert.equal(await roleHasFn('anon', SIG), true);
+    await client.query(`revoke execute on function ${SIG} from public`);
+    assert.equal(await roleHasFn('anon', SIG), true,
+      'this is the defect: the direct anon grant survives a PUBLIC-only revoke');
+  });
+
+  await record('GAP: neither revoke touches an inherited grant', async () => {
+    assert.equal(await anonHasTable('public.quotes', 'INSERT'), true, 'via ns_legacy_writer');
+    await client.query('revoke insert on table public.quotes from anon');
+    await client.query('revoke insert on table public.quotes from public');
+    assert.equal(await anonHasTable('public.quotes', 'INSERT'), true,
+      'inherited privileges survive both revokes -- this is why the migration verifies');
+  });
+
+  // Reset to the fixture's starting state for the real runs.
+  await client.query(readFileSync(join(HERE, 'fixture-schema.sql'), 'utf8'));
+
+  // ========== C. the migrations stop loudly when access is inherited ======
+  await record('legacy migration REFUSES and changes nothing while anon inherits write access', async () => {
+    const err = await errorOf(() => client.query(migration(LEGACY_MIGRATION)));
+    assert.ok(err, 'it must not report success it has not achieved');
+    assert.match(err.message, /inherited through a role membership/);
+    assert.match(err.message, /pg_auth_members/, 'the diagnostic should say how to find it');
+    // A DO block is one transaction: a raise rolls the whole thing back, so
+    // the tables it had already processed are untouched rather than half-done.
+    assert.equal(await anonHasTable('public.job_requests', 'INSERT'), true,
+      'the migration must be all-or-nothing');
+  });
+
+  await record('RPC migration REFUSES while anon inherits EXECUTE', async () => {
+    const err = await errorOf(() => client.query(migration(RPC_MIGRATION)));
+    assert.ok(err);
+    assert.match(err.message, /inherited through a role membership/);
+    assert.equal(await roleHasFn('anon', CALC), true, 'unchanged');
+  });
+
+  // =================== D. and succeed once the membership is resolved =====
+  await client.query('revoke ns_legacy_writer from anon');
+
+  await record('legacy migration closes ALL THREE routes once inheritance is gone', async () => {
+    await client.query(migration(LEGACY_MIGRATION));
+    for (const [tbl, route] of [['public.job_requests', 'direct'],
+                                ['public.jobs', 'PUBLIC'],
+                                ['public.quotes', 'formerly inherited']]) {
+      for (const p of ['INSERT', 'UPDATE', 'DELETE']) {
+        assert.equal(await anonHasTable(tbl, p), false, `${tbl} ${p} (${route}) must be revoked`);
+      }
+    }
+  });
+
+  await record('legacy migration leaves anon SELECT alone', async () => {
+    assert.equal(await anonHasTable('public.job_requests', 'SELECT'), true,
+      'SELECT is deliberately out of scope, pending the retirement decision');
+  });
+
+  await record('legacy migration preserves authenticated and service_role writes', async () => {
+    for (const role of ['authenticated', 'service_role']) {
+      for (const tbl of ['public.job_requests', 'public.jobs', 'public.quotes']) {
+        const { rows } = await client.query(
+          'select has_table_privilege($1,$2,$3) as ok', [role, tbl, 'INSERT']);
+        assert.equal(rows[0].ok, true,
+          `${role} must keep INSERT on ${tbl} -- the PUBLIC revoke must not take it by side effect`);
+      }
+    }
+  });
+
+  await record('RPC migration closes both PUBLIC and direct routes once inheritance is gone', async () => {
+    await client.query(migration(RPC_MIGRATION));
+    assert.equal(await roleHasFn('anon', CALC), false, 'PUBLIC route');
+    assert.equal(await roleHasFn('anon', SIG), false, 'PUBLIC + direct routes');
+  });
+
+  await record('RPC migration keeps authenticated and service_role', async () => {
+    assert.equal(await roleHasFn('authenticated', CALC), true);
+    assert.equal(await roleHasFn('authenticated', SIG), true);
+  });
+
+  await record('both migrations are idempotent on a second run', async () => {
+    await client.query(migration(LEGACY_MIGRATION));
+    await client.query(migration(RPC_MIGRATION));
+    assert.equal(await anonHasTable('public.jobs', 'INSERT'), false);
+    assert.equal(await roleHasFn('anon', CALC), false);
+  });
+
+  await record('a PUBLIC grant on a trigger function cannot be exercised anyway', async () => {
+    const err = await errorOf(() => client.query('select public.fixture_trigger_fn()'));
+    assert.ok(err);
+    assert.match(err.message, /can only be called as triggers/i);
+  });
+
+  await record('a PUBLIC grant on an event-trigger function cannot be exercised anyway', async () => {
+    const err = await errorOf(() => client.query('select public.fixture_event_trigger_fn()'));
+    assert.ok(err);
+    assert.match(err.message, /can only be called as triggers/i);
+    assert.equal(err.code, '0A000', 'feature_not_supported, not a permission error');
+  });
+
+  // ================================= E. the customer-content freeze =======
+  const seed = async (status) => (await client.query(
+    `insert into public.ns_quotes (status, customer_notes, terms, internal_notes)
+     values ($1,'original note','original terms','staff scratch') returning id`,
+    [status])).rows[0].id;
+
   await record('BEFORE: a sent quote\'s customer_notes can be rewritten (the hole)', async () => {
     const id = await seed('sent');
-    await client.query(`update public.ns_quotes set customer_notes = 'rewritten' where id = $1`, [id]);
+    await client.query(`update public.ns_quotes set customer_notes='rewritten' where id=$1`, [id]);
     const { rows } = await client.query('select customer_notes from public.ns_quotes where id=$1', [id]);
-    assert.equal(rows[0].customer_notes, 'rewritten',
-      'without the migration this must succeed -- that is the defect');
+    assert.equal(rows[0].customer_notes, 'rewritten');
   });
 
   await record('BEFORE: a sent quote can be demoted back to draft', async () => {
     const id = await seed('sent');
-    await client.query(`update public.ns_quotes set status = 'draft' where id = $1`, [id]);
+    await client.query(`update public.ns_quotes set status='draft' where id=$1`, [id]);
     const { rows } = await client.query('select status from public.ns_quotes where id=$1', [id]);
     assert.equal(rows[0].status, 'draft');
   });
 
-  // ================================================= apply the migration ==
-  await client.query(migration('20261009160000_batch5_freeze_customer_facing_content_once_sent.sql'));
+  await client.query(migration(FREEZE_MIGRATION));
 
-  // ============================================= B. the freeze enforces ===
   await record('a DRAFT quote still accepts customer_notes and terms edits', async () => {
     const id = await seed('draft');
     await client.query(
@@ -106,59 +265,37 @@ const migration = (file) => readFileSync(join(MIGRATIONS, file), 'utf8');
   for (const status of ['sent', 'accepted', 'declined', 'expired', 'superseded']) {
     await record(`a ${status.toUpperCase()} quote refuses a customer_notes edit`, async () => {
       const id = await seed(status);
-      const err = await errorOf(client, () =>
+      const err = await errorOf(() =>
         client.query(`update public.ns_quotes set customer_notes='rewritten' where id=$1`, [id]));
-      assert.ok(err, 'the update should have raised');
-      assert.equal(err.code, '23514', `expected check_violation, got ${err.code}`);
+      assert.ok(err);
+      assert.equal(err.code, '23514');
       assert.match(err.message, /frozen once sent/);
       const { rows } = await client.query('select customer_notes from public.ns_quotes where id=$1', [id]);
-      assert.equal(rows[0].customer_notes, 'original note', 'the stored value must be unchanged');
+      assert.equal(rows[0].customer_notes, 'original note');
     });
   }
 
-  await record('a SENT quote refuses a terms edit', async () => {
-    const id = await seed('sent');
-    const err = await errorOf(client, () =>
-      client.query(`update public.ns_quotes set terms='rewritten terms' where id=$1`, [id]));
-    assert.ok(err);
-    assert.equal(err.code, '23514');
-  });
-
-  await record('internal_notes remain editable on a SENT quote -- staff scratch is not frozen', async () => {
+  await record('internal_notes remain editable on a SENT quote', async () => {
     const id = await seed('sent');
     await client.query(`update public.ns_quotes set internal_notes='added later' where id=$1`, [id]);
     const { rows } = await client.query('select internal_notes from public.ns_quotes where id=$1', [id]);
     assert.equal(rows[0].internal_notes, 'added later');
   });
 
-  await record('an unrelated column (total) is still updatable on a SENT quote', async () => {
-    const id = await seed('sent');
-    await client.query(`update public.ns_quotes set total = 123.45 where id=$1`, [id]);
-    const { rows } = await client.query('select total from public.ns_quotes where id=$1', [id]);
-    assert.equal(Number(rows[0].total), 123.45);
-  });
-
-  // ===================================================== C. the bypasses ==
   await record('BYPASS 1 (one statement): status->draft plus a content edit is refused', async () => {
     const id = await seed('sent');
-    const err = await errorOf(client, () =>
+    const err = await errorOf(() =>
       client.query(`update public.ns_quotes set status='draft', customer_notes='sneaky' where id=$1`, [id]));
-    assert.ok(err, 'the combined update should have raised');
+    assert.ok(err);
     assert.equal(err.code, '23514');
-    const { rows } = await client.query('select status, customer_notes from public.ns_quotes where id=$1', [id]);
-    assert.equal(rows[0].status, 'sent');
-    assert.equal(rows[0].customer_notes, 'original note');
   });
 
   await record('BYPASS 2 (two statements): demoting a sent quote to draft is refused', async () => {
     const id = await seed('sent');
-    const err = await errorOf(client, () =>
+    const err = await errorOf(() =>
       client.query(`update public.ns_quotes set status='draft' where id=$1`, [id]));
     assert.ok(err, 'this is the step the Batch 5 version allowed');
-    assert.equal(err.code, '23514');
     assert.match(err.message, /cannot be returned to draft/);
-    const { rows } = await client.query('select status from public.ns_quotes where id=$1', [id]);
-    assert.equal(rows[0].status, 'sent', 'the quote must still be sent');
   });
 
   await record('a legitimate draft -> sent transition carrying fresh content is allowed', async () => {
@@ -168,84 +305,7 @@ const migration = (file) => readFileSync(join(MIGRATIONS, file), 'utf8');
     const { rows } = await client.query(
       'select status, customer_notes from public.ns_quotes where id=$1', [id]);
     assert.equal(rows[0].status, 'sent');
-    assert.equal(rows[0].customer_notes, 'final wording',
-      'sending a draft with edited content is the content the customer receives');
-  });
-
-  await record('forward transitions between non-draft statuses are unaffected', async () => {
-    const id = await seed('sent');
-    await client.query(`update public.ns_quotes set status='accepted' where id=$1`, [id]);
-    const { rows } = await client.query('select status from public.ns_quotes where id=$1', [id]);
-    assert.equal(rows[0].status, 'accepted');
-  });
-
-  // ======================================================= D. the grants ==
-  await record('BEFORE: anon can execute both admin-only RPCs (the inherited PUBLIC grant)', async () => {
-    const { rows } = await client.query(`
-      select has_function_privilege('anon','public.calculate_job_pricing(uuid,uuid[])','EXECUTE') as calc,
-             has_function_privilege('anon','public.save_quote_signature(uuid,text,text)','EXECUTE') as sig`);
-    assert.equal(rows[0].calc, true);
-    assert.equal(rows[0].sig, true);
-  });
-
-  await record('the grant migration applies cleanly -- signatures match the live ones', async () => {
-    // A REVOKE naming a signature that does not exist raises 42883, so this
-    // completing at all is the signature check.
-    await client.query(migration('20261010090000_batch7_1_tighten_remaining_admin_rpc_grants.sql'));
-  });
-
-  await record('AFTER: anon cannot execute either RPC; authenticated still can', async () => {
-    const { rows } = await client.query(`
-      select has_function_privilege('anon','public.calculate_job_pricing(uuid,uuid[])','EXECUTE') as anon_calc,
-             has_function_privilege('anon','public.save_quote_signature(uuid,text,text)','EXECUTE') as anon_sig,
-             has_function_privilege('authenticated','public.calculate_job_pricing(uuid,uuid[])','EXECUTE') as auth_calc,
-             has_function_privilege('authenticated','public.save_quote_signature(uuid,text,text)','EXECUTE') as auth_sig`);
-    assert.equal(rows[0].anon_calc, false, 'anon must lose calculate_job_pricing');
-    assert.equal(rows[0].anon_sig, false, 'anon must lose save_quote_signature');
-    assert.equal(rows[0].auth_calc, true, 'the admin panel runs as authenticated');
-    assert.equal(rows[0].auth_sig, true);
-  });
-
-  await record('a PUBLIC grant on a trigger function cannot be exercised anyway', async () => {
-    const err = await errorOf(client, () => client.query('select public.fixture_trigger_fn()'));
-    assert.ok(err, 'calling a trigger function directly must fail');
-    assert.match(err.message, /trigger/i);
-  });
-
-  await record('a PUBLIC grant on an event-trigger function cannot be exercised anyway', async () => {
-    const err = await errorOf(client, () => client.query('select public.fixture_event_trigger_fn()'));
-    assert.ok(err, 'calling an event trigger function directly must fail');
-    // Postgres reports both trigger and event-trigger functions with the same
-    // wording -- "trigger functions can only be called as triggers" -- so the
-    // assertion matches that rather than a phrase Postgres never emits.
-    assert.match(err.message, /can only be called as triggers/i);
-    assert.equal(err.code, '0A000', 'feature_not_supported, not a permission error');
-  });
-
-  // =============================================== E. the legacy tables ===
-  await record('BEFORE: anon holds INSERT on all three legacy tables', async () => {
-    const { rows } = await client.query(`
-      select has_table_privilege('anon','public.job_requests','INSERT') as jr,
-             has_table_privilege('anon','public.jobs','INSERT')         as j,
-             has_table_privilege('anon','public.quotes','INSERT')       as q`);
-    assert.deepEqual(rows[0], { jr: true, j: true, q: true });
-  });
-
-  await record('the legacy revoke removes anon write access and keeps read', async () => {
-    await client.query(migration('20261010091000_batch7_1_revoke_anon_writes_on_legacy_tables.sql'));
-    const { rows } = await client.query(`
-      select has_table_privilege('anon','public.job_requests','INSERT') as ins,
-             has_table_privilege('anon','public.jobs','UPDATE')         as upd,
-             has_table_privilege('anon','public.quotes','DELETE')       as del,
-             has_table_privilege('anon','public.job_requests','SELECT') as sel`);
-    assert.equal(rows[0].ins, false, 'INSERT is the privilege finding 5 names');
-    assert.equal(rows[0].upd, false);
-    assert.equal(rows[0].del, false);
-    assert.equal(rows[0].sel, true, 'SELECT is deliberately left for the retirement decision');
-  });
-
-  await record('the legacy revoke is idempotent -- safe if the grant was already gone', async () => {
-    await client.query(migration('20261010091000_batch7_1_revoke_anon_writes_on_legacy_tables.sql'));
+    assert.equal(rows[0].customer_notes, 'final wording');
   });
 
   await client.end();

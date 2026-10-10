@@ -3,10 +3,47 @@
 Branch `claude/batch-7-1`, from `a461119`.
 
 Nothing in this batch was applied to the live database. Every live inspection
-was read-only. No writing test has ever pointed at the Supabase project —
-`tests/db/batch7-1.test.mjs` refuses to start if the connection string
-contains `supabase.co`, `supabase.com` or `pooler.supabase` (verified: exit
-code 2).
+was read-only, and no writing test has ever pointed at the Supabase project.
+
+## Safety follow-up — the first version of this harness was dangerous
+
+The guard originally shipped with this batch was a **hostname blacklist**: it
+refused `supabase.co`, `supabase.com` and `pooler.supabase`, and allowed
+everything else. The fixture runs `drop table … cascade` against names that
+exist in the real application, so that guard permitted the destruction of any
+self-hosted, staging or local copy of the app database.
+
+This was reproduced rather than argued. A local database called `nova_shield`
+holding one row was created, and the old blacklist accepts it:
+
+```
+old blacklist refuses this app database? false
+-> it would have run DROP TABLE ... CASCADE against it
+```
+
+With the replacement guard, the same target is refused and the data survives
+(1 row before, 1 row after):
+
+```
+NotDisposableError: Refusing database "nova_shield": these tests may only run
+against the dedicated database "nova_shield_batch7_1_test".
+```
+
+The rule is now **positive identification in two stages**
+(`tests/db/disposable.mjs`):
+
+1. `assertDisposableTarget(url)` — **pure, no I/O**. The host must be local
+   (unix socket, `localhost`, `127.0.0.1`, `::1`) and the database must be
+   exactly `nova_shield_batch7_1_test`. Because it touches nothing, its
+   refusals are tested against remote-looking URLs **without contacting any
+   remote host** — nine refusal cases, all asserted.
+2. `assertDisposableDatabase(client)` — after connecting, **before any
+   fixture SQL**. The server must agree it is that database *and* it must
+   carry a marker comment written only by `setup-test-db.mjs`. A database
+   that merely shares the name is still refused.
+
+A password containing `@` cannot smuggle a remote host past stage 1; that is
+asserted too.
 
 ---
 
@@ -38,6 +75,44 @@ Both the hole and the fix are executed and asserted in the test suite,
 including the "before" state where the rewrite succeeds.
 
 ---
+
+## 1b. Effective privileges — both migrations were testing the wrong thing
+
+The first versions of the two hardening migrations each closed exactly **one**
+of the three routes by which `anon` can hold a privilege, and the tests passed
+only because the fixture reproduced that one route:
+
+| Route | Legacy migration (`revoke … from anon`) | RPC migration (`revoke … from public`) |
+|---|---|---|
+| direct grant to `anon` | removed | **survives** |
+| grant to `PUBLIC` | **survives** | removed |
+| inherited via role membership | **survives** | **survives** |
+
+Route 2 is not hypothetical here: `get_customer_quote` and `respond_to_quote`
+both carry direct `anon` grants today, so the shape exists in this project.
+
+Both migrations now revoke from **`PUBLIC` and `anon`**, restore what
+`authenticated` and `service_role` effectively held before (so a `PUBLIC`
+revoke cannot strip them by side effect), and then **verify the result**.
+Where access remains — which can only be role inheritance — the migration
+**raises and rolls back entirely** rather than reporting a success it did not
+achieve:
+
+```
+batch7.1: anon still holds INSERT on public.job_requests after revoking the
+direct and PUBLIC grants. The privilege is inherited through a role
+membership. Resolve the membership (see: select roleid::regrole from
+pg_auth_members where member = 'anon'::regrole) and re-run this migration.
+```
+
+Because a `DO` block is a single transaction, that refusal is **all-or-
+nothing** — tables already processed are left untouched rather than half-done.
+Asserted.
+
+The fixture now reproduces all three routes simultaneously — `job_requests`
+direct, `jobs` via `PUBLIC`, `quotes` via an inherited role, plus an inherited
+`EXECUTE` on `calculate_job_pricing` — and the suite proves each old statement
+left access in place before proving the new migrations remove it.
 
 ## 2. Admin RPC privileges — two confirmed over-grants, hardened
 
@@ -214,6 +289,50 @@ where contype = 'f'
 No customer information is reproduced in this repository.
 
 ---
+
+## Running the database suite
+
+`pg` is already a declared devDependency, so no dependency change was needed —
+the hardcoded `/home/user/nova-shield/node_modules/pg/...` import was replaced
+with the bare `import pg from 'pg'` that `tests/integration/db-client.mjs`
+already uses.
+
+```bash
+npm install                 # if node_modules is absent
+npm run db:setup            # creates + stamps nova_shield_batch7_1_test
+npm run test:db             # 38/38
+```
+
+Both scripts honour overrides for a server that is not on the default socket:
+
+```bash
+PGADMIN_URL='postgresql://postgres@localhost:5432/postgres' npm run db:setup
+PGURL='postgresql://postgres@localhost:5432/nova_shield_batch7_1_test' npm run test:db
+```
+
+Any other target is refused. The suite needs a local PostgreSQL server — it
+does **not** need Supabase, and must never be pointed at it.
+
+### Result
+
+**38/38 passing**, idempotent across repeated runs. That covers nine
+no-I/O guard refusals, the marker check, three "the old statement left access
+in place" demonstrations, the two inheritance diagnostics, the three-route
+closure, preservation of `authenticated`/`service_role`, the inert
+trigger-grant claims, and the full content-freeze matrix including both
+bypasses.
+
+### Remaining limitations
+
+- Passing proves the migrations' **SQL and logic**. It does **not** prove the
+  live database is protected — none of this is applied.
+- The fixture is a **minimal stand-in** built from read-only introspection,
+  not production's schema, because the repository has none (§4b).
+- The inheritance case is reproduced with a fixture role. **Whether `anon`
+  inherits anything in production was not determined** — the introspection
+  query was refused by the approval gate. If it does, these migrations will
+  refuse rather than silently half-apply, which is the intended outcome, but
+  it means the apply step may stop and need the membership resolved first.
 
 ## Live actions awaiting approval
 

@@ -7,29 +7,38 @@
 -- the Batch 7.1 migrations actually touch, with column types and function
 -- signatures taken from read-only introspection of the live project.
 --
--- What that buys, and what it does not:
---   * it DOES prove the migrations' SQL is valid, that their function
---     signatures match the live ones exactly (a REVOKE against a wrong
---     signature errors rather than silently no-opping), and that the
---     trigger logic enforces what it claims against real Postgres.
+-- It is DESTRUCTIVE: it drops tables whose names exist in the real
+-- application. It may only ever be executed against the dedicated disposable
+-- database created by setup-test-db.mjs, which tests/db/disposable.mjs
+-- enforces in two stages before this file is read.
+--
+-- What passing here buys, and what it does not:
+--   * it DOES prove the migrations' SQL is valid, that their signatures match
+--     the live ones, and that the trigger and privilege logic behave as
+--     claimed in real Postgres.
 --   * it does NOT prove the live database is protected. Nothing here is
---     applied to production, and these results must not be reported as
---     production verification.
+--     applied to production.
 
 create schema if not exists public;
 
--- Supabase's two browser-facing roles. NOLOGIN is enough: the tests use
--- SET ROLE, not a connection.
+-- Supabase's browser-facing roles, plus service_role. NOLOGIN is enough: the
+-- tests use privilege functions and SET ROLE, not connections.
 do $$ begin
-  if not exists (select 1 from pg_roles where rolname = 'anon') then
-    create role anon nologin;
-  end if;
-  if not exists (select 1 from pg_roles where rolname = 'authenticated') then
-    create role authenticated nologin;
-  end if;
+  if to_regrole('anon')          is null then create role anon          nologin; end if;
+  if to_regrole('authenticated') is null then create role authenticated nologin; end if;
+  if to_regrole('service_role')  is null then create role service_role  nologin; end if;
 end $$;
 
-grant usage on schema public to anon, authenticated;
+-- A role anon is a MEMBER of. This is the third way to hold a privilege, and
+-- the one neither Batch 7.1 migration originally accounted for: a revoke
+-- naming anon removes only anon's own grant, and a revoke naming PUBLIC
+-- removes only PUBLIC's, while an inherited grant survives both.
+do $$ begin
+  if to_regrole('ns_legacy_writer') is null then create role ns_legacy_writer nologin; end if;
+end $$;
+grant ns_legacy_writer to anon;
+
+grant usage on schema public to anon, authenticated, service_role, ns_legacy_writer;
 
 -- ---------------------------------------------------------------- quotes --
 -- Only the columns the content-freeze trigger reads.
@@ -51,9 +60,7 @@ create table public.ns_quotes (
 -- DROP before CREATE, not CREATE OR REPLACE: replacing a function PRESERVES
 -- its existing grants, so on a second run the stubs would still carry the
 -- revoke the previous run applied and the "before" assertions would fail
--- against a state the fixture is supposed to have reset. (That preservation
--- is the same property the Batch 5 grant work relied on -- worth knowing in
--- both directions.)
+-- against a state the fixture is supposed to have reset.
 drop function if exists public.calculate_job_pricing(uuid, uuid[]);
 create function public.calculate_job_pricing(p_job_id uuid, p_measurement_ids uuid[])
 returns void language sql as $$ select $$;
@@ -62,7 +69,21 @@ drop function if exists public.save_quote_signature(uuid, text, text);
 create function public.save_quote_signature(p_quote_id uuid, p_signature_path text, p_signed_by_name text)
 returns void language sql as $$ select $$;
 
--- Both now start from Postgres's default: EXECUTE to PUBLIC.
+-- Reproduce ALL THREE ways the privilege can be held, so a revoke that
+-- handles only one of them is caught:
+--   calculate_job_pricing : PUBLIC (what the live inventory shows)
+--   save_quote_signature  : PUBLIC + a direct anon grant
+-- Postgres grants EXECUTE to PUBLIC by default on CREATE FUNCTION, so the
+-- PUBLIC half is already in place.
+grant execute on function public.save_quote_signature(uuid, text, text) to anon;
+
+-- ...and route 3, inheritance, on one of them, so the migration's diagnostic
+-- path is exercised rather than merely written.
+grant execute on function public.calculate_job_pricing(uuid, uuid[]) to ns_legacy_writer;
+
+-- authenticated must keep access through all of this.
+grant execute on function public.calculate_job_pricing(uuid, uuid[]) to authenticated;
+grant execute on function public.save_quote_signature(uuid, text, text) to authenticated;
 
 -- --------------------------------------------- inert-grant demonstration --
 -- Used to assert the migration's claim that a PUBLIC grant on a trigger or
@@ -85,8 +106,17 @@ create table public.job_requests (id uuid primary key default gen_random_uuid(),
 create table public.jobs         (id uuid primary key default gen_random_uuid(), note text);
 create table public.quotes       (id uuid primary key default gen_random_uuid(), note text);
 
--- Reproduce the inherited state ARCHITECTURE finding 5 records, so the
--- revoke has something real to remove.
+-- One table per route by which anon can hold write access, so a revoke that
+-- only covers one route leaves the others provable:
+--   job_requests : granted DIRECTLY to anon
+--   jobs         : granted to PUBLIC
+--   quotes       : granted to ns_legacy_writer, which anon INHERITS
 grant select, insert, update, delete on public.job_requests to anon;
-grant select, insert, update, delete on public.jobs         to anon;
-grant select, insert, update, delete on public.quotes       to anon;
+grant select, insert, update, delete on public.jobs         to public;
+grant select, insert, update, delete on public.quotes       to ns_legacy_writer;
+grant select                          on public.quotes       to anon;
+
+-- Roles that must keep what they have.
+grant select, insert, update, delete on public.job_requests to authenticated, service_role;
+grant select, insert, update, delete on public.jobs         to authenticated, service_role;
+grant select, insert, update, delete on public.quotes       to authenticated, service_role;
