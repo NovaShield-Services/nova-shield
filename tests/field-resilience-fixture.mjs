@@ -95,11 +95,16 @@ export async function fieldFixture(browser, { width = 390, hash = '#/', config =
 export async function queueAction(page, label = 'Save Property Passport') {
   return page.evaluate(async label => {
     const queue = await import('/admin/js/lib/offline-queue.js');
-    // Queue through the real failed-network path while the browser stays
-    // online. This also lets the real badge offer Sync Now without firing
-    // an online event that would automatically replay our seed records.
+    // Seed offline without emitting a reconnect event. Online writes now
+    // join the durable ordered queue and would retry earlier seed records.
     __fail.updateProperty = 'Failed to fetch';
+    const online = navigator.onLine;
+    Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
     await queue.callOrQueue('updateProperty', { id: 'fixture-property', patch: { passport: { preferences: label } } }, label);
+    Object.defineProperty(navigator, 'onLine', { value: online, configurable: true });
+    // Repaint the current connectivity without invoking the online replay
+    // hook. These are seed records for a later explicit reconnect/retry.
+    window.dispatchEvent(new Event('offline'));
     // Leave the network unavailable until a test explicitly reconnects.
     // A background online event must not consume seed records between steps.
     __writes = []; // Subsequent assertions audit replay/discard, not seeding.

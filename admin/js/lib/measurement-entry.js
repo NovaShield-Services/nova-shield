@@ -71,7 +71,13 @@ export function createMeasurementEditor({ root, save, onChange, delay = 350 }) {
   // Captured numbers, never mutable control.value, are used after the await.
   function write(measurement, value) {
     const previous = rowWrites.get(measurement.id) || Promise.resolve();
-    const next = previous.catch(() => {}).then(() => save(measurement.id, { quantity: value }))
+    const next = previous.catch(() => {}).then(() => {
+      // An account change removes private controls immediately. A timer or
+      // queued second write from that detached screen must not use the next
+      // account's session. Ordinary navigation already flushes before detach.
+      if (!root.isConnected) throw new Error('This screen closed before the quantity was saved. Reopen the visit to review it.');
+      return save(measurement.id, { quantity: value });
+    })
       .then(result => { version++; return result; });
     rowWrites.set(measurement.id, next);
     writes.add(next);

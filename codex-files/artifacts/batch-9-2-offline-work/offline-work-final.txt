@@ -1,0 +1,35 @@
+PASS - Prefetch, offline restart and visit navigation preserve addresses, passport and notes
+PASS - Passport and note drafts survive a closed page and are labeled unsent
+PASS - Offline passport saves survive restart as pending property facts
+PASS - Offline new measurements are saved without invoking pricing or unsupported writes
+PASS - An uncached deep link reports unavailable rather than another job’s data
+PASS - Expired snapshots stop offline access without destroying pending actions
+PASS - Account switching hides another account’s visits, drafts and photo payloads
+PASS - Logout removes read snapshots and preserves owned unsent actions
+PASS - Offline or rejected logout never falsely announces successful sign-out
+PASS - Revoked online access never falls back to cached private work
+PASS - Replay revalidates revoked targets before sending and retains their payload
+PASS - Reconnecting replays supported writes in order and removes them only after success
+PASS - Photo bytes commit before network I/O; a lost response is held for explicit review
+PASS - A signature resumes its saved upload path without uploading again after a rejected RPC
+PASS - A lost signature response reconciles the matching server signature after explicit review
+PASS - Different tabs share one replay lock and cannot execute the same head twice
+PASS - Offline passport replay preserves unrelated server fields
+PASS - A conflicting server passport edit stops replay rather than overwriting it
+PASS - Connection loss while the browser reports online uses the saved snapshot
+PASS - Changing accounts closes private outbox dialogs immediately
+PASS - A detached old-account action cannot be persisted as the new account’s action
+PASS - A pending quantity timer cannot save after its account’s screen is removed
+PASS - Storage failure refuses photo saving before any server upload
+PASS - An interrupted in-flight send survives page closure and does not replay automatically
+PASS - A failed preparation keeps the previous complete snapshot
+PASS - Prefetch is bounded to twenty visits and says when the schedule is truncated
+PASS - Storage failure never claims that work was saved
+PASS - A v1 upgrade preserves full legacy bytes and blocks unowned replay
+PASS - The real Supabase SDK can reopen saved work with an expired offline access token
+PASS - Saved work at 390px fits and exposes real local photo previews
+PASS - Saved work at 430px fits and exposes real local photo previews
+PASS - Saved work at 1200px fits and exposes real local photo previews
+PASS - Actual Chromium process restart retains the prepared snapshot and photo Blob
+
+33/33 passed

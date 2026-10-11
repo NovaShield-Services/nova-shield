@@ -75,12 +75,13 @@ export async function takeNativePhoto() {
  *  killed mid-upload, independent of the offline outbox's own IndexedDB
  *  storage. A no-op on web: the outbox's IndexedDB already holds the Blob
  *  there, and there is no equivalent native sandbox to write it to. */
-export async function persistPhotoLocally(file) {
+export async function persistPhotoLocally(file, ownerId = null) {
   if (!isNative()) return null;
   try {
     const { Filesystem, Directory } = await import(PINNED.filesystem);
     const base64 = await blobToBase64(file);
-    const path = `nova-shield-photos/${Date.now()}-${file.name}`;
+    const ownerPath = ownerId ? `${String(ownerId).replace(/[^a-zA-Z0-9_-]/g, '_')}/` : '';
+    const path = `nova-shield-photos/${ownerPath}${Date.now()}-${file.name}`;
     await Filesystem.writeFile({ path, data: base64, directory: Directory.Data, recursive: true });
     return path;
   } catch (err) {

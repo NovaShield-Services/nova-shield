@@ -15,6 +15,20 @@ continuation's evidence has its own manifest, separate from the original
 import manifest. Final verification: 511/511 counted checks plus geofence;
 Android SDK/device/production/database verification remains unrun.
 
+## Batch 9.2 offline continuation
+
+Branch `codex/batch-9-2-offline-work` continues `1e320a6` independently of
+Claude. Canonical field modules now retain bounded offline work, account-owned
+drafts and recoverable writes using the original outbox. See
+[findings and reproduction](../tests/offline-work.md),
+[the snapshot contract](../docs/field-snapshot-contract-v1.md), and
+[recorded evidence](artifacts/batch-9-2-offline-work/).
+Final verification: 544/544 counted checks plus geofence. The two intentional
+failure probes have separate logs; five final screenshots were inspected.
+Android compile/device, live database and production checks remain unrun.
+The [next load-contract inputs](../docs/plans/batch-10-2-contract-readiness.md)
+are documented without importing Claude's implementation or adding stock writes.
+
 ## Contents
 
 | Folder/file | Purpose |

@@ -15,7 +15,8 @@ const FAKE_CAPACITOR_CORE = `
   export const Capacitor = { isNativePlatform: () => false, getPlatform: () => 'web' };
 `;
 const FAKE_SUPABASE = `
-  export const supabase = { auth: { signOut: async () => {} } };
+  export const supabase = { auth: { signOut: async () => {},
+    getSession: async () => ({ data: { session: { user: { id: 'direct-view-fixture' } } } }) } };
   export async function getSession() { return { session: null, isAdmin: false }; }
 `;
 

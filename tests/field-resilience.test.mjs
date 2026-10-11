@@ -179,7 +179,7 @@ await record('Outbox failures retain the failed item and reason across a page re
     });
     await page.reload();
     await page.getByRole('heading', { name: 'Work unavailable offline' }).waitFor();
-    assert.match(await page.locator('#view').innerText(), /does not cache jobs/);
+    assert.match(await page.locator('#view').innerText(), /No recent work is saved for this account/);
     const item = await page.evaluate(async id => (await (await import('/admin/js/lib/offline-queue.js')).pending()).find(item => item.id === id), id);
     assert.match(item?.lastError || '', /Permission denied/);
     assert.equal(await page.evaluate(() => __writes.length), 0, 'offline reload must not replay');

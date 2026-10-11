@@ -1,0 +1,96 @@
+{
+  "registered": {
+    "passed": 391,
+    "total": 391,
+    "exit": 0
+  },
+  "mobile-reliability": {
+    "passed": 22,
+    "total": 22,
+    "exit": 0
+  },
+  "field-resilience": {
+    "passed": 27,
+    "total": 27,
+    "exit": 0
+  },
+  "native-readiness": {
+    "passed": 24,
+    "total": 24,
+    "exit": 0
+  },
+  "native-bundle": {
+    "passed": 10,
+    "total": 10,
+    "exit": 0
+  },
+  "native-packaging": {
+    "passed": 19,
+    "total": 19,
+    "exit": 0
+  },
+  "native-startup": {
+    "passed": 18,
+    "total": 18,
+    "exit": 0
+  },
+  "offline-work": {
+    "passed": 33,
+    "total": 33,
+    "exit": 0
+  },
+  "passed": 544,
+  "total": 544,
+  "geofence": true,
+  "branch": "codex/batch-9-2-offline-work",
+  "base": "1e320a6fe25ec182ac89a9846c4b3dbc931eec2d",
+  "browser": "Chromium 151.0.7922.173",
+  "playwright": "1.58.2",
+  "runtime": "Node 24.19.0",
+  "packaging": "142 fresh assets, Android copy and resources verified",
+  "screenshots": 5,
+  "process_restart": "Chromium persistent profile; actual browser process closed and reopened",
+  "fault_probes": {
+    "baseline-preparation": {
+      "expected_exit": 1,
+      "passed": 0,
+      "total": 1,
+      "meaning": "Deliberate isolated browser source override; unchanged checkout"
+    },
+    "owner-filter": {
+      "expected_exit": 1,
+      "passed": 0,
+      "total": 1,
+      "meaning": "Deliberate isolated browser source override; unchanged checkout"
+    }
+  },
+  "source_sha256": {
+    "admin/js/field.js": "32fa1dbfe97eeb3248358bb45fb5d319c7010855ceb99d5a7170e2243734b01a",
+    "admin/js/lib/measurement-entry.js": "00131806e809d5ab182d139782f7afd81ec8dfcea7dc1efa2865b6c27e83a5b3",
+    "admin/js/lib/native.js": "95d3b5f30cba36c495bb52d2390928a89ed3c9d000b9e7125dd47bcaf8466f03",
+    "admin/js/lib/offline-queue.js": "cc58c8e98b5638240513c1234a699c1e2ee9f3e277bd0feaa4cd3405466eac68",
+    "admin/js/views/field-photos.js": "6e689ddf1d001ac4e25ce806a8b1c3e5a7d3ddbfd4198b90eb190d9447fd062e",
+    "admin/js/views/field-schedule.js": "5011be1ec541ba6fc90181b07c61d1f24e746d497097858a8b39e0460d510ad4",
+    "admin/js/views/field-workspace.js": "69906eeb5ac65cc264d60eb42270febd914ec9b17f4a993f71c14d242443076b",
+    "ios/App/CapApp-SPM/Package.swift": "a6d1c238c27094ff23dfc3924737402d3592eacde2a52fd65090c36e1d82c7be",
+    "tests/field-resilience-fixture.mjs": "2874c0f5eebae351a2be8d303feec6f196011526458a844319c058dcd052fa0a",
+    "tests/field-resilience.test.mjs": "5e3fef557f4cfa25251aa4074ddf545ddb069eaeb0cef7ea639c1454993e4075",
+    "tests/native-readiness.test.mjs": "3ace659635167d1545c559a690729879b844167927ca5007860ebe7d3ec3bcc4",
+    "tests/native-startup.test.mjs": "8218c53d6a8dd47b23a4cbbd4f5e154f25fbcaa46a03dd623c5f4edc0e0608cf",
+    "tests/reload-offline.test.mjs": "635bce861446e411b52e684b9faeed8c926b689b700354cf8568eaf784265df1",
+    "admin/js/lib/field-cache.js": "a5db67aff42caeab1052d5eeb97c864847d316bc31647087a848d660a2da76ac",
+    "admin/js/lib/field-identity.js": "a4ba0628d39eeccd984847220bc7b62193c49c19ce6ca4971b248c8e62e6d2cb",
+    "admin/js/lib/field-storage.js": "134c471c97a7f82b16e18588cb0a349b94057ae867cdc827bdad4caed91704ce",
+    "admin/js/views/field-offline.js": "4da69ee7863fcbd4b4ba3993add105ea9e5361751f4997789fe5b9d81f7a3cd9",
+    "tests/offline-work-fixture.mjs": "57c705e642d1ca4e803ef77613097b888d84276ef32d38881447d562f7d63541",
+    "tests/offline-work.md": "b7490384d0c4eb133a62ff24556a7e30150849b2012e0e0762524d45e66396e3",
+    "tests/offline-work.test.mjs": "bd3922cc093f08bdcdf1da119a0ee737031293b78f6e16e29dac963864b3541a"
+  },
+  "android_compile_device": "UNRUN \u2014 Android SDK/device unavailable",
+  "ios_compile_device": "UNRUN",
+  "database_integration": "UNRUN \u2014 no live database action or crew RLS proof",
+  "production": "UNRUN",
+  "sdk_auth": "Actual pinned SDK; synthetic session and intercepted RPC, expired token offline read, cleared auth storage blocks cache",
+  "offline_shell": "Local HTTP assets simulate packaged shell; browser offline shell/service worker not added",
+  "setup_config": "Reusable onboarding draft saved; requires environment settings review/save/publish"
+}

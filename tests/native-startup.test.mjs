@@ -54,16 +54,22 @@ async function load(page,path='/mobile/www/admin/field.html') {
 }
 async function seed(page) {
   return page.evaluate(async()=>{
-    const q=await import('/mobile/www/admin/js/lib/offline-queue.js');
-    await q.callOrQueue('updateProperty',{id:'fixture-property',patch:{notes:'preserve this exact payload'}},'Save Property Passport');
-    await q.callOrQueue('uploadJobPhoto',{jobId:'fixture-job',file:new File(['photo-bytes'],'photo.jpg',{type:'image/jpeg'}),opts:{kind:'before'}},'Photo upload');
+    // Anonymous cold startup cannot create new owned actions. Seed legacy
+    // records directly: the startup controller must still preserve them.
+    const db=await new Promise((resolve,reject)=>{const r=indexedDB.open('ns-field-outbox');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
+    await new Promise((resolve,reject)=>{const tx=db.transaction('queue','readwrite');const store=tx.objectStore('queue');
+      store.add({type:'updateProperty',args:{id:'fixture-property',patch:{notes:'preserve this exact payload'}},label:'Save Property Passport',createdAt:1});
+      store.add({type:'uploadJobPhoto',args:{jobId:'fixture-job',file:new File(['photo-bytes'],'photo.jpg',{type:'image/jpeg'}),opts:{kind:'before'}},label:'Photo upload',createdAt:2});
+      tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});db.close();
+    await (await import('/mobile/www/admin/js/lib/offline-queue.js')).count();
+    window.dispatchEvent(new Event('offline'));
     return await read();
-    async function read(){const db=await new Promise((resolve,reject)=>{const r=indexedDB.open('ns-field-outbox',1);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});try{return await new Promise((resolve,reject)=>{const r=db.transaction('queue').objectStore('queue').getAll();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}finally{db.close();}}
+    async function read(){const db=await new Promise((resolve,reject)=>{const r=indexedDB.open('ns-field-outbox');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});try{return await new Promise((resolve,reject)=>{const r=db.transaction('queue').objectStore('queue').getAll();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}finally{db.close();}}
   });
 }
 async function snapshot(page) {
   return page.evaluate(async()=>{
-    const db=await new Promise((resolve,reject)=>{const r=indexedDB.open('ns-field-outbox',1);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
+    const db=await new Promise((resolve,reject)=>{const r=indexedDB.open('ns-field-outbox');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
     try {const records=await new Promise((resolve,reject)=>{const r=db.transaction('queue').objectStore('queue').getAll();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
       return await Promise.all(records.map(async r=>({...r,args:Object.fromEntries(await Promise.all(Object.entries(r.args).map(async([k,a])=>[k,a instanceof Blob?{name:a.name,type:a.type,text:await a.text()}:a])))})));
     }finally{db.close();}
@@ -76,7 +82,7 @@ async function retry(page) {
 for(const path of ['/admin/field.html','/mobile/www/admin/field.html']) {
   await check(`Cold ${path} loads offline without any external request`,()=>fixture(async({page,external})=>{
     await load(page,path); assert.deepEqual(external,[]);
-    assert.match(await page.locator('#view').innerText(),/does not cache jobs/);
+    assert.match(await page.locator('#view').innerText(),/No recent work is saved for this account/);
     await page.locator('#syncBadge').click();await page.getByText('Offline — nothing waiting to sync',{exact:true}).waitFor();
     assert.ok(!(await page.locator('body').innerText()).includes('Loading…'));
   }));

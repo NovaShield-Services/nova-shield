@@ -2,6 +2,7 @@ import * as api from '../lib/api.js';
 import { el, clear, toast, select, confirmAction } from '../../../shared/dom.js';
 import { isNative, takeNativePhoto, persistPhotoLocally } from '../lib/native.js';
 import { openPhotoMarkup } from '../components/photo-markup.js';
+import { localAccount } from '../lib/field-identity.js';
 
 const TAGS = [
   { value: 'before',      label: 'Before' },
@@ -17,7 +18,7 @@ const TAGS = [
  *  reach a customer until that is deliberately built) -- a photo can be
  *  marked for inclusion in a customer report, but that is a flag on the
  *  record, not a delivery mechanism yet. */
-export function createPhotosPanel({ jobId, uploadFn }) {
+export function createPhotosPanel({ jobId, uploadFn, pendingPhotosFn, listPhotosFn, offline = false }) {
   const root = el('div', { class: 'card' });
   // Desktop uploads directly (always online). The field console passes a
   // wrapped version that goes through its offline outbox instead -- it
@@ -30,6 +31,12 @@ export function createPhotosPanel({ jobId, uploadFn }) {
 
   let pendingTag = 'site_photo';
   let pendingElevation = '';
+  let lastPhotos = [];
+  let renderAttempt = 0;
+  let previews = [];
+  const cleanup = new MutationObserver(() => {
+    if (!root.isConnected) { previews.forEach(URL.revokeObjectURL); previews = []; cleanup.disconnect(); }
+  });
 
   const fileInput = el('input', {
     type: 'file', accept: 'image/*', capture: 'environment', style: 'display:none'
@@ -44,7 +51,7 @@ export function createPhotosPanel({ jobId, uploadFn }) {
       const queued = await upload(jobId, marked, {
         kind: pendingTag, elevationTag: pendingElevation.trim() || undefined
       });
-      if (!queued) await render();
+      await render({ localOnly: queued });
     } catch (err) {
       toast(err.message, 'error');
     }
@@ -63,9 +70,11 @@ export function createPhotosPanel({ jobId, uploadFn }) {
   // File the same as the input's change event would have.
   async function addPhoto() {
     if (!isNative()) { fileInput.click(); return; }
+    const owner = await localAccount();
     const file = await takeNativePhoto();
     if (!file) return; // cancelled from the native camera UI
-    await persistPhotoLocally(file); // best-effort local durability, never blocks the upload
+    if (await localAccount() !== owner) return toast('Account changed during capture. Reopen the visit.', 'error');
+    await persistPhotoLocally(file, owner); // best-effort backup; outbox commit is the saved guarantee
     await commitPhoto(file);
   }
 
@@ -77,6 +86,10 @@ export function createPhotosPanel({ jobId, uploadFn }) {
     const tile = el('div', { class: 'photo-grid__tile' });
     tile.append(el('span', { class: 'hint', style: 'display:flex;align-items:center;justify-content:center;height:100%;font-size:.7rem', text: '…' }));
 
+    if (offline) {
+      clear(tile).append(el('span', { class: 'hint', text: 'Server photo — preview needs a connection' }));
+      return tile;
+    }
     api.signedPhotoUrl(photo.storage_path, 900, 'job-photos').then(url => {
       clear(tile).append(
         el('img', { src: url, alt: photo.caption || tagLabel(photo.kind) }),
@@ -101,8 +114,14 @@ export function createPhotosPanel({ jobId, uploadFn }) {
     return tile;
   }
 
-  async function render() {
-    const photos = await api.listAttachments(jobId);
+  async function render({ localOnly = false } = {}) {
+    const attempt = ++renderAttempt;
+    const photos = localOnly ? lastPhotos : await (listPhotosFn || api.listAttachments)(jobId);
+    const localPhotos = pendingPhotosFn ? await pendingPhotosFn(jobId) : [];
+    if (attempt !== renderAttempt) return;
+    lastPhotos = photos;
+    previews.forEach(URL.revokeObjectURL); previews = [];
+    cleanup.observe(document.body, { childList: true, subtree: true });
     // request-photos (customer uploads) and job-photos (staff-captured) both
     // write to job_attachments -- only the ones this panel itself can
     // manage (job-photos, i.e. not a raw customer_upload) are shown here as
@@ -139,6 +158,19 @@ export function createPhotosPanel({ jobId, uploadFn }) {
       staffPhotos.length
         ? el('div', { class: 'photo-grid', style: 'margin-top:12px' }, staffPhotos.map(photoTile))
         : null,
+      localPhotos.length ? el('div', { class: 'photo-grid', style: 'margin-top:12px' }, localPhotos.map(photo => {
+        const url = URL.createObjectURL(photo.file); previews.push(url);
+        const tile = el('div', { class: 'photo-grid__tile' });
+        tile.append(
+          el('img', { src: url, alt: `Saved locally: ${tagLabel(photo.opts?.kind)}`, onError: event => {
+            event.target.remove();
+            tile.prepend(el('span', { class: 'hint', style: 'display:block;padding:8px;font-size:.7rem',
+              text: 'Preview unavailable — photo bytes retained' }));
+          } }),
+          el('span', { class: 'photo-grid__tag', text: 'Saved here — not synced' })
+        );
+        return tile;
+      })) : null,
       el('p', { class: 'hint', style: 'margin-top:10px',
         text: 'Private to staff by default. Tap a photo to remove it.' })
     ].filter(Boolean));

@@ -5,6 +5,7 @@ import { onMyWayLink } from '../lib/messaging.js';
 import { getDevicePosition } from '../lib/native.js';
 import { hasArrived } from '../lib/geofence.js';
 import { describeWriteError } from '../lib/save.js';
+import { prepareWork } from '../lib/field-cache.js';
 
 function timeOnly(value) {
   if (!value) return null;
@@ -35,6 +36,18 @@ export async function renderSchedule({ mount, navigate }) {
     api.listUpcomingVisits()
   ]);
   const cardByJobId = new Map();
+  const preparationStatus = el('p', { class: 'hint', role: 'status', 'aria-live': 'polite' });
+  const prepareButton = el('button', { class: 'btn', text: 'Save work for offline', onClick: async () => {
+    prepareButton.disabled = true;
+    preparationStatus.textContent = 'Saving visits and notes on this device…';
+    try {
+      const result = await prepareWork(visits, upcoming);
+      preparationStatus.textContent = `${result.count} visits saved for offline reading for 24 hours.` +
+        (result.truncated ? ' Only the first 20 visits fit this preparation.' : '') +
+        (result.persistent ? '' : ' Device storage may be removed by the browser or operating system.');
+    } catch (error) { preparationStatus.textContent = `Work not saved: ${error.message}`; }
+    finally { prepareButton.disabled = false; }
+  } });
 
   async function startVisit(job) {
     try {
@@ -154,6 +167,7 @@ export async function renderSchedule({ mount, navigate }) {
         : 'Nothing booked for today' }),
       el('a', { href: 'index.html#/winter', class: 'hint', text: 'Winter & seasonal operations →' })
     ]),
+    el('div', { class: 'card' }, [prepareButton, preparationStatus]),
     visits.length
       ? el('div', {}, visits.map(visitCard))
       : el('div', { class: 'empty', text: 'No visits scheduled for today. Set a job’s "Scheduled for" date and time on the job page to see it here.' }),

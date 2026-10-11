@@ -9,6 +9,8 @@ import { reviewRequestLink } from '../lib/messaging.js';
 import { isNative, hapticLight, getDevicePosition } from '../lib/native.js';
 import { reviewFlag } from '../components/review-flag.js';
 import { trySave, describeWriteError } from '../lib/save.js';
+import { readDraft, writeDraft, deleteDraft, retainNoteDraft } from '../lib/field-cache.js';
+import { localAccount } from '../lib/field-identity.js';
 
 /* The four action types this console queues offline, per the task:
    Passport/checklist writes, adding a measurement, uploading a photo, and
@@ -39,7 +41,7 @@ const CHECKLIST_ITEMS = [
  *  quote is opened, same as the task asks, because it is read straight off
  *  properties.passport every time this view loads rather than cached or
  *  copied onto the job. */
-function passportPanel(property, onSaved) {
+export function passportPanel(property, onSaved, jobId, ownerId) {
   const p = property.passport && typeof property.passport === 'object' ? property.passport : {};
   const siding = p.siding || {};
   const roof = p.roof || {};
@@ -47,13 +49,13 @@ function passportPanel(property, onSaved) {
 
   const fields = {};
   function textField(label, group, key, value, placeholder) {
-    const input = el('input', { value: value || '', placeholder: placeholder || '' });
+    const input = el('input', { value: value || '', placeholder: placeholder || '', dataset: { draftKey: `${group}.${key}` } });
     fields[`${group}.${key}`] = () => input.value.trim();
     return el('label', { class: 'field', style: 'margin:0' }, [el('span', { text: label }), input]);
   }
 
   const preferencesInput = el('textarea', {
-    rows: '2', 'aria-label': 'Customer preferences', placeholder: 'e.g. "Avoid east flower beds", "Rear gate code: 1234"'
+    rows: '2', 'aria-label': 'Customer preferences', dataset: { draftKey: 'preferences' }, placeholder: 'e.g. "Avoid east flower beds", "Rear gate code: 1234"'
   });
   preferencesInput.value = p.preferences || '';
   const contents = () => JSON.stringify([Object.values(fields).map(read => read()), preferencesInput.value.trim()]);
@@ -135,11 +137,13 @@ function passportPanel(property, onSaved) {
           };
           try {
             const { queued } = await offlineQueue.callOrQueue(
-              'updateProperty', { id: property.id, patch: { passport } }, 'Save Property Passport');
+              'updateProperty', { id: property.id, patch: { passport } }, 'Save Property Passport',
+              { jobId, ownerId, basePassport: structuredClone(latest) });
             property.passport = passport;
             savedContents = submittedContents;
             saveStatus.textContent = queued ? 'Passport saved on this device — waiting to sync.' : 'Property Passport saved.';
             queueToast(queued, 'Property Passport saved');
+            if (jobId && contents() === submittedContents) await deleteDraft(jobId, 'passport', ownerId);
             await onSaved?.();
           } catch (err) {
             saveStatus.textContent = `Passport not saved: ${describeWriteError(err)}`;
@@ -156,6 +160,23 @@ function passportPanel(property, onSaved) {
     saveStatus
   ]);
   savedContents = contents();
+  if (jobId) {
+    const controls = [...root.querySelectorAll('input, textarea')];
+    let edits = 0;
+    let draftChain = Promise.resolve();
+    root.addEventListener('input', () => {
+      edits++;
+      const values = Object.fromEntries(controls.map(control => [control.dataset.draftKey, control.value]));
+      draftChain = draftChain.catch(() => {}).then(() => writeDraft(jobId, 'passport', values, ownerId));
+      draftChain.catch(error => { saveStatus.textContent = `Draft not saved: ${error.message}`; });
+    });
+    readDraft(jobId, 'passport').then(draft => {
+      if (draft && !edits && !saving) {
+        controls.forEach(control => { control.value = draft.value[control.dataset.draftKey] || ''; });
+        saveStatus.textContent = 'Passport draft restored from this device — not submitted.';
+      }
+    }).catch(error => { saveStatus.textContent = `Could not restore draft: ${error.message}`; });
+  }
   return { root, hasDraft: () => saving || contents() !== savedContents };
 }
 
@@ -163,7 +184,7 @@ function passportPanel(property, onSaved) {
  *  passport jsonb (passport.checklist.*) rather than a parallel structure --
  *  these ARE the access/utility facts the Passport already models, just
  *  confirmed in one tap during a visit instead of typed out. */
-function checklistPanel(property) {
+export function checklistPanel(property, jobId, ownerId) {
   const p = property.passport && typeof property.passport === 'object' ? property.passport : {};
   const checklist = { ...(p.checklist || {}) };
 
@@ -184,7 +205,8 @@ function checklistPanel(property) {
         // No toast here (unlike the Passport form's Save) -- "taps save
         // instantly" means instantly, not an interruption every tap; the
         // topbar's Offline Queue badge is the signal when one goes offline.
-        await offlineQueue.callOrQueue('updateProperty', { id: property.id, patch: { passport } }, 'Checklist update');
+        await offlineQueue.callOrQueue('updateProperty', { id: property.id, patch: { passport } }, 'Checklist update',
+          { jobId, ownerId, basePassport: structuredClone(latest) });
         property.passport = passport;
       } catch (err) {
         box.checked = !box.checked;
@@ -281,6 +303,7 @@ function sectionsPanel(job, refs, onChange) {
 }
 
 export async function renderVisit({ mount, navigate }, jobId) {
+  const ownerId = await localAccount();
   const [job, services, modifiers, siteFactors, flags, flagMap, settings, pricingRules] = await Promise.all([
     api.getJob(jobId), api.listServices(), api.listModifiers(), api.listSiteFactors(),
     api.listInspectionFlags(), api.listServiceFlagMap(), api.getSettings(), api.listPricingRules()
@@ -292,7 +315,7 @@ export async function renderVisit({ mount, navigate }, jobId) {
     job, refs, onChange: reload,
     createMeasurementFn: async (jobId, measurement) => {
       const { queued, result } = await offlineQueue.callOrQueue(
-        'createMeasurement', { jobId, measurement }, 'Add measurement');
+        'createMeasurement', { jobId, measurement }, 'Add measurement', { ownerId });
       queueToast(queued, 'Measurement added');
       return queued ? null : result;
     }
@@ -300,13 +323,14 @@ export async function renderVisit({ mount, navigate }, jobId) {
   const quotePanel = createQuotePanel({
     job, onChange: reload,
     saveSignatureFn: async (jobId, quoteId, pngBlob, signerName) =>
-      offlineQueue.callOrQueue('saveSignature', { jobId, quoteId, pngBlob, signerName }, 'Customer signature')
+      offlineQueue.callOrQueue('saveSignature', { jobId, quoteId, pngBlob, signerName }, 'Customer signature', { ownerId })
   });
   measurementsPanel.guardActions(quotePanel.root, { allowQuoteDelivery: true });
   const photosPanel = createPhotosPanel({
     jobId: job.id,
+    pendingPhotosFn: offlineQueue.pendingPhotos,
     uploadFn: async (jobId, file, opts) => {
-      const { queued } = await offlineQueue.callOrQueue('uploadJobPhoto', { jobId, file, opts }, 'Photo upload');
+      const { queued } = await offlineQueue.callOrQueue('uploadJobPhoto', { jobId, file, opts }, 'Photo upload', { ownerId });
       queueToast(queued, 'Photo added');
       return queued;
     }
@@ -384,6 +408,8 @@ export async function renderVisit({ mount, navigate }, jobId) {
   const notesStatus = el('div', { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true',
     dataset: { notesStatus: '' } });
   let notesAttempt = 0;
+  const draftStatus = el('p', { class: 'hint', role: 'status' });
+  let clearNoteDraft;
 
   noteBtn.addEventListener('click', async () => {
     const text = noteBody.value.trim();
@@ -395,7 +421,7 @@ export async function renderVisit({ mount, navigate }, jobId) {
       { success: 'Note saved' }
     );
     if (ok) {
-      if (noteBody.value.trim() === text) noteBody.value = '';
+      if (noteBody.value.trim() === text) { noteBody.value = ''; await clearNoteDraft?.(); draftStatus.textContent = ''; }
       await refreshNotes();
     }
     noteBtn.disabled = false;
@@ -488,10 +514,10 @@ export async function renderVisit({ mount, navigate }, jobId) {
     // Do not replace an editable passport after an unrelated refresh or a
     // slow save: the tech may already be typing their next change.
     if (!passportView || (!passportView.hasDraft() && offlineQueue.syncState().count === 0)) {
-      passportView = passportPanel(job.properties, reload);
+      passportView = passportPanel(job.properties, reload, job.id, ownerId);
       clear(passportHost).append(passportView.root);
     }
-    clear(checklistHost).append(checklistPanel(job.properties));
+    clear(checklistHost).append(checklistPanel(job.properties, job.id, ownerId));
     measurementsPanel.render({ measurements, pricing });
     quotePanel.render({ quotes });
     try {
@@ -529,7 +555,7 @@ export async function renderVisit({ mount, navigate }, jobId) {
         if (!pos) { toast('Could not get the device location', 'error'); return; }
         const { queued } = await offlineQueue.callOrQueue('updateProperty',
           { id: job.properties.id, patch: { latitude: pos.latitude, longitude: pos.longitude } },
-          'Save property location');
+          'Save property location', { jobId: job.id, ownerId });
         job.properties.latitude = pos.latitude;
         job.properties.longitude = pos.longitude;
         nextText = '📍 Update Location Pin';
@@ -599,11 +625,13 @@ export async function renderVisit({ mount, navigate }, jobId) {
       el('label', { class: 'field' }, [el('span', { text: 'New note' }), noteBody]),
       el('label', { class: 'field' }, [el('span', { text: 'Who can see it' }), noteVisibility]),
       el('div', { class: 'btn-row', style: 'margin-bottom:12px' }, [noteBtn]),
-      notesStatus, notesList
+      draftStatus, notesStatus, notesList
     ])
   );
 
   paintCompletion();
   await reload({ initial: true });
   await refreshNotes();
+  try { clearNoteDraft = await retainNoteDraft(job.id, noteBody, noteVisibility, draftStatus); }
+  catch (error) { draftStatus.textContent = `Device draft storage unavailable: ${error.message}`; }
 }

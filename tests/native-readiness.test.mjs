@@ -247,7 +247,7 @@ await record('Cold bundled start with external network blocked shows an honest u
     page.on('requestfailed', request => failures.push(request.url()));
     await page.goto('http://localhost:8743/mobile/www/admin/field.html');
     await page.getByRole('heading', { name: 'Work unavailable offline' }).waitFor();
-    assert.match(await page.locator('#view').innerText(), /does not cache jobs/);
+    assert.match(await page.locator('#view').innerText(), /No recent work is saved for this account/);
     assert.ok(!failures.some(url => url.includes('cdn.jsdelivr.net')));
     assert.equal(await page.locator('#syncBadge').getAttribute('role'), 'button');
   } finally { await context.close(); }

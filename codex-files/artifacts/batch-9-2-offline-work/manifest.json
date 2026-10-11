@@ -1,0 +1,91 @@
+{
+  "base": "1e320a6fe25ec182ac89a9846c4b3dbc931eec2d",
+  "files": {
+    "baseline-preparation-expected-failure.txt": {
+      "bytes": 627,
+      "sha256": "d2b4f36eecd07d7e9e461829895ba34ede42aa74bbd974d75b5ee31c918a9310"
+    },
+    "dependency-install.txt": {
+      "bytes": 246,
+      "sha256": "8639f4b999d923125add0c1b05cb0b7ef479eb70b3712e4f623a8a5ab08aca27"
+    },
+    "field-resilience-final.txt": {
+      "bytes": 2530,
+      "sha256": "75d66cd17f7171e747e4aa50061549f464413f4d623abec1402c864d04c125cf"
+    },
+    "mobile-reliability-final.txt": {
+      "bytes": 2148,
+      "sha256": "41a3ddb267cf72c913d551007009dde704dd0dbb052f7d8b57cfe77db4ff752d"
+    },
+    "native-bundle-final.txt": {
+      "bytes": 866,
+      "sha256": "040f644b86a5770f5fee5ab0ca3ce2c729200dcfe23d36dcf734706a79ded1e0"
+    },
+    "native-packaging-final.txt": {
+      "bytes": 1086,
+      "sha256": "7de9e3d5da9310b1cc986ba9ef339b56b81399e418bef653f5eab14d9e1e23e6"
+    },
+    "native-readiness-final.txt": {
+      "bytes": 2113,
+      "sha256": "862116cefc0e0db6327d5ae76c575bbc46f50f55f2fe22a4f3dde3c5a0e4ca49"
+    },
+    "native-startup-final.txt": {
+      "bytes": 1407,
+      "sha256": "7d03c0a6f2fd10223b8d4ab20393843b07fc92b0e470118f80899802f607a1c8"
+    },
+    "native-sync.txt": {
+      "bytes": 1830,
+      "sha256": "fd10cdeb4eea4be5aa6b67dda00609e2617caa9d50d86a24447e4f04ce58c971"
+    },
+    "native-verify.txt": {
+      "bytes": 132,
+      "sha256": "dde4abb5297c6c0a139ed67ac959810994e4982b56cd6344d3538162b78b6d96"
+    },
+    "offline-work-final.txt": {
+      "bytes": 2636,
+      "sha256": "a6522a3f84e467ed0b71b5e71f6d5392b9e43df9aa6cadc92fb8a719354100cf"
+    },
+    "owner-filter-expected-failure.txt": {
+      "bytes": 779,
+      "sha256": "34eb57acbc9540a38bc2acb1ce923eaf34c91d229b859d2deb904ba680c22535"
+    },
+    "registered-final.txt": {
+      "bytes": 43861,
+      "sha256": "01393835b73c102cd4f37388643b5ab72e10d10dafb939e3de86fcbe65c65678",
+      "captured_stdout_sha256": "cef10594818cddf4306f482a731c10392f5a2b70a5f9f1912b2d72d74fdf8e40",
+      "normalization": "Removed the extra blank line at EOF; all check output retained"
+    },
+    "results.json": {
+      "bytes": 4124,
+      "sha256": "5ad5d0dc0ecc6b83d409fa124991e372ac78eb003bc97b73f72cdee6adb2ecbd"
+    },
+    "screenshots/saved-photo-1200.png": {
+      "bytes": 205879,
+      "sha256": "66caeb4ff230630d47bcf7b0c0508214e46c0607abe721aba57175f5e5087556"
+    },
+    "screenshots/saved-photo-390.png": {
+      "bytes": 196435,
+      "sha256": "dce7d03ebfb203e697bb6b6133c4d02db68062b8b7d5b4692d5bb5216c19d600"
+    },
+    "screenshots/saved-photo-430.png": {
+      "bytes": 196621,
+      "sha256": "359e948e3028cddef59021b8a7381c0e99b65f5887ffac2779a4626de4fca961"
+    },
+    "screenshots/saved-visit-390.png": {
+      "bytes": 192034,
+      "sha256": "df70092651411dc245f27b1a57706d01223b4b2426f788b7e9e3a6e123a537fb"
+    },
+    "screenshots/uncertain-send-390.png": {
+      "bytes": 196943,
+      "sha256": "dbab9d7a9623ac830f26ab3638b16fd32e41aa9f3189160f2376788cfa99c856"
+    },
+    "sdk-auth.txt": {
+      "bytes": 473,
+      "sha256": "8a174c4090c6b821f2e7fe70fbbf248fdfb5d1933cba086dbec1614cbd8f750c"
+    },
+    "test-tools-install.txt": {
+      "bytes": 21,
+      "sha256": "5608ecc10cbadc70da884de9d29410cf9bfc9e1143cf6e909bb4de03fb3c7531"
+    }
+  }
+}

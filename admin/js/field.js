@@ -7,7 +7,10 @@ import { renderVisit } from './views/field-workspace.js';
 import * as offlineQueue from './lib/offline-queue.js';
 import { setStatusBarTheme, isNative, loadAppPlugin } from './lib/native.js';
 import { installUnhandledRejectionToast } from './lib/save.js';
-import { installBackHandler, installEscapeHandler, fieldParentOf, pushOverlay } from './lib/navigation.js';
+import { installBackHandler, installEscapeHandler, fieldParentOf, pushOverlay, dismissTopOverlay } from './lib/navigation.js';
+import { usableSnapshot, forget } from './lib/field-cache.js';
+import { localAccount, accessDenied } from './lib/field-identity.js';
+import { renderOfflineWork } from './views/field-offline.js';
 
 setStatusBarTheme();
 
@@ -64,6 +67,15 @@ function showMessage(title, body, action, mount = viewEl) {
 }
 
 let measurementRouteAttempt = 0;
+async function cachedRoute(mount, attempt) {
+  const data = await usableSnapshot();
+  if (attempt !== measurementRouteAttempt) return true;
+  if (!data) return false;
+  const path = currentPath();
+  const id = path.match(/^\/visit\/([0-9a-f-]+)$/)?.[1];
+  await renderOfflineWork({ mount, navigate, retry: router }, data, id);
+  return true;
+}
 async function router() {
   const attempt = ++measurementRouteAttempt;
   if (!await flushMeasurementEdits() || attempt !== measurementRouteAttempt) return;
@@ -75,8 +87,9 @@ async function router() {
   mount.append(el('div', { class: 'loading', text: 'Checking access…' }));
   try {
     if (!navigator.onLine) {
+      if (await cachedRoute(mount, attempt)) return;
       return showMessage('Work unavailable offline',
-        'Reconnect to sign in or load scheduled work. This build does not cache jobs for offline reading. Saved outbox actions remain available from the sync badge.',
+        'No recent work is saved for this account. Reconnect, sign in and use Save work for offline on the schedule. Saved outbox actions remain available from the sync badge.',
         el('button', { class: 'btn', text: 'Retry connection', onClick: () => router() }), mount);
     }
     const { session, isAdmin, error } = await getSession();
@@ -86,11 +99,12 @@ async function router() {
     if (!session) return renderLogin({ mount, onSignedIn: router });
 
     if (!isAdmin) {
+      await forget(session.user.id);
       return showMessage(
         'Account not authorised',
         'You are signed in, but this account has not been granted field access.',
         el('button', { class: 'btn', text: 'Sign out',
-          onClick: async () => { await supabase.auth.signOut(); router(); } }), mount
+          onClick: signOut }), mount
       );
     }
 
@@ -107,6 +121,11 @@ async function router() {
     await match.r.render({ mount, navigate }, match.m[1]);
   } catch (err) {
     if (attempt !== measurementRouteAttempt) return;
+    if (accessDenied(err)) await forget().catch(() => {});
+    else if (offlineQueue.looksOffline(err)) {
+      try { if (await cachedRoute(mount, attempt)) return; }
+      catch { /* Keep the original connection failure when no cache can open. */ }
+    }
     console.error(err);
     showMessage('Could not load this screen', offlineQueue.looksOffline(err)
       ? 'No connection — reconnect and retry.' : err.message || 'The screen could not be read.',
@@ -119,12 +138,46 @@ export function navigate(path) {
   else window.location.hash = path;
 }
 
-document.getElementById('signOut')?.addEventListener('click', async () => {
+async function signOut() {
+  if (!navigator.onLine) return toast('Reconnect to sign out. Your saved work remains in this account.', 'error');
   if (!await flushMeasurementEdits()) return;
-  await supabase.auth.signOut();
+  if (offlineQueue.syncState().syncing) return toast('Wait for sync to finish before signing out.', 'error');
+  const owner = await localAccount();
+  try {
+    const result = await supabase.auth.signOut();
+    if (result?.error) throw result.error;
+  } catch (error) { return toast(`Could not sign out: ${error.message}`, 'error'); }
+  localStorage.removeItem('ns-field-active-account');
+  await forget(owner);
+  clear(viewEl);
   toast('Signed out');
   navigate('/');
   router();
+}
+document.getElementById('signOut')?.addEventListener('click', signOut);
+// Auth events may arrive from another tab. Clear private controls immediately;
+// do not await a Supabase call from inside its auth callback/lock.
+let observedAccount;
+supabase.auth.onAuthStateChange?.((event, session) => {
+  const id = session?.user?.id || null;
+  // The SDK emits INITIAL_SESSION(null) when offline token refresh fails.
+  // That is not an explicit logout. The last checked, bounded snapshot may
+  // still be read; SIGNED_OUT always clears this remembered namespace.
+  if (event === 'INITIAL_SESSION' && !id && !navigator.onLine && localStorage.getItem('ns-field-active-account')) {
+    observedAccount = localStorage.getItem('ns-field-active-account');
+    return;
+  }
+  if (id) localStorage.setItem('ns-field-active-account', id);
+  else localStorage.removeItem('ns-field-active-account');
+  if (event === 'SIGNED_OUT' || observedAccount !== undefined && id !== observedAccount) {
+    measurementRouteAttempt++;
+    while (dismissTopOverlay()) { /* Remove private dialogs and markup. */ }
+    clear(viewEl);
+    if (!id) void forget(observedAccount).catch(() => {});
+    setTimeout(() => { void offlineQueue.count().then(() => paintBadge(offlineQueue.syncState()))
+      .catch(() => paintBadge(offlineQueue.syncState())); router(); }, 0);
+  }
+  observedAccount = id;
 });
 
 /* Escape / Android Back. This page has no nav drawer, but it is where the
@@ -255,6 +308,13 @@ function openOutbox() {
         el('p', { class: 'hint', text: `Saved ${new Date(item.createdAt).toLocaleString()}` }),
         el('p', { class: item.lastError ? 'error-text' : 'hint',
           text: item.lastError ? `Last sync failed: ${item.lastError}` : index ? 'Waiting behind earlier actions.' : 'Waiting to sync.' }),
+        item.state === 'uncertain' ? el('button', { class: 'btn', text: 'Review and retry',
+          disabled: !current.online || current.syncing || current.discarding,
+          onClick: async () => {
+            if (!window.confirm('The server may already have received this action. Check the visit for duplicates first. Retry anyway?')) return;
+            try { await offlineQueue.confirmRetry(item.id); await offlineQueue.flush(); }
+            catch (error) { toast(error.message, 'error'); }
+          } }) : null,
         el('button', { class: 'btn btn--sm btn--danger', text: 'Discard',
           'aria-label': `Discard ${item.label || item.type}`, disabled: current.syncing || current.discarding,
           onClick: async () => {
